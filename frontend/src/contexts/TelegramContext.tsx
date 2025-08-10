@@ -80,12 +80,16 @@ export function useAuth() {
   const { isTelegramWebApp, user } = useTelegramContext();
   const currentUser = useCurrentUser();
   
-  const isAuthenticated = isTelegramWebApp ? !!user : !!currentUser;
-  const isLocalTestMode = !isTelegramWebApp && !!currentUser;
+  // 檢查是否有 debug 查詢參數來強制啟用本地模式
+  const urlParams = new URLSearchParams(window.location.search);
+  const forceLocalMode = urlParams.get('debug') === 'true';
+  
+  const isAuthenticated = isTelegramWebApp ? !!user : (!!currentUser || forceLocalMode);
+  const isLocalTestMode = (!isTelegramWebApp && !!currentUser) || forceLocalMode;
   
   return {
     isAuthenticated,
     isLocalTestMode,
-    user: currentUser
+    user: currentUser || (forceLocalMode ? currentUser : null)
   };
 }

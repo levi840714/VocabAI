@@ -1,7 +1,8 @@
 import { StructuredAIResponse } from './types';
 import { createTelegramAuthHeader, isLocalDevelopment } from '../hooks/use-telegram';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
+  (import.meta.env.DEV ? 'http://localhost:8000/api/v1' : 'https://vocab-ai-backend-909144458673.asia-east1.run.app/api/v1');
 
 export interface Word {
   id: number;
@@ -53,6 +54,7 @@ class VocabotAPI {
 
   constructor(baseUrl: string = API_BASE_URL) {
     this.baseUrl = baseUrl;
+    console.log('VocabotAPI initialized with baseUrl:', this.baseUrl);
   }
 
   // 設置 Telegram 驗證數據
@@ -69,21 +71,33 @@ class VocabotAPI {
     // 創建驗證標頭
     const authHeaders = createTelegramAuthHeader(this.telegramAuthData);
     
-    const response = await fetch(url, {
-      headers: {
-        'Content-Type': 'application/json',
-        ...authHeaders,
-        ...options.headers,
-      },
-      ...options,
-    });
+    console.log('Making API request:', { url, method: options.method || 'GET', authHeaders });
+    
+    try {
+      const response = await fetch(url, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...authHeaders,
+          ...options.headers,
+        },
+        ...options,
+      });
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+      console.log('API response status:', response.status, response.statusText);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('API error response:', errorData);
+        throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('API response data:', data);
+      return data;
+    } catch (error) {
+      console.error('API request failed:', error);
+      throw error;
     }
-
-    return response.json();
   }
 
   // Health check
