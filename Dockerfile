@@ -19,7 +19,7 @@ COPY bot/ bot/
 COPY api/ api/
 
 # 複製配置模板（稍後會被環境變數覆蓋）
-COPY config.yaml.template config.yaml
+COPY configs/config.yaml.template configs/config.yaml
 
 # 創建數據目錄
 RUN mkdir -p /data

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect } from 'react';
 import { useTelegram } from '../hooks/use-telegram';
-import { vocabotAPI } from '../lib/api';
+import { vocabotAPI } from '../lib/api.ts';
 
 interface TelegramContextType {
   isReady: boolean;
