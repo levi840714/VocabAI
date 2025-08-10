@@ -46,13 +46,13 @@ async def setup_api_routes(app):
             return web.json_response([{
                 'id': word['id'],
                 'word': word['word'],
-                'definition': word['definition'],
-                'example': word['example'],
-                'created_at': word['created_at'],
-                'last_reviewed': word['last_reviewed'],
-                'review_count': word['review_count'],
-                'difficulty': word['difficulty'],
-                'next_review': word['next_review']
+                'initial_ai_explanation': word.get('initial_ai_explanation'),
+                'chinese_meaning': word.get('chinese_meaning'),
+                'user_notes': word.get('user_notes'),
+                'interval': word.get('interval', 1),
+                'difficulty': word.get('difficulty', 0),
+                'next_review': word.get('next_review'),
+                'created_at': word.get('created_at')
             } for word in words])
             
         except Exception as e:
@@ -92,18 +92,137 @@ async def setup_api_routes(app):
             response = await handler(request)
         
         response.headers['Access-Control-Allow-Origin'] = '*'
-        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, Accept, Origin, X-Requested-With'
         return response
     
     # Add OPTIONS handler for CORS preflight
     async def options_handler(request):
         return web.Response()
     
+    # Import existing API handlers from api/main.py
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'api'))
+    from api.main import (
+        get_words, add_word, get_word_by_id, get_next_review, submit_review,
+        get_ai_explanation, get_user_statistics, update_word_notes, delete_word,
+        toggle_word_learned, get_current_user
+    )
+    
+    # Convert FastAPI handlers to aiohttp handlers
+    async def convert_fastapi_to_aiohttp(fastapi_handler, request, **kwargs):
+        """Convert FastAPI handler to work with aiohttp"""
+        try:
+            # Extract query parameters
+            query_params = dict(request.query)
+            
+            # Get user_id using existing logic
+            user_id = validate_user_access(query_params.get('user_id'))
+            
+            # Handle different request types
+            if request.method == 'GET':
+                if 'word_id' in request.match_info:
+                    result = await fastapi_handler(int(request.match_info['word_id']))
+                elif request.path.endswith('/next'):
+                    result = await fastapi_handler(user_id=user_id)
+                elif request.path.endswith('/stats'):
+                    result = await fastapi_handler(user_id=user_id)
+                elif 'words' in request.path:
+                    # Handle words list endpoint
+                    page = int(query_params.get('page', 0))
+                    page_size = int(query_params.get('page_size', 10))
+                    filter_type = query_params.get('filter_type', 'all')
+                    result = await fastapi_handler(
+                        page=page, page_size=page_size, filter_type=filter_type, user_id=user_id
+                    )
+                else:
+                    result = await fastapi_handler()
+            elif request.method in ['POST', 'PUT', 'DELETE']:
+                # Handle POST/PUT/DELETE with request body
+                if request.method == 'DELETE':
+                    word_id = int(request.match_info['word_id'])
+                    result = await fastapi_handler(word_id=word_id, user_id=user_id)
+                else:
+                    data = await request.json() if request.can_read_body else {}
+                    if 'word_id' in request.match_info:
+                        word_id = int(request.match_info['word_id'])
+                        if 'notes' in request.path:
+                            from api.schemas import UpdateNotesRequest
+                            notes_data = UpdateNotesRequest(**data)
+                            result = await fastapi_handler(word_id=word_id, notes_data=notes_data)
+                        elif 'toggle-learned' in request.path:
+                            result = await fastapi_handler(word_id=word_id, user_id=user_id)
+                        elif 'review' in request.path:
+                            from api.schemas import ReviewRequest
+                            review_data = ReviewRequest(**data)
+                            result = await fastapi_handler(word_id=word_id, review_data=review_data)
+                    elif 'words' in request.path:
+                        from api.schemas import WordCreate
+                        word_data = WordCreate(**data)
+                        result = await fastapi_handler(word_data=word_data, user_id=user_id)
+                    elif 'ai/explain' in request.path:
+                        from api.schemas import AIExplanationRequest
+                        ai_request = AIExplanationRequest(**data)
+                        result = await fastapi_handler(request=ai_request)
+            
+            # Convert result to dict if it's a Pydantic model
+            if hasattr(result, 'model_dump'):
+                result = result.model_dump()
+            elif hasattr(result, 'dict'):
+                result = result.dict()
+            
+            return web.json_response(result)
+            
+        except Exception as e:
+            return web.json_response({'error': str(e)}, status=400)
+    
+    # Create wrapper handlers
+    async def get_words_wrapper(request):
+        return await convert_fastapi_to_aiohttp(get_words, request)
+    
+    async def add_word_wrapper(request):
+        return await convert_fastapi_to_aiohttp(add_word, request)
+    
+    async def get_word_by_id_wrapper(request):
+        return await convert_fastapi_to_aiohttp(get_word_by_id, request)
+    
+    async def update_word_notes_wrapper(request):
+        return await convert_fastapi_to_aiohttp(update_word_notes, request)
+    
+    async def delete_word_wrapper(request):
+        return await convert_fastapi_to_aiohttp(delete_word, request)
+    
+    async def toggle_word_learned_wrapper(request):
+        return await convert_fastapi_to_aiohttp(toggle_word_learned, request)
+    
+    async def get_next_review_wrapper(request):
+        return await convert_fastapi_to_aiohttp(get_next_review, request)
+    
+    async def submit_review_wrapper(request):
+        return await convert_fastapi_to_aiohttp(submit_review, request)
+    
+    async def get_ai_explanation_wrapper(request):
+        return await convert_fastapi_to_aiohttp(get_ai_explanation, request)
+    
+    async def get_user_statistics_wrapper(request):
+        return await convert_fastapi_to_aiohttp(get_user_statistics, request)
+    
     # Add routes
-    app.router.add_get('/api/v1/words', get_words_handler)
-    app.router.add_get('/api/v1/stats', get_stats_handler)
+    app.router.add_get('/api/v1/words', get_words_wrapper)
+    app.router.add_post('/api/v1/words', add_word_wrapper)
+    app.router.add_get('/api/v1/words/{word_id}', get_word_by_id_wrapper)
+    app.router.add_put('/api/v1/words/{word_id}/notes', update_word_notes_wrapper)
+    app.router.add_delete('/api/v1/words/{word_id}', delete_word_wrapper)
+    app.router.add_put('/api/v1/words/{word_id}/toggle-learned', toggle_word_learned_wrapper)
+    
+    app.router.add_get('/api/v1/review/next', get_next_review_wrapper)
+    app.router.add_post('/api/v1/review/{word_id}', submit_review_wrapper)
+    
+    app.router.add_post('/api/v1/ai/explain', get_ai_explanation_wrapper)
+    
+    app.router.add_get('/api/v1/stats', get_user_statistics_wrapper)
     app.router.add_get('/api/v1/health', health_handler)
+    
+    # CORS OPTIONS handlers
     app.router.add_options('/api/{path:.*}', options_handler)
     
     # Add CORS middleware

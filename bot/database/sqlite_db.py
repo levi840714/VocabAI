@@ -59,7 +59,7 @@ async def get_words_for_user(db_path, user_id, page=0, page_size=5):
     offset = page * page_size
     async with aiosqlite.connect(db_path) as db:
         cursor = await db.execute("""
-        SELECT id, word, initial_ai_explanation, chinese_meaning, user_notes, interval, difficulty FROM words
+        SELECT id, word, initial_ai_explanation, chinese_meaning, user_notes, interval, difficulty, next_review, created_at FROM words
         WHERE user_id = ?
         ORDER BY created_at DESC
         LIMIT ? OFFSET ?
@@ -67,7 +67,7 @@ async def get_words_for_user(db_path, user_id, page=0, page_size=5):
         rows = await cursor.fetchall()
         
         # Convert rows to dictionaries
-        columns = ['id', 'word', 'initial_ai_explanation', 'chinese_meaning', 'user_notes', 'interval', 'difficulty']
+        columns = ['id', 'word', 'initial_ai_explanation', 'chinese_meaning', 'user_notes', 'interval', 'difficulty', 'next_review', 'created_at']
         words = [dict(zip(columns, row)) for row in rows]
         
         cursor = await db.execute("SELECT COUNT(*) FROM words WHERE user_id = ?", (user_id,))
