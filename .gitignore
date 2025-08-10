@@ -132,7 +132,7 @@ cython_debug/
 .vscode/
 
 # Config
-config.yaml
+configs/config.yaml
 
 # Database
 vocabot.db

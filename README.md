@@ -37,7 +37,7 @@
 ## 📁 專案結構
 
 ```
-VocabAI-Vocabot/
+VocabAI/
 ├── 📁 bot/                    # Vocabot Telegram Bot
 │   ├── handlers/              # 消息處理器
 │   ├── services/              # AI 服務整合
@@ -64,13 +64,13 @@ VocabAI-Vocabot/
 ```bash
 # 1. 克隆專案
 git clone <repo-url>
-cd VocabAI-Vocabot
+cd VocabAI
 
 # 2. 初始化環境
 make setup
 
 # 3. 配置設定
-cp config.yaml.template config.yaml
+cp configs/config.yaml.template configs/config.yaml
 # 編輯 config.yaml 添加必要的 API 金鑰
 ```
 
@@ -139,8 +139,8 @@ gcloud secrets create telegram_bot_token --data-file=<(echo -n "YOUR_BOT_TOKEN")
 # Google AI API Key
 gcloud secrets create google_api_key --data-file=<(echo -n "YOUR_GOOGLE_API_KEY")
 
-# Telegram User ID (白名單)
-gcloud secrets create telegram_user_id --data-file=<(echo -n "YOUR_TELEGRAM_USER_ID")
+# Telegram User ID (白名單，用","區隔多個 id)
+gcloud secrets create telegram_user_ids --data-file=<(echo -n "YOUR_TELEGRAM_USER_ID_LIST")
 
 # 前端 URL
 gcloud secrets create frontend_url --data-file=<(echo -n "https://your-vercel-app.vercel.app")
@@ -158,12 +158,12 @@ gcloud secrets create frontend_url --data-file=<(echo -n "https://your-vercel-ap
 
 ```bash
 # 建構並推送 Docker 映像
-docker build -t gcr.io/YOUR_PROJECT_ID/vocabot-backend .
-docker push gcr.io/YOUR_PROJECT_ID/vocabot-backend
+docker build -t gcr.io/YOUR_PROJECT_ID/VocabAI-backend .
+docker push gcr.io/YOUR_PROJECT_ID/VocabAI-backend
 
 # 部署到 Cloud Run
-gcloud run deploy vocabot-backend \
-  --image gcr.io/YOUR_PROJECT_ID/vocabot-backend \
+gcloud run deploy VocabAI-backend \
+  --image gcr.io/YOUR_PROJECT_ID/VocabAI-backend \
   --platform managed \
   --region asia-east1 \
   --allow-unauthenticated \
@@ -175,7 +175,7 @@ gcloud run deploy vocabot-backend \
 
 ```bash
 # 取得 Cloud Run URL
-CLOUD_RUN_URL=$(gcloud run services describe vocabot-backend --region=asia-east1 --format='value(status.url)')
+CLOUD_RUN_URL=$(gcloud run services describe VocabAI-backend --region=asia-east1 --format='value(status.url)')
 
 # 設定 Webhook
 curl -X POST "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook" \
@@ -289,7 +289,7 @@ make dev-frontend
 
 如有問題或建議，請：
 1. 查看本 README 的故障排除章節
-2. 檢查 [Issues](https://github.com/your-username/vocabai-vocabot/issues)
+2. 檢查 [Issues](https://github.com/your-username/VocabAI/issues)
 3. 創建新的 Issue 描述問題
 
 ---
