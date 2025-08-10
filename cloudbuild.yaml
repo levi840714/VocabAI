@@ -1,0 +1,58 @@
+steps:
+  # 建構 Docker 映像
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/vocabot-backend:$COMMIT_SHA'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/vocabot-backend:latest'
+      - '.'
+
+  # 推送映像到 Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'gcr.io/$PROJECT_ID/vocabot-backend:$COMMIT_SHA'
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'gcr.io/$PROJECT_ID/vocabot-backend:latest'
+
+  # 部署到 Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'vocabot-backend'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/vocabot-backend:$COMMIT_SHA'
+      - '--region'
+      - 'asia-east1'  # 或其他你偏好的區域
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--port'
+      - '8080'
+      - '--memory'
+      - '1Gi'
+      - '--cpu'
+      - '1'
+      - '--max-instances'
+      - '10'
+      - '--set-env-vars'
+      - 'BOT_MODE=webhook,START_API=true,API_PORT=8080'
+      - '--set-secrets'
+      - 'TELEGRAM_BOT_TOKEN=telegram_bot_token:latest,GOOGLE_API_KEY=google_api_key:latest'
+
+# 映像儲存選項
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: 'E2_HIGHCPU_8'
+
+# 替代變數 (可在觸發器中設定)
+substitutions:
+  _SERVICE_NAME: 'vocabot-backend'  # Bot 服務保持 vocabot 名稱
+  _REGION: 'asia-east1'

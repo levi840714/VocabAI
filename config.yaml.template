@@ -1,0 +1,109 @@
+telegram:
+  bot_token: "YOUR_TELEGRAM_BOT_TOKEN"
+
+database:
+  db_path: "vocabot.db"
+
+# 用戶存取控制
+access_control:
+  # 白名單用戶 ID 列表（只有這些用戶可以使用系統）
+  whitelist_users: [YOUR_TELEGRAM_USER_ID]
+  # 是否啟用白名單（開發模式可設為 false）
+  enable_whitelist: true
+  # 本地測試模式：如果為 true，允許不檢查 Telegram 驗證的情況下使用白名單第一個用戶
+  local_test_mode: true
+
+# Telegram Mini App 設定
+mini_app:
+  # Mini App URL（部署後需要更新）
+  url: "https://your-domain.com"
+  # 是否啟用 Telegram Web App 驗證
+  enable_telegram_auth: true
+  # 會話超時時間（秒）
+  session_timeout: 3600
+
+# Webhook 設定（生產環境使用）
+webhook:
+  url: "https://your-domain.com/webhook"  # 部署時需要更改為實際的 webhook URL
+  path: "/webhook"
+  host: "0.0.0.0"
+  port: 8000
+
+ai_services:
+  # 可選擇使用的 LLM API: "google", "openai", "deepseek"
+  provider: "google"
+
+  google:
+    api_key: "YOUR_GOOGLE_API_KEY"
+
+  openai:
+    api_key: "YOUR_OPENAI_API_KEY"
+
+  deepseek:
+    api_key: "YOUR_DEEPSEEK_API_KEY"
+
+prompts:
+  simple_explanation: |
+    請使用繁體中文回覆，並且務必回覆有效的 JSON 格式。你是一位專業的英文教學助理。請針對我提供的單字，提供以下 JSON 格式的完整資訊：
+
+    單字：{word}
+
+    請回覆以下 JSON 格式（請注意：回覆必須是有效的 JSON，不要包含任何其他文字）：
+    {{
+      "word": "{word}",
+      "pronunciations": ["音標1", "音標2"],
+      "definitions": [
+        {{
+          "part_of_speech": "詞性（如：noun, verb, adjective）",
+          "meanings": [
+            {{
+              "definition": "中文定義1",
+              "context": "使用語境或註釋"
+            }},
+            {{
+              "definition": "中文定義2（如有多個意思）",
+              "context": "使用語境或註釋"
+            }}
+          ]
+        }},
+        {{
+          "part_of_speech": "其他詞性（如果有）",
+          "meanings": [
+            {{
+              "definition": "該詞性的中文定義",
+              "context": "使用語境"
+            }}
+          ]
+        }}
+      ],
+      "examples": ["例句1", "例句2", "例句3"],
+      "synonyms": ["同義詞1", "同義詞2"],
+      "antonyms": ["反義詞1", "反義詞2"],
+      "memory_tips": "記憶技巧或字源解釋"
+    }}
+
+  deep_learning: |
+    請使用繁體中文回覆，並且務必回覆有效的 JSON 格式。你是一位專業的英文教學助理。請針對我提供的單字，提供以下 JSON 格式的完整深度學習資訊：
+
+    單字：{word}
+
+    請回覆以下 JSON 格式（請注意：回覆必須是有效的 JSON，不要包含任何其他文字），並請提供更詳細的定義、更多例句和更深入的記憶技巧：
+    {{
+      "word": "{word}",
+      "pronunciations": ["英式音標", "美式音標"],
+      "definitions": [
+        {{
+          "part_of_speech": "詞性",
+          "meanings": [
+            {{
+              "definition": "詳細的中文定義",
+              "context": "詳細的使用語境和註釋"
+            }}
+          ]
+        }}
+      ],
+      "examples": ["例句1", "例句2", "例句3", "例句4", "例句5"],
+      "synonyms": ["同義詞1", "同義詞2", "同義詞3"],
+      "antonyms": ["反義詞1", "反義詞2"],
+      "memory_tips": "深入的記憶技巧、字根字源分析、聯想記憶法等"
+    }}
