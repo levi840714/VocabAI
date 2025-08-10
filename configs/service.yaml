@@ -23,6 +23,14 @@ spec:
               cpu: 1000m
               memory: 512Mi
           env:
+            # --- 系統運行模式 ---
+            - name: BOT_MODE
+              value: 'webhook'
+            - name: START_API
+              value: 'true'
+            - name: API_PORT
+              value: '8080'
+
             # --- config.yaml.template 的內容被映射到環境變數 ---
 
             # database
