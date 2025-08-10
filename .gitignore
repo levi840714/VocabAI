@@ -147,3 +147,4 @@ deployment-config.yaml
 frontend/dist/
 frontend/.env.local
 frontend/.env.production.local
+.vercel
