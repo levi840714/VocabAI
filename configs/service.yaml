@@ -137,24 +137,24 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: telegram_bot_token
-                  key: 'latest'
+                  key: latest
             - name: AI_SERVICES_GOOGLE_API_KEY
               valueFrom:
                 secretKeyRef:
                   name: google_api_key
-                  key: 'latest'
+                  key: latest
             - name: AI_SERVICES_OPENAI_API_KEY
               valueFrom:
                 secretKeyRef:
                   name: openai_api_key
-                  key: 'latest'
+                  key: latest
             - name: AI_SERVICES_DEEPSEEK_API_KEY
               valueFrom:
                 secretKeyRef:
                   name: deepseek_api_key
-                  key: 'latest'
+                  key: latest
             - name: ACCESS_CONTROL_WHITELIST_USERS
               valueFrom:
                 secretKeyRef:
                   name: telegram_user_ids
-                  key: 'latest'
+                  key: latest
