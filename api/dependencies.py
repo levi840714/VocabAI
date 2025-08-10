@@ -10,13 +10,12 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 from bot.services.ai_service import AIService
 
+from config_loader import load_config
+
 @lru_cache()
 def get_settings() -> Dict[str, Any]:
     """Load and cache configuration settings."""
-    config_path = os.path.join(os.path.dirname(__file__), '..', 'config.yaml')
-    with open(config_path, 'r', encoding='utf-8') as file:
-        config = yaml.safe_load(file)
-    return config
+    return load_config()
 
 def get_database_path() -> str:
     """Get the database path from settings."""

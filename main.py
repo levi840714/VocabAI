@@ -15,13 +15,7 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 
 
-def load_config():
-    try:
-        with open('config.yaml', 'r') as f:
-            return yaml.safe_load(f)
-    except FileNotFoundError:
-        logging.error("config.yaml not found. Please create it from config.yaml.template.")
-        exit()
+from config_loader import load_config
 
 async def setup_bot_and_dispatcher():
     """Setup bot and dispatcher with all handlers and services."""
