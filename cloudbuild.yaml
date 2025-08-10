@@ -36,7 +36,6 @@ steps:
       - --region=${_REGION}
       - --platform=managed
       - --quiet
-      - --allow-unauthenticated
 
 options:
   logging: CLOUD_LOGGING_ONLY

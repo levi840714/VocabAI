@@ -17,6 +17,10 @@ def get_settings() -> Dict[str, Any]:
     """Load and cache configuration settings."""
     return load_config()
 
+def clear_settings_cache():
+    """Clear the settings cache - useful for testing or config updates."""
+    get_settings.cache_clear()
+
 def get_database_path() -> str:
     """Get the database path from settings."""
     config = get_settings()
