@@ -3,7 +3,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Card } from './ui/card';
 import StructuredWordDisplay from './StructuredWordDisplay';
-import { vocabotAPI, AIExplanationResponse } from '../lib/api';
+import { vocabotAPI, AIExplanationResponse } from '@/lib/api';
 import { StructuredAIResponse } from '../lib/types';
 
 const TestStructuredDisplay: React.FC = () => {

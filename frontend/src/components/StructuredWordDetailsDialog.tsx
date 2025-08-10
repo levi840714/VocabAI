@@ -3,7 +3,7 @@ import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography, 
 import { ExternalLink, Volume2, Edit, Save, X } from 'lucide-react';
 import StructuredWordDisplay from './StructuredWordDisplay';
 import { parseStructuredResponse, cleanStructuredResponse } from '../lib/parseStructuredResponse';
-import { vocabotAPI } from '../lib/api';
+import { vocabotAPI } from '@/lib/api';
 
 interface WordDetailsDialogProps {
   open: boolean;

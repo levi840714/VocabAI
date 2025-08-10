@@ -15,20 +15,15 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # 複製應用程式代碼
 COPY main.py .
+COPY config_loader.py .
 COPY bot/ bot/
 COPY api/ api/
 
 # 複製配置模板（稍後會被環境變數覆蓋）
-COPY config.yaml.template config.yaml
+COPY configs/config.yaml.template configs/config.yaml
 
 # 創建數據目錄
 RUN mkdir -p /data
-
-# 設置環境變數
-ENV PYTHONPATH=/app
-ENV BOT_MODE=webhook
-ENV START_API=true
-ENV API_PORT=8080
 
 # 暴露端口（Cloud Run 預設使用 8080）
 EXPOSE 8080

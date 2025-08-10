@@ -1,0 +1,152 @@
+# configs/service.yaml
+# 此檔案由 `gcloud run services replace` 指令使用，定義了 Cloud Run 服務的最終狀態。
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: vocab-ai-backend
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: '1'
+        autoscaling.knative.dev/maxScale: '1'
+      
+    spec:
+      containerConcurrency: 80
+      timeoutSeconds: 300
+      containers:
+        - image: IMAGE_URL_PLACEHOLDER
+          ports:
+            - containerPort: 8080
+          resources:
+            limits:
+              cpu: 1000m
+              memory: 512Mi
+          env:
+            # --- config.yaml.template 的內容被映射到環境變數 ---
+
+            # database
+            - name: DATABASE_DB_PATH
+              value: 'vocabot.db'
+
+            # access_control (TELEGRAM_USER_IDS 現在從 Secret Manager 讀取)
+            - name: ACCESS_CONTROL_ENABLE_WHITELIST
+              value: 'true'
+            - name: ACCESS_CONTROL_LOCAL_TEST_MODE
+              value: 'true'
+
+            # mini_app
+            - name: MINI_APP_URL
+              value: 'https://your-domain.com'
+            - name: MINI_APP_ENABLE_TELEGRAM_AUTH
+              value: 'true'
+            - name: MINI_APP_SESSION_TIMEOUT
+              value: '3600'
+
+            # webhook
+            - name: WEBHOOK_URL
+              value: 'https://your-domain.com/webhook'
+            - name: WEBHOOK_PATH
+              value: '/webhook'
+            - name: WEBHOOK_HOST
+              value: '0.0.0.0'
+            - name: WEBHOOK_PORT
+              value: '8080'
+
+            # ai_services
+            - name: AI_SERVICES_PROVIDER
+              value: 'google'
+
+            # prompts
+            - name: PROMPTS_SIMPLE_EXPLANATION
+              value: |
+                請使用繁體中文回覆，並且務必回覆有效的 JSON 格式。你是一位專業的英文教學助理。請針對我提供的單字，提供以下 JSON 格式的完整資訊：
+
+                單字：{word}
+
+                請回覆以下 JSON 格式（請注意：回覆必須是有效的 JSON，不要包含任何其他文字）：
+                {{
+                  "word": "{word}",
+                  "pronunciations": ["音標1", "音標2"],
+                  "definitions": [
+                    {{
+                      "part_of_speech": "詞性（如：noun, verb, adjective）",
+                      "meanings": [
+                        {{
+                          "definition": "中文定義1",
+                          "context": "使用語境或註釋"
+                        }},
+                        {{
+                          "definition": "中文定義2（如有多個意思）",
+                          "context": "使用語境或註釋"
+                        }}
+                      ]
+                    }},
+                    {{
+                      "part_of_speech": "其他詞性（如果有）",
+                      "meanings": [
+                        {{
+                          "definition": "該詞性的中文定義",
+                          "context": "使用語境"
+                        }}
+                      ]
+                    }}
+                  ],
+                  "examples": ["例句1", "例句2", "例句3"],
+                  "synonyms": ["同義詞1", "同義詞2"],
+                  "antonyms": ["反義詞1", "反義詞2"],
+                  "memory_tips": "記憶技巧或字源解釋"
+                }}
+            - name: PROMPTS_DEEP_LEARNING
+              value: |
+                請使用繁體中文回覆，並且務必回覆有效的 JSON 格式。你是一位專業的英文教學助理。請針對我提供的單字，提供以下 JSON 格式的完整深度學習資訊：
+
+                單字：{word}
+
+                請回覆以下 JSON 格式（請注意：回覆必須是有效的 JSON，不要包含任何其他文字），並請提供更詳細的定義、更多例句和更深入的記憶技巧：
+                {{
+                  "word": "{word}",
+                  "pronunciations": ["英式音標", "美式音標"],
+                  "definitions": [
+                    {{
+                      "part_of_speech": "詞性",
+                      "meanings": [
+                        {{
+                          "definition": "詳細的中文定義",
+                          "context": "詳細的使用語境和註釋"
+                        }}
+                      ]
+                    }}
+                  ],
+                  "examples": ["例句1", "例句2", "例句3", "例句4", "例句5"],
+                  "synonyms": ["同義詞1", "同義詞2", "同義詞3"],
+                  "antonyms": ["反義詞1", "反義詞2"],
+                  "memory_tips": "深入的記憶技巧、字根字源分析、聯想記憶法等"
+                }}
+
+            # --- 從 Secret Manager 引用 Secrets ---
+            - name: TELEGRAM_BOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: telegram_bot_token
+                  key: 'latest'
+            - name: AI_SERVICES_GOOGLE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: google_api_key
+                  key: 'latest'
+            - name: AI_SERVICES_OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: openai_api_key
+                  key: 'latest'
+            - name: AI_SERVICES_DEEPSEEK_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: deepseek_api_key
+                  key: 'latest'
+            - name: ACCESS_CONTROL_WHITELIST_USERS
+              valueFrom:
+                secretKeyRef:
+                  name: telegram_user_ids
+                  key: 'latest'

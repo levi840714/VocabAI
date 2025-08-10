@@ -15,13 +15,7 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 
 
-def load_config():
-    try:
-        with open('config.yaml', 'r') as f:
-            return yaml.safe_load(f)
-    except FileNotFoundError:
-        logging.error("config.yaml not found. Please create it from config.yaml.template.")
-        exit()
+from config_loader import load_config
 
 async def setup_bot_and_dispatcher():
     """Setup bot and dispatcher with all handlers and services."""
@@ -120,8 +114,8 @@ def start_api_server():
         current_dir = os.path.dirname(__file__)
         api_dir = os.path.join(current_dir, 'api')
         
-        # Get API port from environment variable or default to 8000
-        api_port = os.getenv('API_PORT', '8000')
+        # Get API port from environment variable (Cloud Run uses PORT, fallback to API_PORT, default to 8080)
+        api_port = os.getenv('PORT', os.getenv('API_PORT', '8080'))
         
         # Use the same Python executable that's running this script
         # Since we're running from api/ directory, the module is just main:app

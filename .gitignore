@@ -15,7 +15,8 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+build_example/
+
 lib64/
 parts/
 sdist/
@@ -132,7 +133,7 @@ cython_debug/
 .vscode/
 
 # Config
-config.yaml
+configs/config.yaml
 
 # Database
 vocabot.db
