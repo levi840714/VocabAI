@@ -84,6 +84,7 @@ async def setup_api_routes(app):
         return web.json_response({'status': 'healthy', 'service': 'vocabot-api'})
     
     # Add CORS middleware
+    @web.middleware
     async def cors_middleware(request, handler):
         if request.method == "OPTIONS":
             response = web.Response()
@@ -95,10 +96,15 @@ async def setup_api_routes(app):
         response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
         return response
     
+    # Add OPTIONS handler for CORS preflight
+    async def options_handler(request):
+        return web.Response()
+    
     # Add routes
     app.router.add_get('/api/words', get_words_handler)
     app.router.add_get('/api/stats', get_stats_handler)
     app.router.add_get('/api/health', health_handler)
+    app.router.add_options('/api/{path:.*}', options_handler)
     
     # Add CORS middleware
     app.middlewares.append(cors_middleware)
