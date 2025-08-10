@@ -101,9 +101,9 @@ async def setup_api_routes(app):
         return web.Response()
     
     # Add routes
-    app.router.add_get('/api/words', get_words_handler)
-    app.router.add_get('/api/stats', get_stats_handler)
-    app.router.add_get('/api/health', health_handler)
+    app.router.add_get('/api/v1/words', get_words_handler)
+    app.router.add_get('/api/v1/stats', get_stats_handler)
+    app.router.add_get('/api/v1/health', health_handler)
     app.router.add_options('/api/{path:.*}', options_handler)
     
     # Add CORS middleware
@@ -191,7 +191,7 @@ async def start_webhook():
     logging.info(f"Webhook mode started on {host}:{port}{webhook_path}")
     logging.info(f"Webhook URL: {webhook_url}")
     if start_api:
-        logging.info(f"API available at http://{host}:{port}/api")
+        logging.info(f"API available at http://{host}:{port}/api/v1")
     
     # Keep the server running
     try:
