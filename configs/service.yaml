@@ -29,8 +29,6 @@ spec:
               value: 'webhook'
             - name: START_API
               value: 'true'
-            - name: API_PORT
-              value: '8080'
 
             # --- config.yaml.template 的內容被映射到環境變數 ---
 
@@ -54,13 +52,10 @@ spec:
 
             # webhook
             - name: WEBHOOK_URL
-              value: 'https://your-domain.com/webhook'
-            - name: WEBHOOK_PATH
-              value: '/webhook'
-            - name: WEBHOOK_HOST
-              value: '0.0.0.0'
-            - name: WEBHOOK_PORT
-              value: '8080'
+              valueFrom:
+                secretKeyRef:
+                  name: webhook_url
+                  key: latest
 
             # ai_services
             - name: AI_SERVICES_PROVIDER

@@ -16,6 +16,92 @@ from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_applicati
 
 
 from config_loader import load_config
+from aiohttp import web
+import json
+
+async def setup_api_routes(app):
+    """Setup API routes on aiohttp server."""
+    # Import API functions
+    from api.crud import get_user_words, get_user_stats
+    from api.dependencies import validate_user_access
+    from config_loader import load_config
+    
+    async def get_words_handler(request):
+        try:
+            # Get user_id from query params
+            user_id = request.query.get('user_id')
+            if user_id:
+                user_id = int(user_id)
+            
+            # Validate user access
+            user_id = validate_user_access(user_id)
+            
+            # Get config for db_path
+            config = load_config()
+            db_path = config.get('database', {}).get('db_path', 'vocabot.db')
+            
+            # Get words (returns tuple of words list and total count)
+            words, total_count = await get_user_words(db_path, user_id)
+            
+            return web.json_response([{
+                'id': word['id'],
+                'word': word['word'],
+                'definition': word['definition'],
+                'example': word['example'],
+                'created_at': word['created_at'],
+                'last_reviewed': word['last_reviewed'],
+                'review_count': word['review_count'],
+                'difficulty': word['difficulty'],
+                'next_review': word['next_review']
+            } for word in words])
+            
+        except Exception as e:
+            return web.json_response({'error': str(e)}, status=400)
+    
+    async def get_stats_handler(request):
+        try:
+            # Get user_id from query params
+            user_id = request.query.get('user_id')
+            if user_id:
+                user_id = int(user_id)
+            
+            # Validate user access
+            user_id = validate_user_access(user_id)
+            
+            # Get config for db_path
+            config = load_config()
+            db_path = config.get('database', {}).get('db_path', 'vocabot.db')
+            
+            # Get stats
+            stats = await get_user_stats(db_path, user_id)
+            
+            return web.json_response(stats)
+            
+        except Exception as e:
+            return web.json_response({'error': str(e)}, status=400)
+    
+    async def health_handler(request):
+        return web.json_response({'status': 'healthy', 'service': 'vocabot-api'})
+    
+    # Add CORS middleware
+    async def cors_middleware(request, handler):
+        if request.method == "OPTIONS":
+            response = web.Response()
+        else:
+            response = await handler(request)
+        
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+        return response
+    
+    # Add routes
+    app.router.add_get('/api/words', get_words_handler)
+    app.router.add_get('/api/stats', get_stats_handler)
+    app.router.add_get('/api/health', health_handler)
+    
+    # Add CORS middleware
+    app.middlewares.append(cors_middleware)
 
 async def setup_bot_and_dispatcher():
     """Setup bot and dispatcher with all handlers and services."""
@@ -53,21 +139,29 @@ async def setup_bot_and_dispatcher():
     return bot, dp, config
 
 async def start_webhook():
-    """Start bot in webhook mode."""
+    """Start bot in webhook mode with integrated API server."""
     bot, dp, config = await setup_bot_and_dispatcher()
     
     # Webhook configuration
     webhook_config = config.get('webhook', {})
-    webhook_url = webhook_config.get('url', 'https://your-domain.com/webhook')
-    webhook_path = webhook_config.get('path', '/webhook')
-    host = webhook_config.get('host', '0.0.0.0')
-    port = webhook_config.get('port', 8443)
+    webhook_url = os.getenv('WEBHOOK_URL') or webhook_config.get('url', 'https://your-domain.com/webhook')
+    webhook_path = '/webhook'  # Standard webhook path
+    host = '0.0.0.0'  # Listen on all interfaces
+    port = int(os.getenv('PORT', os.getenv('API_PORT', '8080')))
     
     # Set webhook
     await bot.set_webhook(url=webhook_url)
     
     # Create aiohttp application
     app = web.Application()
+    
+    # Check if we should add API routes to the same server
+    start_api = os.getenv('START_API', 'true').lower() == 'true'
+    
+    if start_api:
+        # Add basic API routes directly to aiohttp
+        await setup_api_routes(app)
+        logging.info("API routes added to webhook server")
     
     # Setup webhook handler
     webhook_requests_handler = SimpleRequestHandler(
@@ -90,6 +184,8 @@ async def start_webhook():
     
     logging.info(f"Webhook mode started on {host}:{port}{webhook_path}")
     logging.info(f"Webhook URL: {webhook_url}")
+    if start_api:
+        logging.info(f"API available at http://{host}:{port}/api")
     
     # Keep the server running
     try:
@@ -114,7 +210,7 @@ def start_api_server():
         current_dir = os.path.dirname(__file__)
         api_dir = os.path.join(current_dir, 'api')
         
-        # Get API port from environment variable (Cloud Run uses PORT, fallback to API_PORT, default to 8080)
+        # Get API port from environment variable
         api_port = os.getenv('PORT', os.getenv('API_PORT', '8080'))
         
         # Use the same Python executable that's running this script
@@ -148,9 +244,10 @@ async def main():
     start_api = os.getenv('START_API', 'true').lower() == 'true'
     mode = os.getenv('BOT_MODE', 'polling')  # 'webhook' or 'polling', default to polling for development
     
-    # Start API server as a subprocess if enabled
+    # API server only runs as subprocess in polling mode
+    # In webhook mode, API routes are integrated into the webhook server
     api_process = None
-    if start_api:
+    if start_api and mode != 'webhook':
         api_process = start_api_server()
         if api_process:
             logging.info("API server started as subprocess")
@@ -162,7 +259,7 @@ async def main():
     try:
         # Start bot
         if mode == 'webhook':
-            logging.info("Starting bot in webhook mode")
+            logging.info("Starting bot in webhook mode (API routes integrated)")
             await start_webhook()
         else:
             logging.info("Starting bot in polling mode")
