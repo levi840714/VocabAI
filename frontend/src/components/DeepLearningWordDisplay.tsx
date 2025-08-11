@@ -2,12 +2,33 @@ import React from 'react';
 import { DeepLearningAIResponse } from '../lib/types';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
+import { Volume2 } from 'lucide-react';
+import ClickableTextWrapper from './ClickableTextWrapper';
 
 interface DeepLearningWordDisplayProps {
   data: DeepLearningAIResponse;
+  onAIAnalysisClick?: (word: string) => void;
+  onWordAdded?: (word: string) => void;
 }
 
-const DeepLearningWordDisplay: React.FC<DeepLearningWordDisplayProps> = ({ data }) => {
+const DeepLearningWordDisplay: React.FC<DeepLearningWordDisplayProps> = ({ data, onAIAnalysisClick, onWordAdded }) => {
+  // Handle pronunciation for text (word or sentence)
+  const handlePronunciation = (text: string) => {
+    // Use Web Speech API for pronunciation
+    if ('speechSynthesis' in window) {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'en-US';
+      utterance.rate = 0.8;
+      speechSynthesis.speak(utterance);
+    } else {
+      // Fallback: try Google Translate TTS
+      const audio = new Audio(`https://translate.google.com/translate_tts?ie=UTF-8&tl=en&client=tw-ob&q=${encodeURIComponent(text)}`);
+      audio.play().catch(() => {
+        alert('發音功能暫時不可用，請檢查瀏覽器設定或網路連線');
+      });
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Word Header with Pronunciations */}
@@ -179,16 +200,28 @@ const DeepLearningWordDisplay: React.FC<DeepLearningWordDisplayProps> = ({ data 
           </h3>
           <div className="space-y-4">
             {data.examples.map((example, index) => (
-              <div key={index} className="bg-slate-50 p-4 rounded-lg">
-                <p className="text-slate-700 italic font-medium mb-2">
+              <div key={index} className="bg-slate-50 p-4 rounded-lg relative group">
+                <ClickableTextWrapper 
+                  className="text-slate-700 italic font-medium mb-2 pr-8"
+                  onAIAnalysisClick={onAIAnalysisClick}
+                  onWordAdded={onWordAdded}
+                >
                   "{example.sentence}"
-                </p>
+                </ClickableTextWrapper>
                 <p className="text-slate-600 text-sm mb-1">
                   翻譯：{example.translation}
                 </p>
                 <p className="text-slate-500 text-xs">
                   情境：{example.context}
                 </p>
+                <button
+                  onClick={() => handlePronunciation(example.sentence)}
+                  className="absolute top-4 right-4 p-2 rounded-full bg-white shadow-sm border border-slate-200 hover:bg-slate-100 opacity-0 group-hover:opacity-100 transition-all duration-200 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  title="聆聽例句發音"
+                  aria-label="聆聽例句發音"
+                >
+                  <Volume2 size={16} className="text-slate-600" />
+                </button>
               </div>
             ))}
           </div>

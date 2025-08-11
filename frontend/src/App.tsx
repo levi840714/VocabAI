@@ -174,8 +174,10 @@ function MainApp() {
                   <TestStructuredDisplay 
                     initialWord={aiAnalysisWord} 
                     onAnalysisProcessed={handleAnalysisProcessed}
+                    onAIAnalysisClick={handleAIAnalysis}
                   />
                 </TabsContent>
+
               </Tabs>
             </div>
           </section>

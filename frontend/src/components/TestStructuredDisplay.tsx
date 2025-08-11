@@ -9,9 +9,10 @@ import { DeepLearningAIResponse } from '../lib/types';
 interface TestStructuredDisplayProps {
   initialWord?: string | null;
   onAnalysisProcessed?: () => void;
+  onAIAnalysisClick?: (word: string) => void;
 }
 
-const TestStructuredDisplay: React.FC<TestStructuredDisplayProps> = ({ initialWord, onAnalysisProcessed }) => {
+const TestStructuredDisplay: React.FC<TestStructuredDisplayProps> = ({ initialWord, onAnalysisProcessed, onAIAnalysisClick }) => {
   const [word, setWord] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<DeepLearningAIResponse | null>(null);
@@ -102,7 +103,11 @@ const TestStructuredDisplay: React.FC<TestStructuredDisplayProps> = ({ initialWo
       {result && (
         <div>
           <h2 className="text-2xl font-semibold mb-4 text-purple-700">🧠 AI 深度解析結果：</h2>
-          <DeepLearningWordDisplay data={result} />
+          <DeepLearningWordDisplay 
+            data={result} 
+            onAIAnalysisClick={onAIAnalysisClick}
+            onWordAdded={(word) => console.log(`單字 "${word}" 已在 AI 分析頁面中加入`)}
+          />
         </div>
       )}
 

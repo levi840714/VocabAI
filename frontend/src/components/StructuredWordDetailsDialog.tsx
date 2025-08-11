@@ -96,6 +96,12 @@ const StructuredWordDetailsDialog: React.FC<WordDetailsDialogProps> = ({ open, o
     }
   };
 
+  // 處理在詳情對話框中加入單字，但不關閉對話框
+  const handleWordAddedInDialog = (addedWord: string) => {
+    console.log(`單字 "${addedWord}" 已在詳情對話框中加入`);
+    // 不觸發父級的 refreshWords，避免關閉對話框
+  };
+
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle sx={{ fontWeight: 'bold', fontSize: '1.5rem', display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: { xs: 'flex-start', sm: 'center' }, gap: { xs: 1, sm: 2 } }}>
@@ -141,8 +147,7 @@ const StructuredWordDetailsDialog: React.FC<WordDetailsDialogProps> = ({ open, o
               }
             }}
           >
-            <Box sx={{ display: { xs: 'none', sm: 'inline' } }}>AI解析</Box>
-            <Box sx={{ display: { xs: 'inline', sm: 'none' } }}>🧠</Box>
+            🧠 AI 解析
           </Button>
           <Button
             variant="outlined"
@@ -166,7 +171,7 @@ const StructuredWordDetailsDialog: React.FC<WordDetailsDialogProps> = ({ open, o
       </DialogTitle>
       <DialogContent dividers>
         {cleanedData ? (
-          <StructuredWordDisplay data={cleanedData} />
+          <StructuredWordDisplay data={cleanedData} onAIAnalysisClick={onAIAnalysisClick} onWordAdded={handleWordAddedInDialog} />
         ) : (
           <Box>
             <Typography variant="subtitle1" component="h3" gutterBottom sx={{ fontWeight: 'bold' }}>

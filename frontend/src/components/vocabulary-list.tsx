@@ -1,4 +1,4 @@
-import { useState } from "react"
+import React, { useState } from "react"
 import { Search, Eye } from "lucide-react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { TextInput } from "@/components/text-input"
@@ -16,7 +16,18 @@ export default function VocabularyList({ onAIAnalysisClick }: VocabularyListProp
   const { words, toggleLearned, deleteWord, loading, error, refreshWords } = useVocabulary()
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedWord, setSelectedWord] = useState<any>(null)
+  const [selectedWordId, setSelectedWordId] = useState<string | null>(null)
   const { toast } = useToast()
+
+  // 當單字列表更新時，重新設定選中的單字 (保持對話框開啟)
+  React.useEffect(() => {
+    if (selectedWordId && words.length > 0) {
+      const updatedWord = words.find(w => w.id === selectedWordId)
+      if (updatedWord) {
+        setSelectedWord(updatedWord)
+      }
+    }
+  }, [words, selectedWordId])
 
   if (loading) {
     return (
@@ -112,7 +123,10 @@ export default function VocabularyList({ onAIAnalysisClick }: VocabularyListProp
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setSelectedWord(word)}
+                    onClick={() => {
+                      setSelectedWord(word);
+                      setSelectedWordId(word.id);
+                    }}
                     className="border-blue-300 text-blue-700 hover:bg-blue-100"
                   >
                     <Eye className="w-4 h-4 mr-1" />
@@ -144,7 +158,10 @@ export default function VocabularyList({ onAIAnalysisClick }: VocabularyListProp
       {/* Word Details Dialog */}
       <StructuredWordDetailsDialog
         open={!!selectedWord}
-        onClose={() => setSelectedWord(null)}
+        onClose={() => {
+          setSelectedWord(null);
+          setSelectedWordId(null);
+        }}
         word={selectedWord ? {
           id: parseInt(selectedWord.id),
           word: selectedWord.term,
