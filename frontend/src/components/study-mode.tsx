@@ -209,51 +209,98 @@ export default function StudyMode() {
           </Button>
         </CardContent>
 
-        <CardFooter className="flex justify-between pt-6 pb-6 border-t bg-sky-50/60">
-          {/* Left side - Mastered button */}
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-purple-600 border-purple-200 hover:bg-purple-50 bg-transparent"
-            onClick={() => handleSubmitReview('mastered')}
-            disabled={isLoading}
-          >
-            <Check className="h-4 w-4 mr-1" />
-            完全掌握
-          </Button>
-          
-          {/* Right side - Other buttons */}
-          <div className="flex gap-2">
+        <CardFooter className="pt-6 pb-6 border-t bg-sky-50/60">
+          {/* Mobile layout - stacked buttons */}
+          <div className="w-full space-y-3 sm:hidden">
             <Button
               variant="outline"
               size="sm"
-              className="text-green-600 border-green-200 hover:bg-green-50 bg-transparent"
-              onClick={() => handleSubmitReview('easy')}
+              className="w-full text-purple-600 border-purple-200 hover:bg-purple-50 bg-transparent"
+              onClick={() => handleSubmitReview('mastered')}
               disabled={isLoading}
             >
               <Check className="h-4 w-4 mr-1" />
-              容易
+              完全掌握
             </Button>
+            <div className="grid grid-cols-3 gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-green-600 border-green-200 hover:bg-green-50 bg-transparent text-xs"
+                onClick={() => handleSubmitReview('easy')}
+                disabled={isLoading}
+              >
+                <Check className="h-3 w-3 mr-1" />
+                容易
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-yellow-600 border-yellow-200 hover:bg-yellow-50 bg-transparent text-xs"
+                onClick={() => handleSubmitReview('hard')}
+                disabled={isLoading}
+              >
+                <Clock className="h-3 w-3 mr-1" />
+                困難
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-red-600 border-red-200 hover:bg-red-50 bg-transparent text-xs"
+                onClick={() => handleSubmitReview('again')}
+                disabled={isLoading}
+              >
+                <RotateCcw className="h-3 w-3 mr-1" />
+                重新開始
+              </Button>
+            </div>
+          </div>
+          
+          {/* Desktop layout - horizontal buttons */}
+          <div className="hidden sm:flex justify-between w-full">
             <Button
               variant="outline"
               size="sm"
-              className="text-yellow-600 border-yellow-200 hover:bg-yellow-50 bg-transparent"
-              onClick={() => handleSubmitReview('hard')}
+              className="text-purple-600 border-purple-200 hover:bg-purple-50 bg-transparent"
+              onClick={() => handleSubmitReview('mastered')}
               disabled={isLoading}
             >
-              <Clock className="h-4 w-4 mr-1" />
-              困難
+              <Check className="h-4 w-4 mr-1" />
+              完全掌握
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-red-600 border-red-200 hover:bg-red-50 bg-transparent"
-              onClick={() => handleSubmitReview('again')}
-              disabled={isLoading}
-            >
-              <RotateCcw className="h-4 w-4 mr-1" />
-              重新開始
-            </Button>
+            
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-green-600 border-green-200 hover:bg-green-50 bg-transparent"
+                onClick={() => handleSubmitReview('easy')}
+                disabled={isLoading}
+              >
+                <Check className="h-4 w-4 mr-1" />
+                容易
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-yellow-600 border-yellow-200 hover:bg-yellow-50 bg-transparent"
+                onClick={() => handleSubmitReview('hard')}
+                disabled={isLoading}
+              >
+                <Clock className="h-4 w-4 mr-1" />
+                困難
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-red-600 border-red-200 hover:bg-red-50 bg-transparent"
+                onClick={() => handleSubmitReview('again')}
+                disabled={isLoading}
+              >
+                <RotateCcw className="h-4 w-4 mr-1" />
+                重新開始
+              </Button>
+            </div>
           </div>
         </CardFooter>
       </Card>
