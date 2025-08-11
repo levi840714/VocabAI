@@ -15,14 +15,17 @@ const TestStructuredDisplay: React.FC<TestStructuredDisplayProps> = ({ initialWo
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<DeepLearningAIResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [lastProcessedWord, setLastProcessedWord] = useState<string | null>(null);
 
-  // 當有初始單字時自動設置並分析
+  // 當有初始單字時自動設置，但不自動分析
   useEffect(() => {
-    if (initialWord) {
+    if (initialWord && initialWord !== lastProcessedWord) {
       setWord(initialWord);
-      handleSubmitForWord(initialWord);
+      // 清除之前的結果，但不自動發送請求
+      setResult(null);
+      setError(null);
     }
-  }, [initialWord]);
+  }, [initialWord, lastProcessedWord]);
 
   const handleSubmitForWord = async (targetWord: string) => {
     if (!targetWord.trim()) return;
@@ -30,6 +33,7 @@ const TestStructuredDisplay: React.FC<TestStructuredDisplayProps> = ({ initialWo
     setLoading(true);
     setError(null);
     setResult(null);
+    setLastProcessedWord(targetWord.trim());
 
     try {
       const response: AIExplanationResponse = await vocabotAPI.getAIExplanation(targetWord.trim(), 'deep');

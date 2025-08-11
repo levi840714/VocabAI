@@ -19,6 +19,7 @@ const formSchema = z.object({
 export default function AddWordForm() {
   const { addWord } = useVocabulary()
   const { toast } = useToast()
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -30,7 +31,10 @@ export default function AddWordForm() {
 
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
+    if (isSubmitting) return // 防止重複提交
+    
     console.log('Form submitted with values:', values)
+    setIsSubmitting(true)
     
     try {
       console.log('Calling addWord with:', values.term, values.notes)
@@ -40,7 +44,7 @@ export default function AddWordForm() {
       console.log('Word added successfully')
       toast({
         title: "單字已添加",
-        description: `"${values.term}" 已添加到您的單字列表，AI 正在為您生成解釋`,
+        description: `"${values.term}" 已添加到您的單字列表，AI 正在背景為您生成解釋`,
         duration: 3000,
       })
 
@@ -52,14 +56,25 @@ export default function AddWordForm() {
         description: error instanceof Error ? error.message : "無法新增單字",
         variant: "destructive",
       })
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
   return (
     <Card className="max-w-2xl mx-auto bg-white/80 backdrop-blur-sm ring-1 ring-white/60">
       <CardHeader>
-        <CardTitle>新增單字</CardTitle>
-        <CardDescription>添加新單字到您的學習列表</CardDescription>
+        <div className="flex items-center gap-2">
+          <Bot className="w-6 h-6 text-blue-600" />
+          <CardTitle>新增單字</CardTitle>
+        </div>
+        <CardDescription className="space-y-2">
+          <p>添加新單字到您的學習列表</p>
+          <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-50 px-3 py-2 rounded-lg">
+            <Sparkles className="w-4 h-4" />
+            <span>系統將自動使用 AI 為您生成詳細的單字解釋、發音、例句和記憶技巧</span>
+          </div>
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -101,9 +116,22 @@ export default function AddWordForm() {
               )}
             />
 
-            <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700">
-              <Sparkles className="w-4 h-4 mr-2" />
-              添加單字
+            <Button 
+              type="submit" 
+              disabled={isSubmitting}
+              className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+            >
+              {isSubmitting ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2" />
+                  正在添加中...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  添加單字
+                </>
+              )}
             </Button>
           </form>
         </Form>
