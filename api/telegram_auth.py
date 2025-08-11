@@ -10,7 +10,13 @@ import time
 from typing import Dict, Any, Optional
 from urllib.parse import unquote, parse_qsl
 from fastapi import HTTPException
-from dependencies import get_settings, get_mini_app_settings, is_local_test_mode
+from dependencies import get_mini_app_settings, is_local_test_mode
+
+# Add the project root to the Python path
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from config_loader import load_config
 
 def validate_telegram_web_app_data(init_data: str, bot_token: str) -> Dict[str, Any]:
     """
@@ -130,7 +136,7 @@ def get_user_from_telegram_header(authorization: Optional[str]) -> Optional[int]
         init_data = parts[2]
         
         # 獲取 bot token
-        config = get_settings()
+        config = load_config()
         bot_token = config.get('telegram', {}).get('bot_token', '')
         if not bot_token:
             raise HTTPException(status_code=500, detail="Bot token not configured")

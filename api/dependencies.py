@@ -12,48 +12,40 @@ from bot.services.ai_service import AIService
 
 from config_loader import load_config
 
-@lru_cache()
-def get_settings() -> Dict[str, Any]:
-    """Load and cache configuration settings."""
-    return load_config()
-
-def clear_settings_cache():
-    """Clear the settings cache - useful for testing or config updates."""
-    get_settings.cache_clear()
-
 def get_database_path() -> str:
     """Get the database path from settings."""
-    config = get_settings()
-    db_path = config.get('database', {}).get('db_path', 'vocabot.db')
-    # Make path absolute from project root
-    if not os.path.isabs(db_path):
-        db_path = os.path.join(os.path.dirname(__file__), '..', db_path)
-    return db_path
+    config = load_config()
+    return config.get('database', {}).get('db_path', 'vocabot.db')
 
 def get_ai_service() -> AIService:
     """Get AI service instance."""
-    config = get_settings()
+    config = load_config()
     return AIService(config)
 
 def get_whitelist_users() -> List[int]:
     """Get whitelist users from settings."""
-    config = get_settings()
+    config = load_config()  # 使用 load_config 來取得包含 YAML 的完整配置
     return config.get('access_control', {}).get('whitelist_users', [])
 
 def is_whitelist_enabled() -> bool:
     """Check if whitelist is enabled."""
-    config = get_settings()
-    return config.get('access_control', {}).get('enable_whitelist', False)
+    config = load_config()  # 使用 load_config 來取得包含 YAML 的完整配置
+    return config.get('access_control', {}).get('enable_whitelist', True)
 
 def is_local_test_mode() -> bool:
     """Check if local test mode is enabled."""
-    config = get_settings()
-    return config.get('access_control', {}).get('local_test_mode', False)
+    config = load_config()  # 使用 load_config 來取得包含 YAML 的完整配置
+    return config.get('access_control', {}).get('local_test_mode', True)
 
 def get_mini_app_settings() -> Dict[str, Any]:
     """Get Mini App settings."""
-    config = get_settings()
-    return config.get('mini_app', {})
+    config = load_config()
+    mini_app_config = config.get('mini_app', {})
+    return {
+        'url': mini_app_config.get('url', 'https://your-domain.com'),
+        'enable_telegram_auth': mini_app_config.get('enable_telegram_auth', True),
+        'session_timeout': mini_app_config.get('session_timeout', 3600),
+    }
 
 def validate_user_access(user_id: Optional[int]) -> int:
     """

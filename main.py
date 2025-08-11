@@ -3,11 +3,14 @@ import logging
 import yaml
 import os
 import sys
+import atexit
+import sqlite3
 from aiohttp import web
 import subprocess
 import uvicorn
 from threading import Thread
 
+from google.cloud import storage
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
@@ -364,10 +367,81 @@ def start_api_server():
 
 async def main():
     logging.basicConfig(level=logging.INFO)
-    
+
+    # Load configuration
+    config = load_config()
+
+    is_cloud_run = os.getenv('K_SERVICE') is not None
+    db_path = config['database']['db_path'] # Get the determined DB path
+
+    # --- GCS 資料庫處理 (僅在 Cloud Run 環境下執行) ---
+    if is_cloud_run:
+        gcs_bucket_name = config['database'].get('gcs_bucket')  # Get bucket name from config
+        db_file_name = os.path.basename(db_path)  # Should be vocabot.db
+        
+        if not gcs_bucket_name:
+            logging.error("DATABASE_GCS_BUCKET environment variable not set in Cloud Run. Database persistence will fail.")
+            # Fallback to local-only if bucket not set, but warn
+            # 確保資料庫文件存在
+            if not os.path.exists(db_path):
+                open(db_path, 'a').close()
+        else:
+            try:
+                client = storage.Client()
+                bucket = client.get_bucket(gcs_bucket_name)
+                blob = bucket.blob(db_file_name)
+
+                # 下載資料庫 (如果存在)
+                if blob.exists():
+                    logging.info(f"Downloading {db_file_name} from GCS bucket {gcs_bucket_name}...")
+                    blob.download_to_filename(db_path)
+                    logging.info("Database downloaded successfully.")
+                else:
+                    logging.info(f"Database {db_file_name} not found in GCS. A new one will be created locally.")
+                    # 確保資料庫文件存在
+                    if not os.path.exists(db_path):
+                        open(db_path, 'a').close()
+
+                # 註冊關閉時上傳資料庫的函數
+                def upload_db_on_exit():
+                    try:
+                        logging.info(f"Uploading {db_file_name} to GCS bucket {gcs_bucket_name} on exit...")
+                        
+                        # 檢查資料庫文件是否存在
+                        if not os.path.exists(db_path):
+                            logging.warning(f"Database file {db_path} not found, skipping upload.")
+                            return
+                        
+                        # 使用 sqlite3 檢查資料庫完整性
+                        try:
+                            with sqlite3.connect(db_path) as conn:
+                                conn.execute("PRAGMA integrity_check")
+                        except sqlite3.Error as e:
+                            logging.error(f"Database integrity check failed: {e}")
+                            return
+                        
+                        # 上傳到 GCS
+                        blob.upload_from_filename(db_path)
+                        logging.info("Database uploaded successfully on exit.")
+                        
+                    except Exception as e:
+                        logging.error(f"Failed to upload database to GCS on exit: {e}")
+
+                atexit.register(upload_db_on_exit)
+
+            except Exception as e:
+                logging.error(f"Failed to initialize GCS database handling: {e}")
+                # 確保資料庫文件存在，即使 GCS 失敗
+                if not os.path.exists(db_path):
+                    open(db_path, 'a').close()
+    else:
+        # 非 Cloud Run 環境，確保本地資料庫文件存在
+        if not os.path.exists(db_path):
+            open(db_path, 'a').close()
+
     # Check if we should start both services or just the bot
     start_api = os.getenv('START_API', 'true').lower() == 'true'
-    mode = os.getenv('BOT_MODE', 'polling')  # 'webhook' or 'polling', default to polling for development
+    mode = os.getenv('BOT_MODE', 'polling').lower()
     
     # API server only runs as subprocess in polling mode
     # In webhook mode, API routes are integrated into the webhook server

@@ -154,3 +154,5 @@ spec:
                 secretKeyRef:
                   name: telegram_user_ids
                   key: latest
+            - name: DATABASE_GCS_BUCKET
+              value: 'vocabot-db'

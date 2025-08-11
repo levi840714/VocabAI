@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     
     # === 資料庫設定 ===
     database_db_path: str = Field(default="vocabot.db", description="SQLite 資料庫路徑")
+    database_gcs_bucket: Optional[str] = Field(default=None, description="GCS 儲存桶名稱 (Cloud Run 環境)")
     
     # === 存取控制設定 ===
     access_control_enable_whitelist: bool = Field(default=True, description="啟用白名單")
@@ -92,6 +93,7 @@ class Settings(BaseSettings):
             },
             'database': {
                 'db_path': self.database_db_path,
+                'gcs_bucket': self.database_gcs_bucket,
             },
             'access_control': {
                 'enable_whitelist': self.access_control_enable_whitelist,
@@ -130,21 +132,39 @@ class Settings(BaseSettings):
 # 全域設定實例
 _settings = None
 
-def get_settings() -> Settings:
-    """獲取設定實例（單例模式）"""
+def _get_settings() -> Settings:
+    """獲取設定實例（內部函數，單例模式）"""
     global _settings
     if _settings is None:
         _settings = Settings()
         logging.info("Settings loaded successfully from environment variables")
     return _settings
 
+def get_settings() -> Settings:
+    """
+    獲取設定實例 (向後兼容)
+    
+    注意：建議使用 load_config() 來取得完整配置（環境變數 + YAML）
+    此函數僅返回環境變數配置，主要用於內部實現
+    """
+    return _get_settings()
+
 def load_config() -> dict:
-    """載入配置（向後兼容的函數）"""
+    """
+    載入完整配置 (推薦使用)
+    
+    這是主要的配置載入函數，會合併以下來源的配置：
+    1. 環境變數 (優先級最高)
+    2. config.yaml 文件 (作為 fallback)
+    
+    Returns:
+        dict: 完整的配置字典，適用於整個應用程式
+    """
     import yaml
     import os
     
     # 先從環境變數創建設定
-    settings = get_settings()
+    settings = _get_settings()
     config = settings.to_legacy_config()
     
     # 嘗試從 YAML 文件讀取更多配置（本地開發用）
