@@ -16,11 +16,25 @@ function MainApp() {
   const { isAuthenticated, isLocalTestMode, user } = useAuth();
   const [currentTab, setCurrentTab] = React.useState("vocabulary");
   const [aiAnalysisWord, setAiAnalysisWord] = React.useState<string | null>(null);
+  const [pendingAnalysisWord, setPendingAnalysisWord] = React.useState<string | null>(null);
 
   // 處理 AI 深度解析的跳轉
   const handleAIAnalysis = (word: string) => {
-    setAiAnalysisWord(word);
+    setPendingAnalysisWord(word);
     setCurrentTab("test");
+  };
+
+  // 當切換到 AI 解析 tab 時，檢查是否有待處理的單字
+  React.useEffect(() => {
+    if (currentTab === "test" && pendingAnalysisWord) {
+      setAiAnalysisWord(pendingAnalysisWord);
+      setPendingAnalysisWord(null);
+    }
+  }, [currentTab, pendingAnalysisWord]);
+
+  // 當 AI 解析組件處理完單字後，清除狀態
+  const handleAnalysisProcessed = () => {
+    setAiAnalysisWord(null);
   };
 
   if (!isAuthenticated) {
@@ -133,10 +147,10 @@ function MainApp() {
                   </TabsTrigger>
                   <TabsTrigger
                     value="test"
-                    className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-purple-700 data-[state=active]:shadow-sm"
+                    className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-purple-700 data-[state=active]:shadow-sm text-xs sm:text-sm"
                   >
-                    <Bot className="w-4 h-4 mr-1" />
-                    🧠 AI 深度解析
+                    <span className="hidden sm:inline">🧠 AI 深度解析</span>
+                    <span className="sm:hidden">🧠 AI解析</span>
                   </TabsTrigger>
                 </TabsList>
 
@@ -157,7 +171,10 @@ function MainApp() {
                 </TabsContent>
 
                 <TabsContent value="test" className="mt-6">
-                  <TestStructuredDisplay initialWord={aiAnalysisWord} />
+                  <TestStructuredDisplay 
+                    initialWord={aiAnalysisWord} 
+                    onAnalysisProcessed={handleAnalysisProcessed}
+                  />
                 </TabsContent>
               </Tabs>
             </div>

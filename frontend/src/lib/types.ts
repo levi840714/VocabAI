@@ -23,7 +23,7 @@ export interface WordDefinition {
 
 export interface Etymology {
   origin: string
-  root_analysis: string
+  root_analysis: string | Record<string, string>
   related_words: string[]
 }
 

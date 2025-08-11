@@ -70,8 +70,9 @@ def format_word_explanation(structured_data: dict, is_deep_learning: bool = Fals
         return formatted.strip()
     except Exception as e:
         logging.error(f"Error formatting word explanation: {e}")
-        # Fallback to raw data if formatting fails
-        return str(structured_data)
+        # Fallback to basic word info if formatting fails
+        word = structured_data.get('word', 'Unknown')
+        return f"⚠️ 格式化失敗，但找到單字: <b>{word}</b>\n請稍後再試。"
 
 def format_deep_learning_explanation(structured_data: dict) -> str:
     """Formats deep learning structured word data for display in Telegram."""
@@ -190,8 +191,9 @@ def format_deep_learning_explanation(structured_data: dict) -> str:
         return formatted.strip()
     except Exception as e:
         logging.error(f"Error formatting deep learning explanation: {e}")
-        # Fallback to regular formatting
-        return format_word_explanation(structured_data, False)
+        # Fallback to basic word info if formatting fails
+        word = structured_data.get('word', 'Unknown')
+        return f"⚠️ 深度學習格式化失敗，但找到單字: <b>{word}</b>\n請稍後再試。"
 
 def extract_chinese_definitions(structured_data: dict) -> str:
     """Extracts Chinese definitions from structured data for database storage."""

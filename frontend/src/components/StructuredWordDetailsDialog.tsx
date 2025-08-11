@@ -98,35 +98,69 @@ const StructuredWordDetailsDialog: React.FC<WordDetailsDialogProps> = ({ open, o
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle sx={{ fontWeight: 'bold', fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: 2 }}>
+      <DialogTitle sx={{ fontWeight: 'bold', fontSize: '1.5rem', display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: { xs: 'flex-start', sm: 'center' }, gap: { xs: 1, sm: 2 } }}>
         <span>{word.word}</span>
-        <Box sx={{ display: 'flex', gap: 1 }}>
+        <Box sx={{ 
+          display: 'flex', 
+          gap: { xs: 0.5, sm: 1 },
+          flexWrap: { xs: 'wrap', sm: 'nowrap' },
+          width: { xs: '100%', sm: 'auto' }
+        }}>
           <Button
             variant="outlined"
             size="small"
             startIcon={<Volume2 size={16} />}
             onClick={handlePronunciation}
-            sx={{ minWidth: 'auto', px: 1 }}
+            sx={{ 
+              minWidth: 'auto', 
+              px: { xs: 0.5, sm: 1 },
+              fontSize: { xs: '0.7rem', sm: '0.875rem' },
+              flex: { xs: '1', sm: 'none' },
+              '& .MuiButton-startIcon': {
+                margin: { xs: '0 2px 0 0', sm: '0 4px 0 0' }
+              }
+            }}
           >
-            發音
+            <Box sx={{ display: { xs: 'none', sm: 'inline' } }}>發音</Box>
+            <Box sx={{ display: { xs: 'inline', sm: 'none' } }}>🔊</Box>
           </Button>
           <Button
             variant="outlined"
             size="small"
             startIcon={<Brain size={16} />}
             onClick={handleAIAnalysisClick}
-            sx={{ minWidth: 'auto', px: 1, color: 'purple', borderColor: 'purple' }}
+            sx={{ 
+              minWidth: 'auto', 
+              px: { xs: 0.5, sm: 1 },
+              fontSize: { xs: '0.7rem', sm: '0.875rem' },
+              color: 'purple', 
+              borderColor: 'purple',
+              flex: { xs: '1', sm: 'none' },
+              '& .MuiButton-startIcon': {
+                margin: { xs: '0 2px 0 0', sm: '0 4px 0 0' }
+              }
+            }}
           >
-            🧠 AI 深度解析
+            <Box sx={{ display: { xs: 'none', sm: 'inline' } }}>AI解析</Box>
+            <Box sx={{ display: { xs: 'inline', sm: 'none' } }}>🧠</Box>
           </Button>
           <Button
             variant="outlined"
             size="small"
             startIcon={<ExternalLink size={16} />}
             onClick={handleDictionaryOpen}
-            sx={{ minWidth: 'auto', px: 1 }}
+            sx={{ 
+              minWidth: 'auto', 
+              px: { xs: 0.5, sm: 1 },
+              fontSize: { xs: '0.7rem', sm: '0.875rem' },
+              flex: { xs: '1', sm: 'none' },
+              '& .MuiButton-startIcon': {
+                margin: { xs: '0 2px 0 0', sm: '0 4px 0 0' }
+              }
+            }}
           >
-            📚 字典
+            <Box sx={{ display: { xs: 'none', sm: 'inline' } }}>字典</Box>
+            <Box sx={{ display: { xs: 'inline', sm: 'none' } }}>📚</Box>
           </Button>
         </Box>
       </DialogTitle>

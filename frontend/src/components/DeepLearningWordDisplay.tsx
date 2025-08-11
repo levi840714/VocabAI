@@ -46,7 +46,19 @@ const DeepLearningWordDisplay: React.FC<DeepLearningWordDisplayProps> = ({ data 
           </div>
           <div>
             <h4 className="font-medium text-amber-800">字根分析：</h4>
-            <p className="text-slate-700">{data.etymology.root_analysis}</p>
+            <div className="text-slate-700">
+              {typeof data.etymology.root_analysis === 'string' ? (
+                <p>{data.etymology.root_analysis}</p>
+              ) : (
+                <div className="space-y-2">
+                  {Object.entries(data.etymology.root_analysis).map(([key, value]) => (
+                    <div key={key} className="bg-amber-100 p-2 rounded">
+                      <span className="font-medium text-amber-800">{key}:</span> {value}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
           {data.etymology.related_words.length > 0 && (
             <div>

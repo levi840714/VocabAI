@@ -225,10 +225,10 @@ async def deep_learning_from_vocab_handler(callback_query: CallbackQuery, ai_ser
     structured_deep_data = ai_service.parse_structured_response(raw_deep_explanation, is_deep_learning=True)
     
     # Import the formatting function from word_handler
-    from bot.handlers.word_handler import format_word_explanation
-    formatted_deep_explanation = format_word_explanation(structured_deep_data, is_deep_learning=True)
+    from bot.handlers.word_handler import format_deep_learning_explanation
+    formatted_deep_explanation = format_deep_learning_explanation(structured_deep_data)
 
-    new_text = f"<b>{word_data['word']}</b>\n\n{word_data['initial_ai_explanation']}\n\n<hr>\n\n<b>🔍 深度學習內容:</b>\n{formatted_deep_explanation}"
+    new_text = f"<b>{word_data['word']}</b>\n\n<b>🔍 深度學習內容:</b>\n{formatted_deep_explanation}"
 
     builder = InlineKeyboardBuilder()
     builder.button(text="Back to Details", callback_data=f"word_details:{word_id}")

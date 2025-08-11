@@ -8,24 +8,30 @@ import { DeepLearningAIResponse } from '../lib/types';
 
 interface TestStructuredDisplayProps {
   initialWord?: string | null;
+  onAnalysisProcessed?: () => void;
 }
 
-const TestStructuredDisplay: React.FC<TestStructuredDisplayProps> = ({ initialWord }) => {
+const TestStructuredDisplay: React.FC<TestStructuredDisplayProps> = ({ initialWord, onAnalysisProcessed }) => {
   const [word, setWord] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<DeepLearningAIResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lastProcessedWord, setLastProcessedWord] = useState<string | null>(null);
 
-  // 當有初始單字時自動設置，但不自動分析
+  // 當有新的 initialWord 時自動設置並分析（但避免重複請求）
   useEffect(() => {
-    if (initialWord && initialWord !== lastProcessedWord) {
+    if (initialWord && initialWord.trim() && initialWord !== lastProcessedWord) {
       setWord(initialWord);
-      // 清除之前的結果，但不自動發送請求
+      // 清除之前的結果並自動發送請求
       setResult(null);
       setError(null);
+      handleSubmitForWord(initialWord);
+      // 通知父組件已處理完成
+      if (onAnalysisProcessed) {
+        onAnalysisProcessed();
+      }
     }
-  }, [initialWord, lastProcessedWord]);
+  }, [initialWord, onAnalysisProcessed]);
 
   const handleSubmitForWord = async (targetWord: string) => {
     if (!targetWord.trim()) return;

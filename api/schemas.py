@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Union
 from datetime import datetime
 
 class WordBase(BaseModel):
@@ -67,7 +67,7 @@ class WordDefinition(BaseModel):
 
 class Etymology(BaseModel):
     origin: str = Field(..., description="詞彙來源和歷史背景")
-    root_analysis: str = Field(..., description="字根、字首、字尾分析")
+    root_analysis: Union[str, Dict[str, str]] = Field(..., description="字根、字首、字尾分析")
     related_words: List[str] = Field(default=[], description="相關詞彙")
 
 class Collocations(BaseModel):

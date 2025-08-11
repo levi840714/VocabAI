@@ -134,8 +134,8 @@ class AIService:
             "definitions": [{
                 "part_of_speech": "unknown",
                 "meanings": [{
-                    "definition": raw_response,
-                    "context": "原始回覆"
+                    "definition": "AI 解析失敗，請稍後再試。",
+                    "context": "解析失敗"
                 }]
             }],
             "examples": [],
@@ -172,8 +172,8 @@ class AIService:
             })
             # Convert examples and synonyms to deep learning format
             basic_structure["examples"] = [{
-                "sentence": raw_response,
-                "translation": "原始回覆",
+                "sentence": "範例解析失敗",
+                "translation": "解析失敗",
                 "context": "解析失敗"
             }]
             basic_structure["synonyms"] = []
