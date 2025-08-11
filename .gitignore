@@ -143,6 +143,7 @@ vocabot.db
 
 # Deployment configs (contain sensitive info)
 deployment-config.yaml
+deploy_script/
 
 # Frontend build
 frontend/dist/
