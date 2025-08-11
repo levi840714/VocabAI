@@ -5,10 +5,11 @@ import os
 import sys
 import atexit
 import sqlite3
+import signal
+from threading import Thread
 from aiohttp import web
 import subprocess
 import uvicorn
-from threading import Thread
 
 from google.cloud import storage
 from aiogram import Bot, Dispatcher
@@ -21,6 +22,100 @@ from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_applicati
 from config_loader import load_config
 from aiohttp import web
 import json
+
+class GCSDBSync:
+    """GCS 資料庫同步管理器"""
+    
+    def __init__(self, gcs_bucket_name: str, db_path: str):
+        self.bucket_name = gcs_bucket_name
+        self.db_path = db_path
+        self.db_file_name = os.path.basename(db_path)
+        self.client = None
+        self.bucket = None
+        self.blob = None
+        
+    def initialize(self):
+        """初始化 GCS 連接"""
+        try:
+            self.client = storage.Client()
+            self.bucket = self.client.get_bucket(self.bucket_name)
+            self.blob = self.bucket.blob(self.db_file_name)
+            logging.info(f"GCS 同步管理器初始化成功: {self.bucket_name}")
+            return True
+        except Exception as e:
+            logging.error(f"GCS 同步管理器初始化失敗: {e}")
+            return False
+    
+    def download_db(self):
+        """從 GCS 下載資料庫"""
+        try:
+            if self.blob.exists():
+                logging.info(f"正在從 GCS 下載 {self.db_file_name}...")
+                self.blob.download_to_filename(self.db_path)
+                logging.info("資料庫下載成功")
+                return True
+            else:
+                logging.info(f"GCS 中未找到 {self.db_file_name}，將創建新的本地資料庫")
+                self._ensure_db_exists()
+                return False
+        except Exception as e:
+            logging.error(f"下載資料庫失敗: {e}")
+            self._ensure_db_exists()
+            return False
+    
+    def upload_db(self, force=False):
+        """上傳資料庫到 GCS"""
+        try:
+            if not os.path.exists(self.db_path):
+                logging.warning(f"資料庫文件不存在，跳過上傳: {self.db_path}")
+                return False
+            
+            # 檢查資料庫完整性
+            if not self._check_db_integrity():
+                logging.error("資料庫完整性檢查失敗，跳過上傳")
+                return False
+            
+            logging.info(f"正在上傳 {self.db_file_name} 到 GCS...")
+            self.blob.upload_from_filename(self.db_path)
+            logging.info("資料庫上傳成功")
+            return True
+            
+        except Exception as e:
+            logging.error(f"上傳資料庫失敗: {e}")
+            return False
+    
+    def _ensure_db_exists(self):
+        """確保本地資料庫文件存在"""
+        if not os.path.exists(self.db_path):
+            open(self.db_path, 'a').close()
+            logging.info(f"創建空資料庫文件: {self.db_path}")
+    
+    def _check_db_integrity(self):
+        """檢查資料庫完整性"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.execute("PRAGMA integrity_check")
+            return True
+        except sqlite3.Error as e:
+            logging.error(f"資料庫完整性檢查失敗: {e}")
+            return False
+    
+    def start_periodic_sync(self, interval_minutes=5):
+        """啟動定期同步 (背景執行)"""
+        import asyncio
+        
+        async def periodic_upload():
+            while True:
+                try:
+                    await asyncio.sleep(interval_minutes * 60)  # 轉換為秒
+                    logging.info("執行定期資料庫同步...")
+                    self.upload_db()
+                except Exception as e:
+                    logging.error(f"定期同步失敗: {e}")
+        
+        # 在背景執行定期同步
+        asyncio.create_task(periodic_upload())
+        logging.info(f"定期同步已啟動，間隔: {interval_minutes} 分鐘")
 
 async def setup_api_routes(app):
     """Setup API routes on aiohttp server."""
@@ -85,6 +180,23 @@ async def setup_api_routes(app):
     
     async def health_handler(request):
         return web.json_response({'status': 'healthy', 'service': 'vocabot-api'})
+    
+    # 全域 GCS 同步管理器 (在 main 函數中設定)
+    global gcs_sync_manager
+    
+    async def sync_db_handler(request):
+        """手動觸發資料庫同步的 API 端點"""
+        try:
+            if 'gcs_sync_manager' in globals() and gcs_sync_manager:
+                success = gcs_sync_manager.upload_db()
+                if success:
+                    return web.json_response({'status': 'success', 'message': '資料庫同步成功'})
+                else:
+                    return web.json_response({'status': 'error', 'message': '資料庫同步失敗'}, status=500)
+            else:
+                return web.json_response({'status': 'error', 'message': '未啟用 GCS 同步'}, status=400)
+        except Exception as e:
+            return web.json_response({'status': 'error', 'message': str(e)}, status=500)
     
     # Add CORS middleware
     @web.middleware
@@ -224,6 +336,7 @@ async def setup_api_routes(app):
     
     app.router.add_get('/api/v1/stats', get_user_statistics_wrapper)
     app.router.add_get('/api/v1/health', health_handler)
+    app.router.add_post('/api/v1/sync-db', sync_db_handler)  # 手動同步端點
     
     # CORS OPTIONS handlers
     app.router.add_options('/api/{path:.*}', options_handler)
@@ -278,7 +391,13 @@ async def start_webhook():
     port = int(os.getenv('PORT', os.getenv('API_PORT', '8080')))
     
     # Set webhook
-    await bot.set_webhook(url=webhook_url)
+    logging.info(f"Setting webhook URL: {webhook_url}")
+    try:
+        await bot.set_webhook(url=webhook_url)
+        logging.info("Webhook URL set successfully")
+    except Exception as e:
+        logging.error(f"Failed to set webhook URL: {e}")
+        raise
     
     # Create aiohttp application
     app = web.Application()
@@ -375,63 +494,45 @@ async def main():
     db_path = config['database']['db_path'] # Get the determined DB path
 
     # --- GCS 資料庫處理 (僅在 Cloud Run 環境下執行) ---
+    gcs_sync = None
+    global gcs_sync_manager
+    gcs_sync_manager = None
+    
     if is_cloud_run:
         gcs_bucket_name = config['database'].get('gcs_bucket')  # Get bucket name from config
-        db_file_name = os.path.basename(db_path)  # Should be vocabot.db
         
         if not gcs_bucket_name:
             logging.error("DATABASE_GCS_BUCKET environment variable not set in Cloud Run. Database persistence will fail.")
-            # Fallback to local-only if bucket not set, but warn
             # 確保資料庫文件存在
             if not os.path.exists(db_path):
                 open(db_path, 'a').close()
         else:
-            try:
-                client = storage.Client()
-                bucket = client.get_bucket(gcs_bucket_name)
-                blob = bucket.blob(db_file_name)
-
-                # 下載資料庫 (如果存在)
-                if blob.exists():
-                    logging.info(f"Downloading {db_file_name} from GCS bucket {gcs_bucket_name}...")
-                    blob.download_to_filename(db_path)
-                    logging.info("Database downloaded successfully.")
-                else:
-                    logging.info(f"Database {db_file_name} not found in GCS. A new one will be created locally.")
-                    # 確保資料庫文件存在
-                    if not os.path.exists(db_path):
-                        open(db_path, 'a').close()
-
-                # 註冊關閉時上傳資料庫的函數
-                def upload_db_on_exit():
-                    try:
-                        logging.info(f"Uploading {db_file_name} to GCS bucket {gcs_bucket_name} on exit...")
-                        
-                        # 檢查資料庫文件是否存在
-                        if not os.path.exists(db_path):
-                            logging.warning(f"Database file {db_path} not found, skipping upload.")
-                            return
-                        
-                        # 使用 sqlite3 檢查資料庫完整性
-                        try:
-                            with sqlite3.connect(db_path) as conn:
-                                conn.execute("PRAGMA integrity_check")
-                        except sqlite3.Error as e:
-                            logging.error(f"Database integrity check failed: {e}")
-                            return
-                        
-                        # 上傳到 GCS
-                        blob.upload_from_filename(db_path)
-                        logging.info("Database uploaded successfully on exit.")
-                        
-                    except Exception as e:
-                        logging.error(f"Failed to upload database to GCS on exit: {e}")
-
-                atexit.register(upload_db_on_exit)
-
-            except Exception as e:
-                logging.error(f"Failed to initialize GCS database handling: {e}")
-                # 確保資料庫文件存在，即使 GCS 失敗
+            # 使用新的同步管理器
+            gcs_sync = GCSDBSync(gcs_bucket_name, db_path)
+            gcs_sync_manager = gcs_sync  # 設定全域變數
+            if gcs_sync.initialize():
+                # 啟動時下載資料庫
+                gcs_sync.download_db()
+                
+                # 設定信號處理器來捕獲終止信號
+                def signal_handler(signum, frame):
+                    logging.info(f"接收到信號 {signum}，正在上傳資料庫...")
+                    gcs_sync.upload_db()
+                    sys.exit(0)
+                
+                # 註冊信號處理器 (Cloud Run 主要使用 SIGTERM)
+                signal.signal(signal.SIGTERM, signal_handler)
+                signal.signal(signal.SIGINT, signal_handler)
+                
+                # 註冊 atexit 作為備份
+                atexit.register(lambda: gcs_sync.upload_db())
+                
+                # 啟動定期同步 (每 4 小時)
+                gcs_sync.start_periodic_sync(interval_minutes=240)
+                
+                logging.info("GCS 資料庫同步設定完成 (包含定期同步)")
+            else:
+                logging.warning("GCS 同步初始化失敗，使用本地模式")
                 if not os.path.exists(db_path):
                     open(db_path, 'a').close()
     else:
@@ -458,10 +559,15 @@ async def main():
     try:
         # Start bot
         if mode == 'webhook':
-            logging.info("Starting bot in webhook mode (API routes integrated)")
-            await start_webhook()
+            logging.info(f"Starting bot in webhook mode (BOT_MODE={mode}) (API routes integrated)")
+            try:
+                await start_webhook()
+            except Exception as webhook_error:
+                logging.error(f"Webhook mode failed: {webhook_error}")
+                logging.info("Falling back to polling mode...")
+                await start_polling()
         else:
-            logging.info("Starting bot in polling mode")
+            logging.info(f"Starting bot in polling mode (BOT_MODE={mode})")
             await start_polling()
     finally:
         # Clean up API process if it exists
