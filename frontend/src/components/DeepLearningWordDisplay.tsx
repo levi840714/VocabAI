@@ -2,16 +2,19 @@ import React from 'react';
 import { DeepLearningAIResponse } from '../lib/types';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
-import { Volume2 } from 'lucide-react';
+import { Button } from './ui/button';
+import { Volume2, Plus } from 'lucide-react';
 import ClickableTextWrapper from './ClickableTextWrapper';
 
 interface DeepLearningWordDisplayProps {
   data: DeepLearningAIResponse;
   onAIAnalysisClick?: (word: string) => void;
   onWordAdded?: (word: string) => void;
+  onAddWordClick?: () => void;
+  isAddingWord?: boolean;
 }
 
-const DeepLearningWordDisplay: React.FC<DeepLearningWordDisplayProps> = ({ data, onAIAnalysisClick, onWordAdded }) => {
+const DeepLearningWordDisplay: React.FC<DeepLearningWordDisplayProps> = ({ data, onAIAnalysisClick, onWordAdded, onAddWordClick, isAddingWord }) => {
   // Handle pronunciation for text (word or sentence)
   const handlePronunciation = (text: string) => {
     // Use Web Speech API for pronunciation
@@ -29,13 +32,70 @@ const DeepLearningWordDisplay: React.FC<DeepLearningWordDisplayProps> = ({ data,
     }
   };
 
+  // Highlight target word in text
+  const highlightWord = (text: string, targetWord: string) => {
+    if (!targetWord || !text) return text;
+    
+    // Create a case-insensitive regex with word boundaries
+    const regex = new RegExp(`\\b(${targetWord})\\b`, 'gi');
+    const parts = text.split(regex);
+    
+    return parts.map((part, index) => {
+      if (part.toLowerCase() === targetWord.toLowerCase()) {
+        return (
+          <span 
+            key={index}
+            className="text-red-600 font-semibold underline decoration-red-300 decoration-2"
+          >
+            {part}
+          </span>
+        );
+      }
+      return part;
+    });
+  };
+
   return (
     <div className="space-y-6">
       {/* Word Header with Pronunciations */}
-      <div className="text-center bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg">
-        <h2 className="text-3xl font-bold text-slate-800 mb-2">
-          {data.word}
-        </h2>
+      <div className="text-center bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg relative">
+        {/* Add to Vocabulary Button - Top Right */}
+        {onAddWordClick && (
+          <div className="absolute top-4 right-4">
+            <Button
+              onClick={onAddWordClick}
+              disabled={isAddingWord}
+              size="sm"
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              {isAddingWord ? (
+                <>
+                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1"></div>
+                  加入中
+                </>
+              ) : (
+                <>
+                  <Plus size={12} className="mr-1" />
+                  加入詞彙庫
+                </>
+              )}
+            </Button>
+          </div>
+        )}
+        
+        <div className="flex items-center justify-center gap-3 mb-2">
+          <h2 className="text-3xl font-bold text-slate-800">
+            {data.word}
+          </h2>
+          <button
+            onClick={() => handlePronunciation(data.word)}
+            className="p-2 rounded-full bg-white shadow-sm border border-slate-200 hover:bg-slate-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            title="聆聽單字發音"
+            aria-label="聆聽單字發音"
+          >
+            <Volume2 size={18} className="text-slate-600" />
+          </button>
+        </div>
         {data.pronunciations.length > 0 && (
           <div className="flex justify-center gap-4 mb-3">
             {data.pronunciations.map((pronunciation, index) => (
@@ -206,7 +266,7 @@ const DeepLearningWordDisplay: React.FC<DeepLearningWordDisplayProps> = ({ data,
                   onAIAnalysisClick={onAIAnalysisClick}
                   onWordAdded={onWordAdded}
                 >
-                  "{example.sentence}"
+                  "{highlightWord(example.sentence, data.word)}"
                 </ClickableTextWrapper>
                 <p className="text-slate-600 text-sm mb-1">
                   翻譯：{example.translation}

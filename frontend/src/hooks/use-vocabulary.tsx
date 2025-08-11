@@ -50,6 +50,7 @@ interface VocabularyContextType {
   deleteWord: (id: string) => Promise<void>
   toggleLearned: (id: string) => Promise<void>
   refreshWords: () => Promise<void>
+  silentRefreshWords: () => Promise<void>
   getAIExplanation: (word: string, type?: 'simple' | 'deep') => Promise<string>
 }
 
@@ -77,6 +78,22 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
       console.error('Error fetching words:', err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const silentRefreshWords = async () => {
+    try {
+      setError(null)
+      const response: WordsResponse = await vocabotAPI.getWords()
+      const convertedWords = response.words.map(convertAPIWordToWord)
+      setWords(convertedWords)
+      
+      // Also fetch stats
+      const statsResponse = await vocabotAPI.getStats()
+      setStats(statsResponse)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch words')
+      console.error('Error fetching words:', err)
     }
   }
 
@@ -196,6 +213,7 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
       deleteWord, 
       toggleLearned, 
       refreshWords,
+      silentRefreshWords,
       getAIExplanation
     }}>
       {children}

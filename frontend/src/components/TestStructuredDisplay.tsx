@@ -5,6 +5,8 @@ import { Card } from './ui/card';
 import DeepLearningWordDisplay from './DeepLearningWordDisplay';
 import { vocabotAPI, AIExplanationResponse } from '@/lib/api';
 import { DeepLearningAIResponse } from '../lib/types';
+import { useToast } from '@/hooks/use-toast';
+import { Plus } from 'lucide-react';
 
 interface TestStructuredDisplayProps {
   initialWord?: string | null;
@@ -18,6 +20,8 @@ const TestStructuredDisplay: React.FC<TestStructuredDisplayProps> = ({ initialWo
   const [result, setResult] = useState<DeepLearningAIResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lastProcessedWord, setLastProcessedWord] = useState<string | null>(null);
+  const [isAddingWord, setIsAddingWord] = useState(false);
+  const { toast } = useToast();
 
   // 當有新的 initialWord 時自動設置並分析（但避免重複請求）
   useEffect(() => {
@@ -59,6 +63,36 @@ const TestStructuredDisplay: React.FC<TestStructuredDisplayProps> = ({ initialWo
 
   const handleSubmit = async () => {
     await handleSubmitForWord(word);
+  };
+
+  const handleAddWord = async () => {
+    if (!lastProcessedWord || !result) {
+      return;
+    }
+
+    setIsAddingWord(true);
+    try {
+      // 使用深度解析的詳細解釋作為 AI 解釋
+      const simplifiedExplanation = `${result.definitions.map(def => 
+        `${def.part_of_speech}: ${def.meanings.map(m => m.definition).join('; ')}`
+      ).join('\n')}`;
+      
+      await vocabotAPI.addWord(lastProcessedWord, simplifiedExplanation);
+      
+      toast({
+        title: "成功！",
+        description: `單字 "${lastProcessedWord}" 已加入到您的詞彙庫中`,
+      });
+    } catch (error) {
+      console.error('加入單字失敗:', error);
+      toast({
+        title: "錯誤",
+        description: "加入單字失敗，請稍後重試",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAddingWord(false);
+    }
   };
 
   return (
@@ -107,6 +141,8 @@ const TestStructuredDisplay: React.FC<TestStructuredDisplayProps> = ({ initialWo
             data={result} 
             onAIAnalysisClick={onAIAnalysisClick}
             onWordAdded={(word) => console.log(`單字 "${word}" 已在 AI 分析頁面中加入`)}
+            onAddWordClick={handleAddWord}
+            isAddingWord={isAddingWord}
           />
         </div>
       )}

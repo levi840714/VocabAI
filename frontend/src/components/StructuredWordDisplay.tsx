@@ -29,6 +29,29 @@ const StructuredWordDisplay: React.FC<StructuredWordDisplayProps> = ({ data, onA
     }
   };
 
+  // Highlight target word in text
+  const highlightWord = (text: string, targetWord: string) => {
+    if (!targetWord || !text) return text;
+    
+    // Create a case-insensitive regex with word boundaries
+    const regex = new RegExp(`\\b(${targetWord})\\b`, 'gi');
+    const parts = text.split(regex);
+    
+    return parts.map((part, index) => {
+      if (part.toLowerCase() === targetWord.toLowerCase()) {
+        return (
+          <span 
+            key={index}
+            className="text-red-600 font-semibold underline decoration-red-300 decoration-2"
+          >
+            {part}
+          </span>
+        );
+      }
+      return part;
+    });
+  };
+
   return (
     <div className="space-y-4">
       {/* Word and Pronunciations */}
@@ -86,7 +109,7 @@ const StructuredWordDisplay: React.FC<StructuredWordDisplayProps> = ({ data, onA
                   onAIAnalysisClick={onAIAnalysisClick}
                   onWordAdded={onWordAdded}
                 >
-                  "{example}"
+                  "{highlightWord(example, data.word)}"
                 </ClickableTextWrapper>
                 <button
                   onClick={() => handlePronunciation(example)}

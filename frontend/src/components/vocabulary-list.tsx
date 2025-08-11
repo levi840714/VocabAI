@@ -13,7 +13,7 @@ interface VocabularyListProps {
 }
 
 export default function VocabularyList({ onAIAnalysisClick }: VocabularyListProps) {
-  const { words, toggleLearned, deleteWord, loading, error, refreshWords } = useVocabulary()
+  const { words, toggleLearned, deleteWord, loading, error, refreshWords, silentRefreshWords } = useVocabulary()
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedWord, setSelectedWord] = useState<any>(null)
   const [selectedWordId, setSelectedWordId] = useState<string | null>(null)
@@ -168,7 +168,7 @@ export default function VocabularyList({ onAIAnalysisClick }: VocabularyListProp
           initial_ai_explanation: selectedWord.raw_explanation,
           user_notes: selectedWord.user_notes
         } : undefined}
-        onNotesUpdate={refreshWords}
+        onNotesUpdate={silentRefreshWords}
         onAIAnalysisClick={onAIAnalysisClick}
       />
     </div>
