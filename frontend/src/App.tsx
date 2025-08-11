@@ -1,3 +1,4 @@
+import React from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { VocabularyProvider } from "@/hooks/use-vocabulary"
 import { Toaster } from "@/components/ui/toaster"
@@ -13,6 +14,14 @@ import { Bot, User, Smartphone } from "lucide-react"
 // 主要應用程式組件
 function MainApp() {
   const { isAuthenticated, isLocalTestMode, user } = useAuth();
+  const [currentTab, setCurrentTab] = React.useState("vocabulary");
+  const [aiAnalysisWord, setAiAnalysisWord] = React.useState<string | null>(null);
+
+  // 處理 AI 深度解析的跳轉
+  const handleAIAnalysis = (word: string) => {
+    setAiAnalysisWord(word);
+    setCurrentTab("test");
+  };
 
   if (!isAuthenticated) {
     return (
@@ -96,7 +105,7 @@ function MainApp() {
           {/* Tabs on soft glass surface */}
           <section id="main-tabs">
             <div className="rounded-2xl bg-white/75 backdrop-blur-md p-3 ring-1 ring-blue-200/40 shadow-lg">
-              <Tabs defaultValue="vocabulary" className="w-full">
+              <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
                 <TabsList className="grid grid-cols-5 mb-6 rounded-xl bg-blue-50/70 p-1">
                   <TabsTrigger
                     value="vocabulary"
@@ -124,15 +133,15 @@ function MainApp() {
                   </TabsTrigger>
                   <TabsTrigger
                     value="test"
-                    className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-blue-700 data-[state=active]:shadow-sm"
+                    className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-purple-700 data-[state=active]:shadow-sm"
                   >
                     <Bot className="w-4 h-4 mr-1" />
-                    AI 解釋
+                    🧠 AI 深度解析
                   </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="vocabulary" className="mt-6">
-                  <VocabularyList />
+                  <VocabularyList onAIAnalysisClick={handleAIAnalysis} />
                 </TabsContent>
 
                 <TabsContent value="add" className="mt-6">
@@ -140,7 +149,7 @@ function MainApp() {
                 </TabsContent>
 
                 <TabsContent value="study" className="mt-6">
-                  <StudyMode />
+                  <StudyMode onAIAnalysisClick={handleAIAnalysis} />
                 </TabsContent>
 
                 <TabsContent value="progress" className="mt-6">
@@ -148,7 +157,7 @@ function MainApp() {
                 </TabsContent>
 
                 <TabsContent value="test" className="mt-6">
-                  <TestStructuredDisplay />
+                  <TestStructuredDisplay initialWord={aiAnalysisWord} />
                 </TabsContent>
               </Tabs>
             </div>

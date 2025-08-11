@@ -13,7 +13,7 @@ from bot.services.ai_service import AIService
 from config_loader import load_config
 
 def get_database_path() -> str:
-    """Get the database path from settings."""
+    """Get the database path from settings (already resolved to absolute path)."""
     config = load_config()
     return config.get('database', {}).get('db_path', 'vocabot.db')
 

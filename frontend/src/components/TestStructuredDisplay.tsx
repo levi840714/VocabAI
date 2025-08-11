@@ -1,46 +1,62 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Card } from './ui/card';
-import StructuredWordDisplay from './StructuredWordDisplay';
+import DeepLearningWordDisplay from './DeepLearningWordDisplay';
 import { vocabotAPI, AIExplanationResponse } from '@/lib/api';
-import { StructuredAIResponse } from '../lib/types';
+import { DeepLearningAIResponse } from '../lib/types';
 
-const TestStructuredDisplay: React.FC = () => {
+interface TestStructuredDisplayProps {
+  initialWord?: string | null;
+}
+
+const TestStructuredDisplay: React.FC<TestStructuredDisplayProps> = ({ initialWord }) => {
   const [word, setWord] = useState('');
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<StructuredAIResponse | null>(null);
+  const [result, setResult] = useState<DeepLearningAIResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async () => {
-    if (!word.trim()) return;
+  // 當有初始單字時自動設置並分析
+  useEffect(() => {
+    if (initialWord) {
+      setWord(initialWord);
+      handleSubmitForWord(initialWord);
+    }
+  }, [initialWord]);
+
+  const handleSubmitForWord = async (targetWord: string) => {
+    if (!targetWord.trim()) return;
     
     setLoading(true);
     setError(null);
     setResult(null);
 
     try {
-      const response: AIExplanationResponse = await vocabotAPI.getAIExplanation(word.trim(), 'simple');
+      const response: AIExplanationResponse = await vocabotAPI.getAIExplanation(targetWord.trim(), 'deep');
       
-      if (response.structured_data) {
-        setResult(response.structured_data);
+      if (response.structured_data && response.explanation_type === 'deep') {
+        setResult(response.structured_data as DeepLearningAIResponse);
       } else {
-        setError('No structured data available. Raw response: ' + response.explanation);
+        setError('無法獲得深度學習解析資料。原始回應: ' + response.explanation);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error occurred');
+      setError(err instanceof Error ? err.message : '發生未知錯誤');
     } finally {
       setLoading(false);
     }
   };
 
+  const handleSubmit = async () => {
+    await handleSubmitForWord(word);
+  };
+
   return (
     <div className="container mx-auto p-6 max-w-4xl">
       <h1 className="text-3xl font-bold text-center mb-4">
-        AI 智能單字解釋
+        🧠 AI 深度解析
       </h1>
       <p className="text-center text-slate-600 mb-8">
-        輸入任意英文單字，獲取結構化的詳細解釋
+        輸入任意英文單字，獲取專業級的詞源分析、搭配用法、記憶策略等深度學習內容
       </p>
 
       {/* Input Section */}
@@ -57,8 +73,9 @@ const TestStructuredDisplay: React.FC = () => {
           <Button 
             onClick={handleSubmit}
             disabled={loading || !word.trim()}
+            className="bg-purple-600 hover:bg-purple-700"
           >
-            {loading ? '查詢中...' : '查詢'}
+            {loading ? '深度解析中...' : '🧠 開始深度解析'}
           </Button>
         </div>
       </Card>
@@ -71,18 +88,20 @@ const TestStructuredDisplay: React.FC = () => {
         </Card>
       )}
 
-      {/* Structured Display */}
+      {/* Deep Learning Display */}
       {result && (
         <div>
-          <h2 className="text-2xl font-semibold mb-4">AI 解釋結果：</h2>
-          <StructuredWordDisplay data={result} />
+          <h2 className="text-2xl font-semibold mb-4 text-purple-700">🧠 AI 深度解析結果：</h2>
+          <DeepLearningWordDisplay data={result} />
         </div>
       )}
 
       {/* Loading State */}
       {loading && (
         <div className="text-center py-8">
-          <p className="text-gray-500">正在查詢中...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto mb-4"></div>
+          <p className="text-purple-600 font-medium">🧠 AI 正在進行深度解析...</p>
+          <p className="text-gray-500 text-sm mt-2">這包括詞源分析、搭配用法、記憶策略等，可能需要幾秒鐘</p>
         </div>
       )}
     </div>

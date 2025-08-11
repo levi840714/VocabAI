@@ -9,7 +9,11 @@ import { useToast } from "@/hooks/use-toast"
 import StructuredWordDetailsDialog from "./StructuredWordDetailsDialog"
 import { parseStructuredResponse } from "@/lib/parseStructuredResponse"
 
-export default function StudyMode() {
+interface StudyModeProps {
+  onAIAnalysisClick?: (word: string) => void;
+}
+
+export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
   const [currentWord, setCurrentWord] = useState<WordDetail | null>(null)
   const [showDefinitionDialog, setShowDefinitionDialog] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -314,6 +318,7 @@ export default function StudyMode() {
           // Refresh the current word data after notes update
           loadNextReview()
         }}
+        onAIAnalysisClick={onAIAnalysisClick}
       />
     </div>
   )

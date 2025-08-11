@@ -2,6 +2,7 @@ from pydantic_settings import BaseSettings
 from pydantic import Field, field_validator
 from typing import List, Optional, Union
 import logging
+import os
 
 class Settings(BaseSettings):
     """應用程式設定，支援環境變數和 .env 檔案"""
@@ -92,7 +93,7 @@ class Settings(BaseSettings):
                 'bot_token': self.telegram_bot_token,
             },
             'database': {
-                'db_path': self.database_db_path,
+                'db_path': resolve_project_path(self.database_db_path),
                 'gcs_bucket': self.database_gcs_bucket,
             },
             'access_control': {
@@ -148,6 +149,23 @@ def get_settings() -> Settings:
     此函數僅返回環境變數配置，主要用於內部實現
     """
     return _get_settings()
+
+def resolve_project_path(relative_path: str) -> str:
+    """
+    將相對路徑解析為相對於專案根目錄的絕對路徑
+    
+    Args:
+        relative_path: 相對路徑（如 'vocabot.db'）
+        
+    Returns:
+        str: 解析後的絕對路徑
+    """
+    if os.path.isabs(relative_path):
+        return relative_path
+    
+    # 找到專案根目錄（包含 main.py 的目錄）
+    project_root = os.path.abspath(os.path.dirname(__file__))
+    return os.path.join(project_root, relative_path)
 
 def load_config() -> dict:
     """
@@ -205,6 +223,13 @@ def load_config() -> dict:
                         if 'local_test_mode' in access_control:
                             config['access_control']['local_test_mode'] = access_control['local_test_mode']
                     
+                    # 讀取 database 配置
+                    if 'database' in yaml_config and 'db_path' in yaml_config['database']:
+                        db_path = yaml_config['database']['db_path']
+                        # 自動解析為專案根目錄的絕對路徑
+                        config['database']['db_path'] = resolve_project_path(db_path)
+                        logging.info(f"Loaded and resolved database path from YAML: {config['database']['db_path']}")
+                    
                     # 讀取其他配置
                     if 'ai_services' in yaml_config:
                         ai_config = yaml_config['ai_services']
@@ -218,6 +243,16 @@ def load_config() -> dict:
                                 env_var_name = f'ai_services_{provider}_api_key'
                                 if not getattr(settings, env_var_name, ''):
                                     config['ai_services'][provider]['api_key'] = api_key
+                    
+                    # 重要：載入 YAML 中的 prompts 設定
+                    if 'prompts' in yaml_config:
+                        prompts_config = yaml_config['prompts']
+                        if 'simple_explanation' in prompts_config:
+                            config['prompts']['simple_explanation'] = prompts_config['simple_explanation']
+                            logging.info("Loaded simple_explanation prompt from YAML")
+                        if 'deep_learning' in prompts_config:
+                            config['prompts']['deep_learning'] = prompts_config['deep_learning']
+                            logging.info("Loaded deep_learning prompt from YAML")
                     
                     break  # 找到配置文件就停止搜尋
         except FileNotFoundError:

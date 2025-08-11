@@ -11,9 +11,12 @@ import logging
 
 router = Router()
 
-def format_word_explanation(structured_data: dict) -> str:
+def format_word_explanation(structured_data: dict, is_deep_learning: bool = False) -> str:
     """Formats structured word data for display in Telegram."""
     try:
+        if is_deep_learning:
+            return format_deep_learning_explanation(structured_data)
+        
         word = structured_data.get('word', 'Unknown')
         pronunciations = structured_data.get('pronunciations', [])
         definitions = structured_data.get('definitions', [])
@@ -69,6 +72,126 @@ def format_word_explanation(structured_data: dict) -> str:
         logging.error(f"Error formatting word explanation: {e}")
         # Fallback to raw data if formatting fails
         return str(structured_data)
+
+def format_deep_learning_explanation(structured_data: dict) -> str:
+    """Formats deep learning structured word data for display in Telegram."""
+    try:
+        word = structured_data.get('word', 'Unknown')
+        pronunciations = structured_data.get('pronunciations', [])
+        etymology = structured_data.get('etymology', {})
+        definitions = structured_data.get('definitions', [])
+        collocations = structured_data.get('collocations', {})
+        examples = structured_data.get('examples', [])
+        synonyms = structured_data.get('synonyms', [])
+        antonyms = structured_data.get('antonyms', [])
+        memory_strategies = structured_data.get('memory_strategies', {})
+        cultural_notes = structured_data.get('cultural_notes', '')
+        difficulty_level = structured_data.get('difficulty_level', '')
+        frequency = structured_data.get('frequency', '')
+        
+        formatted = ""
+        
+        # Header with level and frequency
+        if difficulty_level or frequency:
+            formatted += f"📊 <b>級別:</b> {difficulty_level} | <b>頻率:</b> {frequency}\n\n"
+        
+        # Pronunciations
+        if pronunciations:
+            formatted += f"🔊 <b>發音:</b> {', '.join(pronunciations)}\n\n"
+        
+        # Etymology
+        if etymology:
+            formatted += "🏛️ <b>詞源分析:</b>\n"
+            if etymology.get('origin'):
+                formatted += f"• 來源: {etymology['origin']}\n"
+            if etymology.get('root_analysis'):
+                formatted += f"• 字根: {etymology['root_analysis']}\n"
+            if etymology.get('related_words'):
+                formatted += f"• 相關詞: {', '.join(etymology['related_words'][:5])}\n"
+            formatted += "\n"
+        
+        # Definitions with enhanced info
+        if definitions:
+            formatted += "📖 <b>詳細定義:</b>\n"
+            for def_group in definitions:
+                part_of_speech = def_group.get('part_of_speech', '').title()
+                meanings = def_group.get('meanings', [])
+                
+                if part_of_speech:
+                    formatted += f"<i>{part_of_speech}</i>\n"
+                
+                for meaning in meanings:
+                    definition = meaning.get('definition', '')
+                    context = meaning.get('context', '')
+                    formality = meaning.get('formality', '')
+                    usage_notes = meaning.get('usage_notes', '')
+                    
+                    formatted += f"• {definition}"
+                    if context:
+                        formatted += f" ({context})"
+                    if formality:
+                        formatted += f" [{formality}]"
+                    formatted += "\n"
+                    if usage_notes:
+                        formatted += f"  ⚠️ {usage_notes}\n"
+                formatted += "\n"
+        
+        # Collocations
+        if collocations:
+            formatted += "🔗 <b>常用搭配:</b>\n"
+            if collocations.get('common_phrases'):
+                formatted += f"• 片語: {', '.join(collocations['common_phrases'][:3])}\n"
+            if collocations.get('verb_combinations'):
+                formatted += f"• 動詞: {', '.join(collocations['verb_combinations'][:3])}\n"
+            formatted += "\n"
+        
+        # Enhanced Examples
+        if examples:
+            formatted += "💡 <b>情境例句:</b>\n"
+            for example in examples[:2]:  # Limit to 2 examples for deep learning
+                if isinstance(example, dict):
+                    sentence = example.get('sentence', '')
+                    translation = example.get('translation', '')
+                    context = example.get('context', '')
+                    formatted += f"• {sentence}\n"
+                    if translation:
+                        formatted += f"  📝 {translation}\n"
+                    if context:
+                        formatted += f"  🎯 {context}\n"
+                else:
+                    formatted += f"• {example}\n"
+            formatted += "\n"
+        
+        # Enhanced Synonyms
+        if synonyms:
+            formatted += "🔄 <b>同義詞比較:</b>\n"
+            for synonym in synonyms[:3]:
+                if isinstance(synonym, dict):
+                    word_syn = synonym.get('word', '')
+                    difference = synonym.get('difference', '')
+                    formatted += f"• {word_syn}: {difference}\n"
+                else:
+                    formatted += f"• {synonym}\n"
+            formatted += "\n"
+        
+        # Memory Strategies
+        if memory_strategies:
+            formatted += "🧠 <b>記憶策略:</b>\n"
+            if memory_strategies.get('visual'):
+                formatted += f"👁️ 視覺: {memory_strategies['visual']}\n"
+            if memory_strategies.get('association'):
+                formatted += f"🔗 聯想: {memory_strategies['association']}\n"
+            formatted += "\n"
+        
+        # Cultural Notes
+        if cultural_notes:
+            formatted += f"🌍 <b>文化背景:</b>\n{cultural_notes}\n\n"
+        
+        return formatted.strip()
+    except Exception as e:
+        logging.error(f"Error formatting deep learning explanation: {e}")
+        # Fallback to regular formatting
+        return format_word_explanation(structured_data, False)
 
 def extract_chinese_definitions(structured_data: dict) -> str:
     """Extracts Chinese definitions from structured data for database storage."""

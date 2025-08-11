@@ -222,11 +222,11 @@ async def deep_learning_from_vocab_handler(callback_query: CallbackQuery, ai_ser
     await callback_query.answer("正在獲取深度學習資訊...")
 
     raw_deep_explanation = await ai_service.get_deep_learning_explanation(word_data['word'])
-    structured_deep_data = ai_service.parse_structured_response(raw_deep_explanation)
+    structured_deep_data = ai_service.parse_structured_response(raw_deep_explanation, is_deep_learning=True)
     
     # Import the formatting function from word_handler
     from bot.handlers.word_handler import format_word_explanation
-    formatted_deep_explanation = format_word_explanation(structured_deep_data)
+    formatted_deep_explanation = format_word_explanation(structured_deep_data, is_deep_learning=True)
 
     new_text = f"<b>{word_data['word']}</b>\n\n{word_data['initial_ai_explanation']}\n\n<hr>\n\n<b>🔍 深度學習內容:</b>\n{formatted_deep_explanation}"
 

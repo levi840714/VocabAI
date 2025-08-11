@@ -8,7 +8,11 @@ import { useToast } from "@/hooks/use-toast"
 import { useVocabulary } from "@/hooks/use-vocabulary"
 import StructuredWordDetailsDialog from "./StructuredWordDetailsDialog"
 
-export default function VocabularyList() {
+interface VocabularyListProps {
+  onAIAnalysisClick?: (word: string) => void;
+}
+
+export default function VocabularyList({ onAIAnalysisClick }: VocabularyListProps) {
   const { words, toggleLearned, deleteWord, loading, error, refreshWords } = useVocabulary()
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedWord, setSelectedWord] = useState<any>(null)
@@ -148,6 +152,7 @@ export default function VocabularyList() {
           user_notes: selectedWord.user_notes
         } : undefined}
         onNotesUpdate={refreshWords}
+        onAIAnalysisClick={onAIAnalysisClick}
       />
     </div>
   )

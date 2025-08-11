@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography, Box, TextField } from '@mui/material';
-import { ExternalLink, Volume2, Edit, Save, X } from 'lucide-react';
+import { ExternalLink, Volume2, Edit, Save, X, Brain } from 'lucide-react';
 import StructuredWordDisplay from './StructuredWordDisplay';
 import { parseStructuredResponse, cleanStructuredResponse } from '../lib/parseStructuredResponse';
 import { vocabotAPI } from '@/lib/api';
@@ -16,9 +16,10 @@ interface WordDetailsDialogProps {
     [key: string]: any;
   };
   onNotesUpdate?: () => void; // Callback to refresh data after notes update
+  onAIAnalysisClick?: (word: string) => void; // Callback to navigate to AI analysis page
 }
 
-const StructuredWordDetailsDialog: React.FC<WordDetailsDialogProps> = ({ open, onClose, word, onNotesUpdate }) => {
+const StructuredWordDetailsDialog: React.FC<WordDetailsDialogProps> = ({ open, onClose, word, onNotesUpdate, onAIAnalysisClick }) => {
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [notesValue, setNotesValue] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
@@ -89,6 +90,12 @@ const StructuredWordDetailsDialog: React.FC<WordDetailsDialogProps> = ({ open, o
     setIsEditingNotes(false);
   };
 
+  const handleAIAnalysisClick = () => {
+    if (onAIAnalysisClick && word.word) {
+      onAIAnalysisClick(word.word);
+    }
+  };
+
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle sx={{ fontWeight: 'bold', fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -102,6 +109,15 @@ const StructuredWordDetailsDialog: React.FC<WordDetailsDialogProps> = ({ open, o
             sx={{ minWidth: 'auto', px: 1 }}
           >
             發音
+          </Button>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<Brain size={16} />}
+            onClick={handleAIAnalysisClick}
+            sx={{ minWidth: 'auto', px: 1, color: 'purple', borderColor: 'purple' }}
+          >
+            🧠 AI 深度解析
           </Button>
           <Button
             variant="outlined"
@@ -122,7 +138,7 @@ const StructuredWordDetailsDialog: React.FC<WordDetailsDialogProps> = ({ open, o
             <Typography variant="subtitle1" component="h3" gutterBottom sx={{ fontWeight: 'bold' }}>
               解釋：
             </Typography>
-            <Typography variant="body1" paragraph sx={{ whiteSpace: 'pre-wrap' }}>
+            <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', mb: 2 }}>
               {word.initial_ai_explanation || '無可用解釋'}
             </Typography>
           </Box>

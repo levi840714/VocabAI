@@ -17,7 +17,7 @@ sys.path.insert(0, api_dir)
 from schemas import (
     WordCreate, WordResponse, WordSimpleResponse, WordDetailResponse, WordsListResponse, 
     ReviewRequest, ReviewResponse, AIExplanationRequest, AIExplanationResponse, 
-    StructuredAIResponse, StatsResponse, HealthResponse, ErrorResponse, UpdateNotesRequest
+    StructuredAIResponse, DeepLearningAIResponse, StatsResponse, HealthResponse, ErrorResponse, UpdateNotesRequest
 )
 from crud import (
     ensure_db_initialized, create_word, get_user_words, get_due_words, get_recent_words,
@@ -219,8 +219,12 @@ async def get_ai_explanation(request: AIExplanationRequest):
         
         structured_data = None
         try:
-            structured_dict = ai_service.parse_structured_response(raw_explanation)
-            structured_data = StructuredAIResponse(**structured_dict)
+            is_deep = (request.explanation_type == "deep")
+            structured_dict = ai_service.parse_structured_response(raw_explanation, is_deep_learning=is_deep)
+            if is_deep:
+                structured_data = DeepLearningAIResponse(**structured_dict)
+            else:
+                structured_data = StructuredAIResponse(**structured_dict)
         except Exception as parse_error:
             logger.warning(f"Failed to parse structured response: {parse_error}")
         

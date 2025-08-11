@@ -103,29 +103,20 @@ spec:
                 }}
             - name: PROMPTS_DEEP_LEARNING
               value: |
-                請使用繁體中文回覆，並且務必回覆有效的 JSON 格式。你是一位專業的英文教學助理。請針對我提供的單字，提供以下 JSON 格式的完整深度學習資訊：
-
-                單字：{word}
-
-                請回覆以下 JSON 格式（請注意：回覆必須是有效的 JSON，不要包含任何其他文字），並請提供更詳細的定義、更多例句和更深入的記憶技巧：
+                請深度分析英文單字 "{word}"，使用繁體中文回覆，包含詞源、記憶法、搭配用法等深入內容。請回覆 JSON 格式：
                 {{
                   "word": "{word}",
-                  "pronunciations": ["英式音標", "美式音標"],
-                  "definitions": [
-                    {{
-                      "part_of_speech": "詞性",
-                      "meanings": [
-                        {{
-                          "definition": "詳細的中文定義",
-                          "context": "詳細的使用語境和註釋"
-                        }}
-                      ]
-                    }}
-                  ],
-                  "examples": ["例句1", "例句2", "例句3", "例句4", "例句5"],
-                  "synonyms": ["同義詞1", "同義詞2", "同義詞3"],
-                  "antonyms": ["反義詞1", "反義詞2"],
-                  "memory_tips": "深入的記憶技巧、字根字源分析、聯想記憶法等"
+                  "pronunciations": ["/{word}/"],
+                  "etymology": {{"origin": "詞彙來源和歷史", "root_analysis": "字根字首字尾分析", "related_words": ["相關詞彙"]}},
+                  "definitions": [{{"part_of_speech": "主要詞性", "meanings": [{{"definition": "詳細中文定義", "context": "使用語境", "formality": "正式程度", "usage_notes": "特殊用法"}}]}}],
+                  "collocations": {{"common_phrases": ["常見片語"], "verb_combinations": ["動詞搭配"], "adjective_combinations": ["形容詞搭配"], "preposition_combinations": ["介詞搭配"]}},
+                  "examples": [{{"sentence": "英文例句", "translation": "中文翻譯", "context": "使用情境"}}],
+                  "synonyms": [{{"word": "近義詞", "difference": "細微差別"}}],
+                  "antonyms": ["反義詞"],
+                  "memory_strategies": {{"visual": "視覺記憶法", "association": "聯想記憶", "word_formation": "詞彙構成記憶", "story": "故事記憶法"}},
+                  "cultural_notes": "文化背景和使用注意事項",
+                  "difficulty_level": "學習難度",
+                  "frequency": "使用頻率"
                 }}
 
             # --- 從 Secret Manager 引用 Secrets ---

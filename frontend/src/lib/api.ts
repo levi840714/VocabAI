@@ -1,4 +1,4 @@
-import { StructuredAIResponse } from './types';
+import { StructuredAIResponse, DeepLearningAIResponse } from './types';
 import { createTelegramAuthHeader, isLocalDevelopment } from '../hooks/use-telegram';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
@@ -45,7 +45,7 @@ export interface AIExplanationResponse {
   word: string;
   explanation: string;
   explanation_type: string;
-  structured_data?: StructuredAIResponse;
+  structured_data?: StructuredAIResponse | DeepLearningAIResponse;
 }
 
 class VocabotAPI {
@@ -176,7 +176,7 @@ class VocabotAPI {
   // AI explanation
   async getAIExplanation(
     word: string,
-    explanationType: 'simple' | 'deep' = 'simple'
+    explanationType: 'simple' | 'deep' = 'deep'
   ): Promise<AIExplanationResponse> {
     return this.request('/v1/ai/explain', {
       method: 'POST',
