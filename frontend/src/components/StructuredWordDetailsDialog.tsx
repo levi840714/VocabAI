@@ -120,49 +120,73 @@ const StructuredWordDetailsDialog: React.FC<WordDetailsDialogProps> = ({ open, o
       <DialogTitle sx={{ fontWeight: 'bold', fontSize: '1.5rem', display: 'flex', flexDirection: 'column', gap: 2 }}>
         <span style={{ textAlign: 'center' }}>{word.word}</span>
         <Box sx={{ 
-          display: 'grid', 
-          gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(3, 1fr)' },
+          display: 'flex',
+          justifyContent: 'center',
           gap: 1,
           width: '100%'
         }}>
           <Button
             variant="outlined"
             size="small"
-            startIcon={<Volume2 size={16} />}
             onClick={handlePronunciation}
             sx={{ 
-              fontSize: { xs: '0.75rem', sm: '0.875rem' },
-              py: { xs: 1, sm: 0.75 },
+              width: 40,
+              height: 40,
+              minWidth: 40,
+              minHeight: 40,
+              padding: 0,
+              borderRadius: '8px',
+              borderColor: '#e5e7eb',
+              color: '#6b7280',
+              '&:hover': {
+                backgroundColor: '#f9fafb',
+                borderColor: '#d1d5db',
+              },
             }}
           >
-            發音
+            <Volume2 size={16} />
           </Button>
           <Button
             variant="outlined"
             size="small"
-            startIcon={<Brain size={16} />}
             onClick={handleAIAnalysisClick}
             sx={{ 
-              fontSize: { xs: '0.75rem', sm: '0.875rem' },
-              py: { xs: 1, sm: 0.75 },
-              color: 'purple', 
-              borderColor: 'purple',
-              gridColumn: { xs: '1 / -1', sm: 'auto' }
+              width: 40,
+              height: 40,
+              minWidth: 40,
+              minHeight: 40,
+              padding: 0,
+              borderRadius: '8px',
+              color: '#9333ea', 
+              borderColor: '#e5e7eb',
+              '&:hover': {
+                backgroundColor: '#faf5ff',
+                borderColor: '#9333ea',
+              },
             }}
           >
-            AI 解析
+            <Brain size={16} />
           </Button>
           <Button
             variant="outlined"
             size="small"
-            startIcon={<ExternalLink size={16} />}
             onClick={handleDictionaryOpen}
             sx={{ 
-              fontSize: { xs: '0.75rem', sm: '0.875rem' },
-              py: { xs: 1, sm: 0.75 },
+              width: 40,
+              height: 40,
+              minWidth: 40,
+              minHeight: 40,
+              padding: 0,
+              borderRadius: '8px',
+              borderColor: '#e5e7eb',
+              color: '#6b7280',
+              '&:hover': {
+                backgroundColor: '#f9fafb',
+                borderColor: '#d1d5db',
+              },
             }}
           >
-            字典
+            <ExternalLink size={16} />
           </Button>
         </Box>
       </DialogTitle>

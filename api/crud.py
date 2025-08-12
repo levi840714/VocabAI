@@ -52,20 +52,26 @@ async def get_next_review_word(db_path: str, user_id: int):
     """Get the next word for review."""
     return await get_word_to_review(db_path, user_id)
 
-async def update_review_result(db_path: str, word_id: int, response: str) -> Dict[str, any]:
+async def update_review_result(db_path: str, word_id: int, response: str, user_id: int) -> Dict[str, any]:
     """Update word review status based on user response."""
-    # Get current word data
+    # Get current word data and verify ownership
     word = await get_word_by_id(db_path, word_id)
     if not word:
         return {"success": False, "message": "Word not found"}
     
-    # Calculate new review parameters
+    if word['user_id'] != user_id:
+        return {"success": False, "message": "Unauthorized access to word"}
+    
+    # Calculate new review parameters (ensure types are integers)
+    current_interval = int(word['interval']) if word['interval'] is not None else 1
+    current_difficulty = int(word['difficulty']) if word['difficulty'] is not None else 0
+    
     new_interval, new_difficulty, next_review_date = calculate_next_review_date(
-        word['interval'], word['difficulty'], response
+        current_interval, current_difficulty, response
     )
     
     # Update in database
-    await update_word_review_status(db_path, word_id, new_interval, new_difficulty, next_review_date)
+    await update_word_review_status(db_path, word_id, new_interval, new_difficulty, next_review_date, response)
     
     return {
         "success": True,

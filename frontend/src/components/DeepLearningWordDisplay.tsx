@@ -301,7 +301,7 @@ const DeepLearningWordDisplay: React.FC<DeepLearningWordDisplayProps> = ({
                 </p>
                 <button
                   onClick={() => handlePronunciation(example.sentence)}
-                  className="absolute top-4 right-4 p-2 rounded-full bg-white shadow-sm border border-slate-200 hover:bg-slate-100 opacity-0 group-hover:opacity-100 transition-all duration-200 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="absolute top-4 right-4 p-2 rounded-full bg-white shadow-sm border border-slate-200 hover:bg-slate-100 opacity-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   title="聆聽例句發音"
                   aria-label="聆聽例句發音"
                 >

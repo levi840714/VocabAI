@@ -156,81 +156,103 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
-      {/* 統計資訊 */}
-      <div className="flex justify-between items-center mb-4">
-        <div className="flex gap-4 text-sm text-sky-800/80">
-          <span>今日已複習: {reviewCount}</span>
-          <span>待複習: {stats.due_today}</span>
-          <span>總詞庫: {stats.total_words}</span>
+    <div className="max-w-2xl mx-auto p-4">
+      {/* 統計資訊 - 修復間距問題 */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3">
+        <div className="flex flex-wrap gap-2 md:gap-4 text-sm text-sky-800/80">
+          <span className="bg-sky-50 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm">已複習: {reviewCount}</span>
+          <span className="bg-orange-50 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm">待複習: {stats.due_today}</span>
+          <span className="bg-purple-50 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm">總詞庫: {stats.total_words}</span>
         </div>
-        <Badge className={getDifficultyColor(currentWord.difficulty)}>
+        <Badge className={`${getDifficultyColor(currentWord.difficulty)} px-3 py-1`}>
           難度: {getDifficultyText(currentWord.difficulty)}
         </Badge>
       </div>
 
-      {/* 複習進度 */}
-      <div className="rounded-xl bg-sky-50/70 p-3 mb-4 ring-1 ring-sky-200/60">
-        <div className="flex justify-between items-center mb-2">
-          <span className="text-sm text-sky-800">複習進度</span>
-          <span className="text-sm text-sky-600">間隔: {currentWord.interval} 天</span>
+      {/* 複習進度 - 美化設計 */}
+      <div className="rounded-xl bg-gradient-to-r from-sky-50 to-blue-50 p-4 mb-6 ring-1 ring-sky-200/60 shadow-sm">
+        <div className="flex justify-between items-center mb-3">
+          <span className="text-sm font-medium text-sky-800">本次複習進度</span>
+          <div className="flex items-center space-x-2 text-sm text-sky-600">
+            <span>間隔: {currentWord.interval} 天</span>
+            <div className="w-2 h-2 bg-sky-400 rounded-full animate-pulse"></div>
+          </div>
         </div>
-        <Progress value={Math.min((reviewCount / Math.max(stats.due_today, 1)) * 100, 100)} className="h-2" />
+        <Progress value={Math.min((reviewCount / Math.max(stats.due_today, 1)) * 100, 100)} className="h-3 bg-sky-100" />
+        <div className="mt-2 text-xs text-sky-600 text-center">
+          {Math.min((reviewCount / Math.max(stats.due_today, 1)) * 100, 100).toFixed(0)}% 完成
+        </div>
       </div>
 
-      {/* 單字卡片 */}
-      <Card className="w-full h-[420px] flex flex-col ring-1 ring-white/60 bg-white/80 backdrop-blur-sm">
-        <CardHeader className="text-center pb-2">
+      {/* 單字卡片 - 美化設計 */}
+      <Card className="w-full min-h-[380px] sm:h-[420px] flex flex-col ring-1 ring-slate-200/50 bg-gradient-to-br from-white to-slate-50/30 backdrop-blur-sm shadow-lg">
+        <CardHeader className="text-center pb-2 px-4 sm:px-6">
           <div className="flex justify-between items-start mb-4">
-            <Badge variant="outline" className="text-xs">
+            <Badge variant="outline" className="text-xs bg-sky-50 border-sky-200">
               <Clock className="h-3 w-3 mr-1" />
               {new Date(currentWord.next_review).toLocaleDateString()}
             </Badge>
-            <Badge variant="outline" className="text-xs">
-              ID: {currentWord.id}
+            <Badge variant="outline" className="text-xs bg-slate-50 border-slate-200">
+              #{currentWord.id}
             </Badge>
           </div>
-          <CardTitle className="text-3xl mt-4">{currentWord.word}</CardTitle>
+          <div className="mt-6 mb-4">
+            <CardTitle className="text-2xl sm:text-3xl md:text-4xl font-bold text-slate-800 mb-2">
+              {currentWord.word}
+            </CardTitle>
+            <div className="w-16 h-1 bg-gradient-to-r from-sky-400 to-blue-500 rounded-full mx-auto"></div>
+          </div>
           {(() => {
             const exampleSentence = getExampleSentence(currentWord)
             return exampleSentence ? (
-              <CardDescription className="text-sm mt-2 text-slate-600 italic line-clamp-2">
-                "{exampleSentence}"
+              <CardDescription className="text-sm mt-4 text-slate-600 italic line-clamp-2 px-2">
+                <div className="bg-slate-50 rounded-lg p-3 border-l-4 border-sky-300">
+                  "{exampleSentence}"
+                </div>
               </CardDescription>
             ) : null
           })()}
         </CardHeader>
 
-        <CardContent className="flex-grow flex items-center justify-center px-6">
+        <CardContent className="flex-grow flex items-center justify-center px-4 sm:px-6">
           <Button
             variant="outline"
-            size="lg"
+            size="sm"
             onClick={handleToggleDefinition}
-            className="px-8 bg-transparent border-sky-300 text-sky-700 hover:bg-sky-100"
+            className="w-16 h-16 p-0 rounded-xl bg-white/80 border-2 border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 shadow-md text-xs font-medium"
             disabled={isLoading}
           >
-            顯示解釋
+            <div className="flex flex-col items-center justify-center leading-tight">
+              {isLoading ? (
+                <span>載入中</span>
+              ) : (
+                <>
+                  <span>顯示</span>
+                  <span>解釋</span>
+                </>
+              )}
+            </div>
           </Button>
         </CardContent>
 
-        <CardFooter className="pt-6 pb-6 border-t bg-sky-50/60">
-          {/* Mobile layout - stacked buttons */}
+        <CardFooter className="pt-4 pb-4 sm:pt-6 sm:pb-6 border-t bg-gradient-to-r from-sky-50/60 to-blue-50/40 px-3 sm:px-6">
+          {/* Mobile layout - 美化手機版按鈕 */}
           <div className="w-full space-y-3 sm:hidden">
             <Button
               variant="outline"
               size="sm"
-              className="w-full text-purple-600 border-purple-200 hover:bg-purple-50 bg-transparent"
+              className="w-full text-purple-600 border-purple-300 hover:bg-purple-50 bg-gradient-to-r from-purple-50/50 to-pink-50/50 transition-all duration-200 shadow-sm font-medium py-3"
               onClick={() => handleSubmitReview('mastered')}
               disabled={isLoading}
             >
-              <Check className="h-4 w-4 mr-1" />
+              <Check className="h-4 w-4 mr-2" />
               完全掌握
             </Button>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-3">
               <Button
                 variant="outline"
                 size="sm"
-                className="text-green-600 border-green-200 hover:bg-green-50 bg-transparent text-xs"
+                className="text-green-600 border-green-300 hover:bg-green-50 bg-gradient-to-br from-green-50/50 to-emerald-50/50 text-xs font-medium py-3 transition-all duration-200 shadow-sm"
                 onClick={() => handleSubmitReview('easy')}
                 disabled={isLoading}
               >
@@ -240,7 +262,7 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
               <Button
                 variant="outline"
                 size="sm"
-                className="text-yellow-600 border-yellow-200 hover:bg-yellow-50 bg-transparent text-xs"
+                className="text-amber-600 border-amber-300 hover:bg-amber-50 bg-gradient-to-br from-amber-50/50 to-yellow-50/50 text-xs font-medium py-3 transition-all duration-200 shadow-sm"
                 onClick={() => handleSubmitReview('hard')}
                 disabled={isLoading}
               >
@@ -250,34 +272,34 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
               <Button
                 variant="outline"
                 size="sm"
-                className="text-red-600 border-red-200 hover:bg-red-50 bg-transparent text-xs"
+                className="text-red-600 border-red-300 hover:bg-red-50 bg-gradient-to-br from-red-50/50 to-rose-50/50 text-xs font-medium py-3 transition-all duration-200 shadow-sm"
                 onClick={() => handleSubmitReview('again')}
                 disabled={isLoading}
               >
                 <RotateCcw className="h-3 w-3 mr-1" />
-                重新開始
+                不熟再學
               </Button>
             </div>
           </div>
           
-          {/* Desktop layout - horizontal buttons */}
-          <div className="hidden sm:flex justify-between w-full">
+          {/* Desktop layout - 美化桌面版按鈕 */}
+          <div className="hidden sm:flex justify-between w-full items-center">
             <Button
               variant="outline"
               size="sm"
-              className="text-purple-600 border-purple-200 hover:bg-purple-50 bg-transparent"
+              className="text-purple-600 border-purple-300 hover:bg-purple-50 bg-gradient-to-r from-purple-50/50 to-pink-50/50 transition-all duration-200 shadow-sm font-medium px-6 py-2"
               onClick={() => handleSubmitReview('mastered')}
               disabled={isLoading}
             >
-              <Check className="h-4 w-4 mr-1" />
+              <Check className="h-4 w-4 mr-2" />
               完全掌握
             </Button>
             
-            <div className="flex gap-2">
+            <div className="flex gap-3">
               <Button
                 variant="outline"
                 size="sm"
-                className="text-green-600 border-green-200 hover:bg-green-50 bg-transparent"
+                className="text-green-600 border-green-300 hover:bg-green-50 bg-gradient-to-br from-green-50/50 to-emerald-50/50 transition-all duration-200 shadow-sm font-medium px-4 py-2"
                 onClick={() => handleSubmitReview('easy')}
                 disabled={isLoading}
               >
@@ -287,7 +309,7 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
               <Button
                 variant="outline"
                 size="sm"
-                className="text-yellow-600 border-yellow-200 hover:bg-yellow-50 bg-transparent"
+                className="text-amber-600 border-amber-300 hover:bg-amber-50 bg-gradient-to-br from-amber-50/50 to-yellow-50/50 transition-all duration-200 shadow-sm font-medium px-4 py-2"
                 onClick={() => handleSubmitReview('hard')}
                 disabled={isLoading}
               >
@@ -297,12 +319,12 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
               <Button
                 variant="outline"
                 size="sm"
-                className="text-red-600 border-red-200 hover:bg-red-50 bg-transparent"
+                className="text-red-600 border-red-300 hover:bg-red-50 bg-gradient-to-br from-red-50/50 to-rose-50/50 transition-all duration-200 shadow-sm font-medium px-4 py-2"
                 onClick={() => handleSubmitReview('again')}
                 disabled={isLoading}
               >
                 <RotateCcw className="h-4 w-4 mr-1" />
-                重新開始
+                不熟再學
               </Button>
             </div>
           </div>

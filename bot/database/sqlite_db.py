@@ -97,7 +97,7 @@ async def get_word_to_review(db_path, user_id):
         logging.info(f"get_word_to_review result for user {user_id}: {word}")
         return word
 
-async def update_word_review_status(db_path, word_id, new_interval, new_difficulty, next_review_date):
+async def update_word_review_status(db_path, word_id, new_interval, new_difficulty, next_review_date, response=None):
     """Updates the review status of a word."""
     async with aiosqlite.connect(db_path) as db:
         await db.execute("""
@@ -106,10 +106,12 @@ async def update_word_review_status(db_path, word_id, new_interval, new_difficul
         WHERE id = ?
         """, (new_interval, new_difficulty, next_review_date, word_id))
         
-        await db.execute("""
-        INSERT INTO learning_history (word_id, response)
-        VALUES (?, ?)
-        """, (word_id, str(new_difficulty)))
+        # Insert into learning history with the actual response
+        if response:
+            await db.execute("""
+            INSERT INTO learning_history (word_id, response)
+            VALUES (?, ?)
+            """, (word_id, response))
         
         await db.commit()
     logging.info(f"Word {word_id} review status updated. Next review: {next_review_date}")
@@ -128,7 +130,7 @@ async def get_word_by_id(db_path, word_id):
         row = await cursor.fetchone()
         
         if row:
-            columns = ['id', 'user_id', 'word', 'initial_ai_explanation', 'chinese_meaning', 'user_notes', 'next_review', 'interval', 'difficulty', 'created_at']
+            columns = ['id', 'user_id', 'word', 'initial_ai_explanation', 'user_notes', 'next_review', 'interval', 'difficulty', 'created_at', 'chinese_meaning']
             word = dict(zip(columns, row))
         else:
             word = None

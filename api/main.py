@@ -195,12 +195,12 @@ async def get_next_review(user_id: int = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail="Failed to get next review")
 
 @app.post("/api/v1/review/{word_id}", response_model=ReviewResponse)
-async def submit_review(word_id: int, review_data: ReviewRequest):
+async def submit_review(word_id: int, review_data: ReviewRequest, user_id: int = Depends(get_current_user)):
     """Submit a review result for a word."""
     db_path = get_database_path()
     
     try:
-        result = await update_review_result(db_path, word_id, review_data.response)
+        result = await update_review_result(db_path, word_id, review_data.response, user_id)
         return ReviewResponse(**result)
     except Exception as e:
         logger.error(f"Error submitting review for word {word_id}: {str(e)}")
