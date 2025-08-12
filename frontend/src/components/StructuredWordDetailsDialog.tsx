@@ -4,6 +4,7 @@ import { ExternalLink, Volume2, Edit, Save, X, Brain } from 'lucide-react';
 import StructuredWordDisplay from './StructuredWordDisplay';
 import { parseStructuredResponse, cleanStructuredResponse } from '../lib/parseStructuredResponse';
 import { vocabotAPI } from '@/lib/api';
+import { useSettings } from '@/contexts/SettingsContext';
 
 interface WordDetailsDialogProps {
   open: boolean;
@@ -23,6 +24,7 @@ const StructuredWordDetailsDialog: React.FC<WordDetailsDialogProps> = ({ open, o
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [notesValue, setNotesValue] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
+  const { isVoiceAutoPlay, isDarkMode } = useSettings();
 
   // Initialize notes value when word changes
   React.useEffect(() => {
@@ -32,18 +34,23 @@ const StructuredWordDetailsDialog: React.FC<WordDetailsDialogProps> = ({ open, o
     }
   }, [word?.user_notes]);
 
-  // 確保彈窗打開時滾動到頂部
+  // 確保彈窗打開時滾動到頂部並自動播放語音
   React.useEffect(() => {
-    if (open) {
+    if (open && word) {
       // 延遲滾動，確保彈窗已渲染
       setTimeout(() => {
         const dialogContent = document.querySelector('[role="dialog"] .MuiDialogContent-root');
         if (dialogContent) {
           dialogContent.scrollTop = 0;
         }
-      }, 100);
+        
+        // 自動播放語音（如果啟用）
+        if (isVoiceAutoPlay) {
+          handlePronunciation();
+        }
+      }, 300);
     }
-  }, [open, word?.id]);
+  }, [open, word?.id, isVoiceAutoPlay]);
 
   if (!word) {
     return null;
@@ -116,8 +123,42 @@ const StructuredWordDetailsDialog: React.FC<WordDetailsDialogProps> = ({ open, o
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle sx={{ fontWeight: 'bold', fontSize: '1.5rem', display: 'flex', flexDirection: 'column', gap: 2 }}>
+    <Dialog 
+      open={open} 
+      onClose={onClose} 
+      maxWidth="md" 
+      fullWidth
+      PaperProps={{
+        sx: {
+          backgroundColor: isDarkMode ? '#1e293b !important' : '#ffffff !important',
+          color: isDarkMode ? '#f1f5f9 !important' : '#1e293b !important',
+          backgroundImage: 'none !important',
+          '& *': {
+            color: isDarkMode ? '#f1f5f9 !important' : '#1e293b !important',
+          },
+          '& .MuiDialogTitle-root': {
+            backgroundColor: isDarkMode ? '#1e293b !important' : '#ffffff !important',
+            color: isDarkMode ? '#f1f5f9 !important' : '#1e293b !important',
+          },
+          '& .MuiDialogContent-root': {
+            backgroundColor: isDarkMode ? '#1e293b !important' : '#ffffff !important',
+            color: isDarkMode ? '#f1f5f9 !important' : '#1e293b !important',
+          },
+          '& .MuiDialogActions-root': {
+            backgroundColor: isDarkMode ? '#1e293b !important' : '#ffffff !important',
+          }
+        }
+      }}
+    >
+      <DialogTitle sx={{ 
+        fontWeight: 'bold', 
+        fontSize: '1.5rem', 
+        display: 'flex', 
+        flexDirection: 'column', 
+        gap: 2,
+        backgroundColor: isDarkMode ? '#1e293b !important' : '#ffffff !important',
+        color: isDarkMode ? '#f1f5f9 !important' : '#1e293b !important',
+      }}>
         <span style={{ textAlign: 'center' }}>{word.word}</span>
         <Box sx={{ 
           display: 'flex',
@@ -136,11 +177,13 @@ const StructuredWordDetailsDialog: React.FC<WordDetailsDialogProps> = ({ open, o
               minHeight: 40,
               padding: 0,
               borderRadius: '8px',
-              borderColor: '#e5e7eb',
-              color: '#6b7280',
+              borderColor: isDarkMode ? '#64748b !important' : '#d1d5db !important',
+              color: isDarkMode ? '#e2e8f0 !important' : '#374151 !important',
+              backgroundColor: isDarkMode ? '#334155 !important' : '#ffffff !important',
               '&:hover': {
-                backgroundColor: '#f9fafb',
-                borderColor: '#d1d5db',
+                backgroundColor: isDarkMode ? '#475569 !important' : '#f3f4f6 !important',
+                borderColor: isDarkMode ? '#94a3b8 !important' : '#9ca3af !important',
+                color: isDarkMode ? '#f1f5f9 !important' : '#1f2937 !important',
               },
             }}
           >
@@ -157,11 +200,13 @@ const StructuredWordDetailsDialog: React.FC<WordDetailsDialogProps> = ({ open, o
               minHeight: 40,
               padding: 0,
               borderRadius: '8px',
-              color: '#9333ea', 
-              borderColor: '#e5e7eb',
+              color: isDarkMode ? '#c084fc !important' : '#7c3aed !important', 
+              borderColor: isDarkMode ? '#7c3aed !important' : '#a855f7 !important',
+              backgroundColor: isDarkMode ? '#4c1d95 !important' : '#faf5ff !important',
               '&:hover': {
-                backgroundColor: '#faf5ff',
-                borderColor: '#9333ea',
+                backgroundColor: isDarkMode ? '#5b21b6 !important' : '#f3e8ff !important',
+                borderColor: isDarkMode ? '#a855f7 !important' : '#8b5cf6 !important',
+                color: isDarkMode ? '#ddd6fe !important' : '#6d28d9 !important',
               },
             }}
           >
@@ -178,11 +223,13 @@ const StructuredWordDetailsDialog: React.FC<WordDetailsDialogProps> = ({ open, o
               minHeight: 40,
               padding: 0,
               borderRadius: '8px',
-              borderColor: '#e5e7eb',
-              color: '#6b7280',
+              borderColor: isDarkMode ? '#64748b !important' : '#d1d5db !important',
+              color: isDarkMode ? '#e2e8f0 !important' : '#374151 !important',
+              backgroundColor: isDarkMode ? '#334155 !important' : '#ffffff !important',
               '&:hover': {
-                backgroundColor: '#f9fafb',
-                borderColor: '#d1d5db',
+                backgroundColor: isDarkMode ? '#475569 !important' : '#f3f4f6 !important',
+                borderColor: isDarkMode ? '#94a3b8 !important' : '#9ca3af !important',
+                color: isDarkMode ? '#f1f5f9 !important' : '#1f2937 !important',
               },
             }}
           >
@@ -190,24 +237,45 @@ const StructuredWordDetailsDialog: React.FC<WordDetailsDialogProps> = ({ open, o
           </Button>
         </Box>
       </DialogTitle>
-      <DialogContent dividers>
+      <DialogContent 
+        dividers
+        sx={{
+          backgroundColor: isDarkMode ? '#1e293b !important' : '#ffffff !important',
+          color: isDarkMode ? '#f1f5f9 !important' : '#1e293b !important',
+        }}
+      >
         {cleanedData ? (
           <StructuredWordDisplay data={cleanedData} onAIAnalysisClick={onAIAnalysisClick} onWordAdded={handleWordAddedInDialog} />
         ) : (
           <Box>
-            <Typography variant="subtitle1" component="h3" gutterBottom sx={{ fontWeight: 'bold' }}>
+            <Typography variant="subtitle1" component="h3" gutterBottom sx={{ 
+              fontWeight: 'bold',
+              color: isDarkMode ? '#f1f5f9' : '#1e293b'
+            }}>
               解釋：
             </Typography>
-            <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', mb: 2 }}>
+            <Typography variant="body1" sx={{ 
+              whiteSpace: 'pre-wrap', 
+              mb: 2,
+              color: isDarkMode ? '#cbd5e1' : '#475569'
+            }}>
               {word.initial_ai_explanation || '無可用解釋'}
             </Typography>
           </Box>
         )}
         
         {/* User Notes Section */}
-        <Box sx={{ mt: 3, p: 2, backgroundColor: '#f5f5f5', borderRadius: 1 }}>
+        <Box sx={{ 
+          mt: 3, 
+          p: 2, 
+          backgroundColor: isDarkMode ? '#374151' : '#f5f5f5', 
+          borderRadius: 1 
+        }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-            <Typography variant="subtitle1" component="h3" sx={{ fontWeight: 'bold', color: '#1976d2' }}>
+            <Typography variant="subtitle1" component="h3" sx={{ 
+              fontWeight: 'bold', 
+              color: isDarkMode ? '#60a5fa' : '#1976d2' 
+            }}>
               📝 我的備註：
             </Typography>
             {!isEditingNotes && (
@@ -215,7 +283,14 @@ const StructuredWordDetailsDialog: React.FC<WordDetailsDialogProps> = ({ open, o
                 size="small"
                 startIcon={<Edit size={16} />}
                 onClick={() => setIsEditingNotes(true)}
-                sx={{ minWidth: 'auto', px: 1 }}
+                sx={{ 
+                  minWidth: 'auto', 
+                  px: 1,
+                  color: isDarkMode ? '#94a3b8' : '#6b7280',
+                  '&:hover': {
+                    backgroundColor: isDarkMode ? '#4b5563' : '#f3f4f6',
+                  }
+                }}
               >
                 編輯
               </Button>
@@ -231,7 +306,26 @@ const StructuredWordDetailsDialog: React.FC<WordDetailsDialogProps> = ({ open, o
                 value={notesValue}
                 onChange={(e) => setNotesValue(e.target.value)}
                 placeholder="在此添加您的備註..."
-                sx={{ mb: 2 }}
+                sx={{ 
+                  mb: 2,
+                  '& .MuiInputBase-root': {
+                    backgroundColor: isDarkMode ? '#4b5563' : '#ffffff',
+                    color: isDarkMode ? '#f1f5f9' : '#1e293b',
+                  },
+                  '& .MuiInputBase-input::placeholder': {
+                    color: isDarkMode ? '#9ca3af' : '#6b7280',
+                    opacity: 1,
+                  },
+                  '& .MuiOutlinedInput-notchedOutline': {
+                    borderColor: isDarkMode ? '#6b7280' : '#d1d5db',
+                  },
+                  '&:hover .MuiOutlinedInput-notchedOutline': {
+                    borderColor: isDarkMode ? '#9ca3af' : '#9ca3af',
+                  },
+                  '& .Mui-focused .MuiOutlinedInput-notchedOutline': {
+                    borderColor: isDarkMode ? '#60a5fa' : '#2563eb',
+                  },
+                }}
               />
               <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
                 <Button
@@ -239,6 +333,12 @@ const StructuredWordDetailsDialog: React.FC<WordDetailsDialogProps> = ({ open, o
                   startIcon={<X size={16} />}
                   onClick={handleCancelEdit}
                   disabled={isUpdating}
+                  sx={{
+                    color: isDarkMode ? '#94a3b8' : '#6b7280',
+                    '&:hover': {
+                      backgroundColor: isDarkMode ? '#4b5563' : '#f3f4f6',
+                    }
+                  }}
                 >
                   取消
                 </Button>
@@ -248,20 +348,49 @@ const StructuredWordDetailsDialog: React.FC<WordDetailsDialogProps> = ({ open, o
                   startIcon={<Save size={16} />}
                   onClick={handleSaveNotes}
                   disabled={isUpdating}
+                  sx={{
+                    backgroundColor: isDarkMode ? '#3b82f6' : '#2563eb',
+                    color: '#ffffff',
+                    '&:hover': {
+                      backgroundColor: isDarkMode ? '#2563eb' : '#1d4ed8',
+                    },
+                    '&:disabled': {
+                      backgroundColor: isDarkMode ? '#6b7280' : '#9ca3af',
+                      color: isDarkMode ? '#d1d5db' : '#ffffff',
+                    }
+                  }}
                 >
                   {isUpdating ? '儲存中...' : '儲存'}
                 </Button>
               </Box>
             </Box>
           ) : (
-            <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
+            <Typography variant="body1" sx={{ 
+              whiteSpace: 'pre-wrap',
+              color: isDarkMode ? '#cbd5e1' : '#374151'
+            }}>
               {word.user_notes || '點擊「編輯」按鈕添加您的備註...'}
             </Typography>
           )}
         </Box>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} variant="outlined">
+      <DialogActions sx={{
+        backgroundColor: isDarkMode ? '#1e293b !important' : '#ffffff !important',
+      }}>
+        <Button 
+          onClick={onClose} 
+          variant="outlined"
+          sx={{
+            borderColor: isDarkMode ? '#64748b !important' : '#d1d5db !important',
+            color: isDarkMode ? '#e2e8f0 !important' : '#374151 !important',
+            backgroundColor: isDarkMode ? '#334155 !important' : '#ffffff !important',
+            '&:hover': {
+              backgroundColor: isDarkMode ? '#475569 !important' : '#f3f4f6 !important',
+              borderColor: isDarkMode ? '#94a3b8 !important' : '#9ca3af !important',
+              color: isDarkMode ? '#f1f5f9 !important' : '#1f2937 !important',
+            }
+          }}
+        >
           關閉
         </Button>
       </DialogActions>

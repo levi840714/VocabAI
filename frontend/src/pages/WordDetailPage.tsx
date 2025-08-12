@@ -1,7 +1,11 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useVocabulary } from '@/hooks/use-vocabulary';
+import { useAnimation } from '@/hooks/useAnimation';
+import { useVoice } from '@/hooks/useVoice';
+import { useSettings } from '@/contexts/SettingsContext';
+import { ThemeCard, ThemeTitle, ThemeText, ThemeButton } from '@/components/ui/ThemeComponents';
 import StructuredWordDisplay from '@/components/StructuredWordDisplay';
 import { ArrowLeft, Brain, Edit, Trash2, Volume2, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -11,13 +15,26 @@ const WordDetailPage: React.FC = () => {
   const { wordId } = useParams<{ wordId: string }>();
   const navigate = useNavigate();
   const { words, toggleLearned, deleteWord } = useVocabulary();
+  const animation = useAnimation();
+  const { autoSpeakWord } = useVoice();
+  const { isVoiceAutoPlay } = useSettings();
 
   const word = words.find(w => w.id === wordId);
 
-  // 確保頁面載入時滾動到頂部
-  React.useEffect(() => {
+  // 確保頁面載入時滾動到頂部並自動播放語音
+  useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [wordId]);
+    
+    // 自動播放語音（如果啟用）
+    if (word && word.term && isVoiceAutoPlay) {
+      // 稍微延遲以確保頁面已渲染
+      const timer = setTimeout(() => {
+        autoSpeakWord(word.term);
+      }, 300);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [wordId, word, autoSpeakWord, isVoiceAutoPlay]);
 
   if (!word) {
     return (
@@ -27,11 +44,11 @@ const WordDetailPage: React.FC = () => {
         className="flex items-center justify-center h-64"
       >
         <div className="text-center">
-          <h2 className="text-xl font-semibold text-slate-700 mb-2">找不到單字</h2>
-          <p className="text-slate-500 mb-4">此單字可能已被刪除或不存在</p>
-          <Button onClick={() => navigate('/vocabulary')} variant="outline">
+          <ThemeTitle level={3} className="mb-2">找不到單字</ThemeTitle>
+          <ThemeText variant="body" className="mb-4">此單字可能已被刪除或不存在</ThemeText>
+          <ThemeButton onClick={() => navigate('/vocabulary')} variant="outline">
             返回單字列表
-          </Button>
+          </ThemeButton>
         </div>
       </motion.div>
     );
@@ -60,15 +77,10 @@ const WordDetailPage: React.FC = () => {
     navigate(`/ai-analysis?word=${encodeURIComponent(word.term)}`);
   };
 
-  const handlePronunciation = () => {
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(word.term);
-      utterance.lang = 'en-US';
-      utterance.rate = 0.8;
-      speechSynthesis.speak(utterance);
-    } else {
-      window.open(`https://translate.google.com/translate_tts?ie=UTF-8&tl=en&client=tw-ob&q=${encodeURIComponent(word.term)}`, '_blank');
-    }
+  const { speakWord } = useVoice();
+  
+  const handlePronunciation = async () => {
+    await speakWord(word.term);
   };
 
   const handleDictionaryOpen = () => {
@@ -78,37 +90,38 @@ const WordDetailPage: React.FC = () => {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
+      initial={animation.pageTransition.initial}
+      animate={animation.pageTransition.animate}
+      exit={animation.pageTransition.exit}
+      transition={animation.pageTransition.transition}
       className="space-y-6 max-w-4xl mx-auto"
     >
       {/* 單字標題和基本資訊 */}
-      <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 shadow-sm ring-1 ring-blue-200/30">
+      <ThemeCard className="ring-blue-200/30 dark:ring-blue-700/30">
         <div className="flex items-start justify-between mb-4">
           <div className="flex-1">
             <div className="flex items-center space-x-3 mb-2">
-              <h1 className="text-3xl font-bold text-slate-900">{word.term}</h1>
-              <Button
+              <ThemeTitle level={1} className="text-3xl">{word.term}</ThemeTitle>
+              <ThemeButton
                 variant="ghost"
                 size="sm"
                 onClick={handlePronunciation}
-                className="p-2 hover:bg-blue-100"
+                className="p-2"
               >
-                <Volume2 className="w-5 h-5 text-blue-600" />
-              </Button>
+                <Volume2 className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              </ThemeButton>
             </div>
             
             {word.pronunciation && (
-              <p className="text-slate-600 text-lg mb-2">/{word.pronunciation}/</p>
+              <ThemeText variant="body" className="text-lg mb-2 font-mono">/{word.pronunciation}/</ThemeText>
             )}
             
             <div className="flex items-center space-x-2 mb-3">
-              <Badge variant={word.learned ? "default" : "secondary"}>
+              <Badge variant={word.learned ? "default" : "secondary"} className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
                 {word.learned ? "已掌握" : "學習中"}
               </Badge>
               {word.dateAdded && (
-                <Badge variant="outline">
+                <Badge variant="outline" className="border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300">
                   {new Date(word.dateAdded).toLocaleDateString()}
                 </Badge>
               )}
@@ -120,8 +133,8 @@ const WordDetailPage: React.FC = () => {
             onClick={handleToggleLearned}
             className={`flex flex-col items-center justify-center w-16 h-16 rounded-lg border-2 transition-colors ${
               word.learned 
-                ? "border-orange-500 text-orange-600 bg-orange-50 hover:bg-orange-100" 
-                : "border-blue-500 text-blue-600 bg-blue-50 hover:bg-blue-100"
+                ? "border-orange-500 dark:border-orange-400 text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20 hover:bg-orange-100 dark:hover:bg-orange-900/30" 
+                : "border-blue-500 dark:border-blue-400 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30"
             }`}
             title={word.learned ? "標記為學習中" : "標記為已掌握"}
           >
@@ -141,7 +154,7 @@ const WordDetailPage: React.FC = () => {
           <div className="flex gap-2 justify-center">
             <button
               onClick={handleAIAnalysis}
-              className="flex flex-col items-center justify-center w-16 h-16 rounded-lg border-2 border-purple-600 text-purple-600 hover:bg-purple-50 transition-colors"
+              className="flex flex-col items-center justify-center w-16 h-16 rounded-lg border-2 border-purple-600 dark:border-purple-400 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
               title="AI 解析"
             >
               <Brain className="w-5 h-5 mb-1" />
@@ -150,7 +163,7 @@ const WordDetailPage: React.FC = () => {
 
             <button
               onClick={handleDictionaryOpen}
-              className="flex flex-col items-center justify-center w-16 h-16 rounded-lg border-2 border-green-600 text-green-600 hover:bg-green-50 transition-colors"
+              className="flex flex-col items-center justify-center w-16 h-16 rounded-lg border-2 border-green-600 dark:border-green-400 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
               title="字典"
             >
               <ExternalLink className="w-5 h-5 mb-1" />
@@ -159,7 +172,7 @@ const WordDetailPage: React.FC = () => {
             
             <button
               onClick={handleDelete}
-              className="flex flex-col items-center justify-center w-16 h-16 rounded-lg border-2 border-red-600 text-red-600 hover:bg-red-50 transition-colors"
+              className="flex flex-col items-center justify-center w-16 h-16 rounded-lg border-2 border-red-600 dark:border-red-400 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
               title="刪除單字"
             >
               <Trash2 className="w-5 h-5 mb-1" />
@@ -167,12 +180,11 @@ const WordDetailPage: React.FC = () => {
             </button>
           </div>
         </div>
-      </div>
+      </ThemeCard>
 
       {/* 詳細資訊 */}
-      <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-sm ring-1 ring-slate-200/30 overflow-hidden">
-        <div className="p-6">
-          <h2 className="text-xl font-semibold text-slate-900 mb-4">詳細資訊</h2>
+      <ThemeCard variant="default" className="overflow-hidden">
+        <ThemeTitle level={2} className="mb-4">詳細資訊</ThemeTitle>
           {word.structured_data ? (
             <StructuredWordDisplay
               data={word.structured_data}
@@ -182,35 +194,34 @@ const WordDetailPage: React.FC = () => {
           ) : (
             <div className="space-y-4">
               <div>
-                <h3 className="text-lg font-semibold text-slate-800 mb-2">定義</h3>
-                <p className="text-slate-700">{word.definition}</p>
+                <ThemeTitle level={3} className="mb-2">定義</ThemeTitle>
+                <ThemeText variant="body">{word.definition}</ThemeText>
               </div>
               {word.example && (
                 <div>
-                  <h3 className="text-lg font-semibold text-slate-800 mb-2">例句</h3>
-                  <p className="text-slate-700 italic">"{word.example}"</p>
+                  <ThemeTitle level={3} className="mb-2">例句</ThemeTitle>
+                  <ThemeText variant="body" className="italic">"{word.example}"</ThemeText>
                 </div>
               )}
               {word.raw_explanation && (
                 <div>
-                  <h3 className="text-lg font-semibold text-slate-800 mb-2">AI 解釋</h3>
-                  <p className="text-slate-700 whitespace-pre-wrap">{word.raw_explanation}</p>
+                  <ThemeTitle level={3} className="mb-2">AI 解釋</ThemeTitle>
+                  <ThemeText variant="body" className="whitespace-pre-wrap">{word.raw_explanation}</ThemeText>
                 </div>
               )}
             </div>
           )}
-        </div>
-      </div>
+      </ThemeCard>
 
       {/* 用戶備註 */}
       {word.user_notes && (
-        <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 shadow-sm ring-1 ring-amber-200/30">
-          <h3 className="text-lg font-semibold text-slate-900 mb-3 flex items-center">
-            <Edit className="w-5 h-5 mr-2 text-amber-600" />
+        <ThemeCard className="ring-amber-200/30 dark:ring-amber-700/30">
+          <ThemeTitle level={3} className="mb-3 flex items-center">
+            <Edit className="w-5 h-5 mr-2 text-amber-600 dark:text-amber-400" />
             我的筆記
-          </h3>
-          <p className="text-slate-700 leading-relaxed">{word.user_notes}</p>
-        </div>
+          </ThemeTitle>
+          <ThemeText variant="body" className="leading-relaxed">{word.user_notes}</ThemeText>
+        </ThemeCard>
       )}
     </motion.div>
   );

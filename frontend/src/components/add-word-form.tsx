@@ -62,19 +62,19 @@ export default function AddWordForm() {
   }
 
   return (
-    <Card className="max-w-2xl mx-auto bg-white/80 backdrop-blur-sm ring-1 ring-white/60">
+    <Card className="max-w-2xl mx-auto bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm ring-1 ring-white/60 dark:ring-slate-700/60">
       <CardHeader>
         <div className="flex items-center gap-2">
-          <Bot className="w-6 h-6 text-blue-600" />
+          <Bot className="w-6 h-6 text-blue-600 dark:text-blue-400" />
           <CardTitle>新增單字</CardTitle>
         </div>
-        <CardDescription className="space-y-2">
-          <p>添加新單字到您的學習列表</p>
-          <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-50 px-3 py-2 rounded-lg">
+        <div className="space-y-2">
+          <CardDescription>添加新單字到您的學習列表</CardDescription>
+          <div className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 px-3 py-2 rounded-lg">
             <Sparkles className="w-4 h-4" />
             <span>系統將自動使用 AI 為您生成詳細的單字解釋、發音、例句和記憶技巧</span>
           </div>
-        </CardDescription>
+        </div>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -100,13 +100,13 @@ export default function AddWordForm() {
                 <FormItem>
                   <FormLabel className="flex items-center gap-2">
                     個人備註 (選填)
-                    <span className="text-xs text-slate-500">額外的個人備註或記憶方式</span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400">額外的個人備註或記憶方式</span>
                   </FormLabel>
                   <div className="space-y-2">
                     <FormControl>
                       <Textarea 
                         placeholder="輸入您的個人備註、記憶方式或其他補充資訊（選填）" 
-                        className="resize-none bg-white/70 backdrop-blur-sm border-sky-200 focus-visible:ring-sky-400 min-h-[100px]" 
+                        className="resize-none bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm border-sky-200 dark:border-slate-600 focus-visible:ring-sky-400 dark:focus-visible:ring-sky-500 min-h-[100px]" 
                         {...field} 
                       />
                     </FormControl>
@@ -119,7 +119,7 @@ export default function AddWordForm() {
             <Button 
               type="submit" 
               disabled={isSubmitting}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+              className="w-full bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 disabled:opacity-50"
             >
               {isSubmitting ? (
                 <>

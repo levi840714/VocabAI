@@ -11,6 +11,8 @@ import StudyPage from '@/pages/StudyPage';
 import ProgressPage from '@/pages/ProgressPage';
 import AIAnalysisPage from '@/pages/AIAnalysisPage';
 import WordDetailPage from '@/pages/WordDetailPage';
+import SettingsPage from '@/pages/SettingsPage';
+import SettingsTestPage from '@/pages/SettingsTestPage';
 
 const AppRouter: React.FC = () => {
   return (
@@ -25,6 +27,8 @@ const AppRouter: React.FC = () => {
             <Route path="/study" element={<StudyPage />} />
             <Route path="/progress" element={<ProgressPage />} />
             <Route path="/ai-analysis" element={<AIAnalysisPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/settings-test" element={<SettingsTestPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </AnimatePresence>

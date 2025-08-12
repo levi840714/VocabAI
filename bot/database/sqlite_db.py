@@ -36,6 +36,19 @@ async def init_db(db_path):
             FOREIGN KEY (word_id) REFERENCES words (id)
         )
         """)
+        
+        await db.execute("""
+        CREATE TABLE IF NOT EXISTS user_settings (
+            user_id INTEGER PRIMARY KEY,
+            learning_preferences TEXT NOT NULL,
+            interface_settings TEXT NOT NULL,
+            ai_settings TEXT NOT NULL,
+            study_settings TEXT NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+        """)
+        
         await db.commit()
     logging.info("Database initialized.")
 
@@ -328,3 +341,97 @@ def is_word_learned(word_data):
     if word_data and 'interval' in word_data and 'difficulty' in word_data:
         return word_data['interval'] >= 30 and word_data['difficulty'] <= 1
     return False
+
+# User Settings CRUD functions
+async def get_user_settings(db_path, user_id):
+    """Get user settings for a specific user."""
+    async with aiosqlite.connect(db_path) as db:
+        cursor = await db.execute("""
+        SELECT user_id, learning_preferences, interface_settings, ai_settings, study_settings, created_at, updated_at
+        FROM user_settings
+        WHERE user_id = ?
+        """, (user_id,))
+        row = await cursor.fetchone()
+        
+        if row:
+            columns = ['user_id', 'learning_preferences', 'interface_settings', 'ai_settings', 'study_settings', 'created_at', 'updated_at']
+            return dict(zip(columns, row))
+        return None
+
+async def create_user_settings(db_path, user_id, learning_preferences, interface_settings, ai_settings, study_settings):
+    """Create new user settings."""
+    async with aiosqlite.connect(db_path) as db:
+        try:
+            await db.execute("""
+            INSERT INTO user_settings (user_id, learning_preferences, interface_settings, ai_settings, study_settings)
+            VALUES (?, ?, ?, ?, ?)
+            """, (user_id, learning_preferences, interface_settings, ai_settings, study_settings))
+            await db.commit()
+            logging.info(f"User settings created for user {user_id}")
+            return True
+        except aiosqlite.IntegrityError:
+            logging.warning(f"User settings already exist for user {user_id}")
+            return False
+
+async def update_user_settings(db_path, user_id, learning_preferences=None, interface_settings=None, ai_settings=None, study_settings=None):
+    """Update user settings."""
+    async with aiosqlite.connect(db_path) as db:
+        # Build update query dynamically based on provided parameters
+        update_fields = []
+        params = []
+        
+        if learning_preferences is not None:
+            update_fields.append("learning_preferences = ?")
+            params.append(learning_preferences)
+        
+        if interface_settings is not None:
+            update_fields.append("interface_settings = ?")
+            params.append(interface_settings)
+            
+        if ai_settings is not None:
+            update_fields.append("ai_settings = ?")
+            params.append(ai_settings)
+            
+        if study_settings is not None:
+            update_fields.append("study_settings = ?")
+            params.append(study_settings)
+        
+        if not update_fields:
+            return False
+            
+        # Always update updated_at timestamp
+        update_fields.append("updated_at = CURRENT_TIMESTAMP")
+        params.append(user_id)
+        
+        query = f"""
+        UPDATE user_settings 
+        SET {', '.join(update_fields)}
+        WHERE user_id = ?
+        """
+        
+        cursor = await db.execute(query, params)
+        await db.commit()
+        
+        if cursor.rowcount > 0:
+            logging.info(f"User settings updated for user {user_id}")
+            return True
+        else:
+            logging.warning(f"No user settings found for user {user_id}")
+            return False
+
+async def upsert_user_settings(db_path, user_id, learning_preferences, interface_settings, ai_settings, study_settings):
+    """Create or update user settings (upsert)."""
+    existing_settings = await get_user_settings(db_path, user_id)
+    
+    if existing_settings:
+        return await update_user_settings(
+            db_path, user_id, 
+            learning_preferences, interface_settings, 
+            ai_settings, study_settings
+        )
+    else:
+        return await create_user_settings(
+            db_path, user_id, 
+            learning_preferences, interface_settings, 
+            ai_settings, study_settings
+        )

@@ -23,7 +23,11 @@ from bot.database.sqlite_db import (
     delete_word,
     mark_word_as_learned,
     reset_word_learning_status,
-    is_word_learned
+    is_word_learned,
+    get_user_settings,
+    create_user_settings,
+    update_user_settings,
+    upsert_user_settings
 )
 from bot.core.spaced_repetition import calculate_next_review_date
 
@@ -120,3 +124,20 @@ async def mark_user_word_as_learned(db_path: str, word_id: int, user_id: int) ->
 async def reset_user_word_learning_status(db_path: str, word_id: int, user_id: int) -> bool:
     """Reset a word's learning status for a user."""
     return await reset_word_learning_status(db_path, word_id, user_id)
+
+# User Settings CRUD functions
+async def get_user_settings_data(db_path: str, user_id: int):
+    """Get user settings data."""
+    return await get_user_settings(db_path, user_id)
+
+async def create_user_settings_data(db_path: str, user_id: int, learning_preferences: str, interface_settings: str, ai_settings: str, study_settings: str) -> bool:
+    """Create user settings."""
+    return await create_user_settings(db_path, user_id, learning_preferences, interface_settings, ai_settings, study_settings)
+
+async def update_user_settings_data(db_path: str, user_id: int, learning_preferences: str = None, interface_settings: str = None, ai_settings: str = None, study_settings: str = None) -> bool:
+    """Update user settings."""
+    return await update_user_settings(db_path, user_id, learning_preferences, interface_settings, ai_settings, study_settings)
+
+async def upsert_user_settings_data(db_path: str, user_id: int, learning_preferences: str, interface_settings: str, ai_settings: str, study_settings: str) -> bool:
+    """Create or update user settings (upsert)."""
+    return await upsert_user_settings(db_path, user_id, learning_preferences, interface_settings, ai_settings, study_settings)

@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* Vocab.ai 海洋主題樣式 */
 :root {
   --background: 0 0% 100%;
@@ -28,25 +32,44 @@
 }
 
 .dark {
-  --background: 240 10% 3.9%;
-  --foreground: 0 0% 98%;
-  --card: 240 10% 3.9%;
-  --card-foreground: 0 0% 98%;
-  --popover: 240 10% 3.9%;
-  --popover-foreground: 0 0% 98%;
-  --primary: 0 0% 98%;
-  --primary-foreground: 240 5.9% 10%;
-  --secondary: 240 3.7% 15.9%;
-  --secondary-foreground: 0 0% 98%;
-  --muted: 240 3.7% 15.9%;
-  --muted-foreground: 240 5% 64.9%;
-  --accent: 240 3.7% 15.9%;
-  --accent-foreground: 0 0% 98%;
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 0 0% 98%;
-  --border: 240 3.7% 15.9%;
-  --input: 240 3.7% 15.9%;
-  --ring: 240 4.9% 83.9%;
+  /* 主要背景：深色但不是純黑，保持舒適感 */
+  --background: 222 84% 4.9%;
+  --foreground: 210 40% 98%;
+  
+  /* 卡片背景：比主背景稍亮，提供層次感 */
+  --card: 222 84% 8%;
+  --card-foreground: 210 40% 95%;
+  
+  /* 彈窗背景 */
+  --popover: 222 84% 8%;
+  --popover-foreground: 210 40% 95%;
+  
+  /* 主要色彩：藍色系，保持品牌一致性 */
+  --primary: 217 91% 60%;
+  --primary-foreground: 222 84% 4.9%;
+  
+  /* 次要背景：用於按鈕等 */
+  --secondary: 217 32% 17%;
+  --secondary-foreground: 210 40% 98%;
+  
+  /* 靜音色：用於不重要信息 */
+  --muted: 217 32% 17%;
+  --muted-foreground: 215 20% 65%;
+  
+  /* 強調色 */
+  --accent: 217 32% 17%;
+  --accent-foreground: 210 40% 98%;
+  
+  /* 危險色 */
+  --destructive: 0 63% 31%;
+  --destructive-foreground: 210 40% 98%;
+  
+  /* 邊框和輸入 */
+  --border: 217 32% 17%;
+  --input: 217 32% 17%;
+  --ring: 217 91% 60%;
+  
+  /* 圖表色彩 */
   --chart-1: 220 70% 50%;
   --chart-2: 160 60% 45%;
   --chart-3: 30 80% 55%;

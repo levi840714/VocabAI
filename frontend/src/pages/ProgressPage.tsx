@@ -1,56 +1,61 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { useAnimation } from '@/hooks/useAnimation';
+import { ThemeCard, ThemeTitle, ThemeText } from '@/components/ui/ThemeComponents';
 import ProgressTracker from '@/components/progress-tracker';
 import { TrendingUp, BarChart3, Calendar } from 'lucide-react';
 
 const ProgressPage: React.FC = () => {
+  const animation = useAnimation();
+  
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
+      initial={animation.pageTransition.initial}
+      animate={animation.pageTransition.animate}
+      exit={animation.pageTransition.exit}
+      transition={animation.pageTransition.transition}
       className="space-y-6"
     >
       {/* 頁面標題 */}
-      <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 shadow-sm ring-1 ring-orange-200/30">
+      <ThemeCard className="ring-orange-200/30 dark:ring-orange-700/30">
         <div className="flex items-center space-x-3 mb-3">
-          <div className="p-2 bg-orange-100 rounded-lg">
-            <TrendingUp className="w-6 h-6 text-orange-600" />
+          <div className="p-2 bg-orange-100 dark:bg-orange-900 rounded-lg">
+            <TrendingUp className="w-6 h-6 text-orange-600 dark:text-orange-400" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">學習進度</h1>
-            <p className="text-slate-600">追蹤您的學習成果和進度統計</p>
+            <ThemeTitle level={2}>學習進度</ThemeTitle>
+            <ThemeText variant="body">追蹤您的學習成果和進度統計</ThemeText>
           </div>
         </div>
         
         {/* 進度功能說明 */}
         <div className="mt-4 grid md:grid-cols-2 gap-4">
-          <div className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-xl p-4 border border-blue-200/30">
-            <div className="flex items-center space-x-2 text-blue-700 mb-2">
+          <div className="bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-xl p-4 border border-blue-200/30 dark:border-blue-700/30">
+            <div className="flex items-center space-x-2 text-blue-700 dark:text-blue-300 mb-2">
               <BarChart3 className="w-5 h-5" />
               <span className="font-medium">詳細統計</span>
             </div>
-            <p className="text-sm text-blue-600">
+            <ThemeText variant="small" className="text-blue-600 dark:text-blue-300">
               查看學習數據的圖表分析和趨勢變化
-            </p>
+            </ThemeText>
           </div>
           
-          <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-4 border border-purple-200/30">
-            <div className="flex items-center space-x-2 text-purple-700 mb-2">
+          <div className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-xl p-4 border border-purple-200/30 dark:border-purple-700/30">
+            <div className="flex items-center space-x-2 text-purple-700 dark:text-purple-300 mb-2">
               <Calendar className="w-5 h-5" />
               <span className="font-medium">歷史記錄</span>
             </div>
-            <p className="text-sm text-purple-600">
+            <ThemeText variant="small" className="text-purple-600 dark:text-purple-300">
               回顧您的學習歷程和成就里程碑
-            </p>
+            </ThemeText>
           </div>
         </div>
-      </div>
+      </ThemeCard>
 
       {/* 進度追蹤器 */}
-      <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-sm ring-1 ring-slate-200/30 overflow-hidden">
+      <ThemeCard variant="default" className="overflow-hidden">
         <ProgressTracker />
-      </div>
+      </ThemeCard>
     </motion.div>
   );
 };

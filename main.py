@@ -216,11 +216,17 @@ async def setup_api_routes(app):
         return web.Response()
     
     # Import existing API handlers from api/main.py
+    # 🚨 重要：新增 API 時請確保：
+    # 1. 在 api/main.py 中定義 FastAPI 端點
+    # 2. 在這裡導入對應的函數
+    # 3. 創建包裝函數（wrapper）
+    # 4. 在 convert_fastapi_to_aiohttp 中添加處理邏輯（如果需要）
+    # 5. 在下方添加路由註冊
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'api'))
     from api.main import (
         get_words, add_word, get_word_by_id, get_next_review, submit_review,
         get_ai_explanation, get_user_statistics, update_word_notes, delete_word,
-        toggle_word_learned, get_current_user
+        toggle_word_learned, get_current_user, get_user_settings, create_or_update_settings, update_settings
     )
     
     # Convert FastAPI handlers to aiohttp handlers
@@ -240,6 +246,8 @@ async def setup_api_routes(app):
                 elif request.path.endswith('/next'):
                     result = await fastapi_handler(user_id=user_id)
                 elif request.path.endswith('/stats'):
+                    result = await fastapi_handler(user_id=user_id)
+                elif request.path.endswith('/settings'):
                     result = await fastapi_handler(user_id=user_id)
                 elif 'words' in request.path:
                     # Handle words list endpoint
@@ -278,6 +286,15 @@ async def setup_api_routes(app):
                         from api.schemas import AIExplanationRequest
                         ai_request = AIExplanationRequest(**data)
                         result = await fastapi_handler(request=ai_request)
+                    elif 'settings' in request.path:
+                        if request.method == 'POST':
+                            from api.schemas import UserSettingsCreate
+                            settings_data = UserSettingsCreate(**data)
+                            result = await fastapi_handler(settings_data=settings_data, user_id=user_id)
+                        elif request.method == 'PUT':
+                            from api.schemas import UserSettingsUpdate
+                            settings_data = UserSettingsUpdate(**data)
+                            result = await fastapi_handler(settings_data=settings_data, user_id=user_id)
             
             # Convert result to dict if it's a Pydantic model
             if hasattr(result, 'model_dump'):
@@ -285,7 +302,17 @@ async def setup_api_routes(app):
             elif hasattr(result, 'dict'):
                 result = result.dict()
             
-            return web.json_response(result)
+            # 處理 datetime 序列化問題
+            import json
+            from datetime import datetime
+            
+            def json_serializer(obj):
+                """JSON 序列化器，處理 datetime 對象"""
+                if isinstance(obj, datetime):
+                    return obj.isoformat()
+                raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
+            
+            return web.json_response(result, dumps=lambda obj: json.dumps(obj, default=json_serializer))
             
         except Exception as e:
             return web.json_response({'error': str(e)}, status=400)
@@ -321,6 +348,16 @@ async def setup_api_routes(app):
     async def get_user_statistics_wrapper(request):
         return await convert_fastapi_to_aiohttp(get_user_statistics, request)
     
+    # Settings wrapper functions
+    async def get_user_settings_wrapper(request):
+        return await convert_fastapi_to_aiohttp(get_user_settings, request)
+    
+    async def create_or_update_settings_wrapper(request):
+        return await convert_fastapi_to_aiohttp(create_or_update_settings, request)
+    
+    async def update_settings_wrapper(request):
+        return await convert_fastapi_to_aiohttp(update_settings, request)
+    
     # Add routes
     app.router.add_get('/api/v1/words', get_words_wrapper)
     app.router.add_post('/api/v1/words', add_word_wrapper)
@@ -335,6 +372,12 @@ async def setup_api_routes(app):
     app.router.add_post('/api/v1/ai/explain', get_ai_explanation_wrapper)
     
     app.router.add_get('/api/v1/stats', get_user_statistics_wrapper)
+    
+    # Settings routes
+    app.router.add_get('/api/v1/settings', get_user_settings_wrapper)
+    app.router.add_post('/api/v1/settings', create_or_update_settings_wrapper)
+    app.router.add_put('/api/v1/settings', update_settings_wrapper)
+    
     app.router.add_get('/api/v1/health', health_handler)
     app.router.add_post('/api/v1/sync-db', sync_db_handler)  # 手動同步端點
     
@@ -361,16 +404,23 @@ async def setup_bot_and_dispatcher():
     # Initialize AI Service
     from bot.services.ai_service import AIService
     ai_service = AIService(config)
+    
+    # Initialize Reminder Service
+    from bot.services.reminder_service import ReminderService
+    reminder_service = ReminderService(bot, config['database']['db_path'], config)
+    await reminder_service.start()
 
     # Register handlers
-    from bot.handlers import common, word_handler, vocabulary_handler, review_handler
+    from bot.handlers import common, word_handler, vocabulary_handler, review_handler, reminder_handler
     dp.include_router(common.router)
     dp.include_router(vocabulary_handler.router)
     dp.include_router(review_handler.router)
     dp.include_router(word_handler.router)
+    dp.include_router(reminder_handler.router)
 
     # Pass services and config to all handlers
     dp['ai_service'] = ai_service
+    dp['reminder_service'] = reminder_service
     dp['config'] = config
 
     # Setup scheduler

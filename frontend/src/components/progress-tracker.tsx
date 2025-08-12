@@ -39,7 +39,7 @@ export default function ProgressTracker() {
   return (
     <div className="space-y-6">
       {/* 今日複習進度卡片 */}
-      <Card className="bg-gradient-to-r from-blue-50/80 to-sky-50/80 backdrop-blur-sm ring-1 ring-blue-200/40">
+      <Card className="bg-gradient-to-r from-blue-50/80 to-sky-50/80 dark:from-blue-900/20 dark:to-sky-900/20 backdrop-blur-sm ring-1 ring-blue-200/40 dark:ring-blue-700/40">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Target className="h-5 w-5 text-blue-600" />
@@ -50,11 +50,11 @@ export default function ProgressTracker() {
         <CardContent className="space-y-4">
           <div className="flex justify-between items-center mb-2">
             <span className="text-sm font-medium">今日複習進度</span>
-            <span className="text-sm text-slate-600">{reviewedToday}/{dueToday}</span>
+            <span className="text-sm text-slate-600 dark:text-slate-300">{reviewedToday}/{dueToday}</span>
           </div>
           <Progress value={reviewProgress} className="h-3" />
           <div className="flex justify-between items-center mt-2">
-            <span className="text-sm text-slate-600">
+            <span className="text-sm text-slate-600 dark:text-slate-300">
               已完成 {reviewProgress.toFixed(1)}% 的今日複習
             </span>
             <Badge variant={reviewProgress >= 100 ? "default" : "secondary"}>
@@ -65,7 +65,7 @@ export default function ProgressTracker() {
       </Card>
 
       {/* 總體學習統計 */}
-      <Card className="bg-white/80 backdrop-blur-sm ring-1 ring-white/60">
+      <Card className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm ring-1 ring-white/60 dark:ring-slate-700/60">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Brain className="h-5 w-5 text-purple-600" />
@@ -77,15 +77,15 @@ export default function ProgressTracker() {
           <div className="grid grid-cols-3 gap-4">
             <div className="text-center">
               <p className="text-2xl font-bold text-green-600">{easyWords}</p>
-              <p className="text-xs text-slate-600">容易掌握</p>
+              <p className="text-xs text-slate-600 dark:text-slate-300">容易掌握</p>
             </div>
             <div className="text-center">
               <p className="text-2xl font-bold text-yellow-600">{mediumWords}</p>
-              <p className="text-xs text-slate-600">中等難度</p>
+              <p className="text-xs text-slate-600 dark:text-slate-300">中等難度</p>
             </div>
             <div className="text-center">
               <p className="text-2xl font-bold text-red-600">{hardWords}</p>
-              <p className="text-xs text-slate-600">需要加強</p>
+              <p className="text-xs text-slate-600 dark:text-slate-300">需要加強</p>
             </div>
           </div>
         </CardContent>
@@ -93,49 +93,49 @@ export default function ProgressTracker() {
 
       {/* 統計卡片網格 */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="bg-white/80 backdrop-blur-sm ring-1 ring-white/60">
+        <Card className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm ring-1 ring-white/60 dark:ring-slate-700/60">
           <CardContent className="p-6">
             <div className="flex items-center space-x-2">
               <BookOpen className="h-8 w-8 text-blue-600" />
               <div>
                 <p className="text-2xl font-bold">{totalWords}</p>
-                <p className="text-sm text-slate-600">總單字數</p>
+                <p className="text-sm text-slate-600 dark:text-slate-300">總單字數</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-white/80 backdrop-blur-sm ring-1 ring-white/60">
+        <Card className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm ring-1 ring-white/60 dark:ring-slate-700/60">
           <CardContent className="p-6">
             <div className="flex items-center space-x-2">
               <Calendar className="h-8 w-8 text-red-600" />
               <div>
                 <p className="text-2xl font-bold">{dueToday}</p>
-                <p className="text-sm text-slate-600">今日待複習</p>
+                <p className="text-sm text-slate-600 dark:text-slate-300">今日待複習</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-white/80 backdrop-blur-sm ring-1 ring-white/60">
+        <Card className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm ring-1 ring-white/60 dark:ring-slate-700/60">
           <CardContent className="p-6">
             <div className="flex items-center space-x-2">
               <CheckCircle className="h-8 w-8 text-green-600" />
               <div>
                 <p className="text-2xl font-bold">{reviewedToday}</p>
-                <p className="text-sm text-slate-600">今日已複習</p>
+                <p className="text-sm text-slate-600 dark:text-slate-300">今日已複習</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-white/80 backdrop-blur-sm ring-1 ring-white/60">
+        <Card className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm ring-1 ring-white/60 dark:ring-slate-700/60">
           <CardContent className="p-6">
             <div className="flex items-center space-x-2">
               <Clock className="h-8 w-8 text-amber-600" />
               <div>
                 <p className="text-2xl font-bold">{Math.max(0, dueToday - reviewedToday)}</p>
-                <p className="text-sm text-slate-600">剩餘待複習</p>
+                <p className="text-sm text-slate-600 dark:text-slate-300">剩餘待複習</p>
               </div>
             </div>
           </CardContent>
@@ -144,7 +144,7 @@ export default function ProgressTracker() {
 
       {/* 最近添加的單字 */}
       {recentWords.length > 0 && (
-        <Card className="bg-white/80 backdrop-blur-sm ring-1 ring-white/60">
+        <Card className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm ring-1 ring-white/60 dark:ring-slate-700/60">
           <CardHeader>
             <CardTitle>最近添加的單字</CardTitle>
             <CardDescription>您最新加入的學習單字</CardDescription>
@@ -152,7 +152,7 @@ export default function ProgressTracker() {
           <CardContent>
             <div className="space-y-3">
               {recentWords.map((word) => (
-                <div key={word.id} className="flex items-center justify-between p-3 rounded-lg bg-sky-50/50">
+                <div key={word.id} className="flex items-center justify-between p-3 rounded-lg bg-sky-50/50 dark:bg-sky-900/20">
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <span className="font-medium">{word.term}</span>
@@ -160,16 +160,16 @@ export default function ProgressTracker() {
                         variant={word.learned ? "outline" : "secondary"}
                         className={
                           word.learned
-                            ? "border-cyan-400 text-cyan-700"
-                            : "bg-amber-200 text-amber-900"
+                            ? "border-cyan-400 dark:border-cyan-500 text-cyan-700 dark:text-cyan-300"
+                            : "bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100"
                         }
                       >
                         {word.learned ? "已學會" : "學習中"}
                       </Badge>
                     </div>
-                    <p className="text-sm text-slate-600 mt-1">{word.definition}</p>
+                    <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">{word.definition}</p>
                   </div>
-                  <span className="text-xs text-slate-500">
+                  <span className="text-xs text-slate-500 dark:text-slate-400">
                     {new Date(word.dateAdded).toLocaleDateString('zh-TW')}
                   </span>
                 </div>
@@ -180,13 +180,13 @@ export default function ProgressTracker() {
       )}
 
       {/* 學習建議 */}
-      <Card className="bg-gradient-to-r from-green-50/80 to-emerald-50/80 backdrop-blur-sm ring-1 ring-green-200/40">
+      <Card className="bg-gradient-to-r from-green-50/80 to-emerald-50/80 dark:from-green-900/20 dark:to-emerald-900/20 backdrop-blur-sm ring-1 ring-green-200/40 dark:ring-green-700/40">
         <CardHeader>
-          <CardTitle className="text-green-800">間隔複習建議</CardTitle>
-          <CardDescription className="text-green-600">基於科學記憶曲線的個人化建議</CardDescription>
+          <CardTitle className="text-green-800 dark:text-green-200">間隔複習建議</CardTitle>
+          <CardDescription className="text-green-600 dark:text-green-300">基於科學記憶曲線的個人化建議</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-2 text-sm text-green-700">
+          <div className="space-y-2 text-sm text-green-700 dark:text-green-200">
             {dueToday > reviewedToday && (
               <p>• 您還有 {dueToday - reviewedToday} 個單字需要今日複習，建議完成後休息</p>
             )}

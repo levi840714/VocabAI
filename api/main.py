@@ -1,7 +1,9 @@
 import sys
 import os
-from fastapi import FastAPI, HTTPException, Depends, Query, Header
+import json
+from fastapi import FastAPI, HTTPException, Depends, Query, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from datetime import datetime
 import logging
 from typing import Optional
@@ -17,12 +19,14 @@ sys.path.insert(0, api_dir)
 from schemas import (
     WordCreate, WordResponse, WordSimpleResponse, WordDetailResponse, WordsListResponse, 
     ReviewRequest, ReviewResponse, AIExplanationRequest, AIExplanationResponse, 
-    StructuredAIResponse, DeepLearningAIResponse, StatsResponse, HealthResponse, ErrorResponse, UpdateNotesRequest
+    StructuredAIResponse, DeepLearningAIResponse, StatsResponse, HealthResponse, ErrorResponse, UpdateNotesRequest,
+    UserSettingsCreate, UserSettingsUpdate, UserSettingsResponse
 )
 from crud import (
     ensure_db_initialized, create_word, get_user_words, get_due_words, get_recent_words,
     get_next_review_word, update_review_result, get_user_stats, find_word_by_text, find_word_by_id,
-    update_user_notes, delete_user_word, mark_user_word_as_learned, reset_user_word_learning_status, is_word_learned
+    update_user_notes, delete_user_word, mark_user_word_as_learned, reset_user_word_learning_status, is_word_learned,
+    get_user_settings_data, create_user_settings_data, update_user_settings_data, upsert_user_settings_data
 )
 from dependencies import get_database_path, get_ai_service, validate_user_access
 from telegram_auth import get_user_from_telegram_header
@@ -67,9 +71,12 @@ app = FastAPI(
     title="Vocab.ai API",
     description="API for the Vocab.ai vocabulary learning application",
     version="1.0.0",
+    # 添加生產環境支援
+    docs_url="/docs" if os.getenv("ENVIRONMENT", "development") == "development" else None,
+    redoc_url="/redoc" if os.getenv("ENVIRONMENT", "development") == "development" else None,
 )
 
-# CORS middleware
+# CORS middleware - 強化設定以防止跨域和 Referrer Policy 錯誤
 origins = [
     "*",  # Allow all origins for development; restrict in production
 ]
@@ -78,9 +85,51 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"],
+    allow_headers=[
+        "*",
+        "Authorization",
+        "Content-Type", 
+        "X-Requested-With",
+        "Accept",
+        "Origin",
+        "Access-Control-Request-Method",
+        "Access-Control-Request-Headers",
+        "Referrer-Policy",
+        "Sec-Fetch-Site",
+        "Sec-Fetch-Mode",
+        "Sec-Fetch-Dest"
+    ],
+    expose_headers=["*"],
+    max_age=3600,
 )
+
+# 添加中間件處理 Referrer Policy 和安全標頭
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    """添加安全標頭以解決跨域和 Referrer Policy 問題"""
+    response = await call_next(request)
+    
+    # 設定 Referrer Policy 允許跨域請求
+    response.headers["Referrer-Policy"] = "no-referrer-when-downgrade"
+    
+    # 允許跨域嵌入（如果需要）
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
+    
+    # 設定 Content Security Policy 允許跨域請求
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self' *; "
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' *; "
+        "style-src 'self' 'unsafe-inline' *; "
+        "img-src 'self' data: *; "
+        "connect-src 'self' *; "
+        "font-src 'self' *; "
+        "object-src 'none'; "
+        "media-src 'self' *; "
+        "frame-src 'self' *;"
+    )
+    
+    return response
 
 @app.on_event("startup")
 async def startup_event():
@@ -88,6 +137,25 @@ async def startup_event():
     db_path = get_database_path()
     await ensure_db_initialized(db_path)
     logger.info("Database initialized successfully")
+
+# 添加全域錯誤處理器
+@app.exception_handler(405)
+async def method_not_allowed_handler(request: Request, exc):
+    """處理 405 Method Not Allowed 錯誤"""
+    logger.warning(f"405 Method Not Allowed: {request.method} {request.url.path}")
+    return JSONResponse(
+        status_code=405,
+        content={
+            "detail": f"Method {request.method} not allowed for {request.url.path}",
+            "allowed_methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+        }
+    )
+
+# 添加通用 OPTIONS 處理器（備用方案）
+@app.options("/{path:path}")
+async def options_handler(path: str):
+    """通用 OPTIONS 處理器，防止 405 錯誤"""
+    return {"message": "OK"}
 
 @app.get("/api/v1/health", response_model=HealthResponse)
 async def health_check():
@@ -335,6 +403,139 @@ async def toggle_word_learned(word_id: int, user_id: int = Depends(get_current_u
     except Exception as e:
         logger.error(f"Error toggling word {word_id} status: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to toggle word status")
+
+# User Settings endpoints
+@app.get("/api/v1/settings", response_model=UserSettingsResponse)
+async def get_user_settings(user_id: int = Depends(get_current_user)):
+    """Get user settings."""
+    logger.info(f"GET /settings called - user_id: {user_id}")
+    db_path = get_database_path()
+    
+    try:
+        settings_data = await get_user_settings_data(db_path, user_id)
+        if not settings_data:
+            # Return default settings if none exist
+            from schemas import LearningPreferences, InterfaceSettings, AISettings, StudySettings
+            default_settings = UserSettingsResponse(
+                user_id=user_id,
+                learning_preferences=LearningPreferences(),
+                interface_settings=InterfaceSettings(),
+                ai_settings=AISettings(),
+                study_settings=StudySettings(),
+                created_at=datetime.now(),
+                updated_at=datetime.now()
+            )
+            return default_settings
+            
+        # Parse JSON strings back to objects
+        parsed_settings = {
+            "user_id": settings_data["user_id"],
+            "learning_preferences": json.loads(settings_data["learning_preferences"]),
+            "interface_settings": json.loads(settings_data["interface_settings"]),
+            "ai_settings": json.loads(settings_data["ai_settings"]),
+            "study_settings": json.loads(settings_data["study_settings"]),
+            "created_at": datetime.fromisoformat(settings_data["created_at"]),
+            "updated_at": datetime.fromisoformat(settings_data["updated_at"])
+        }
+        
+        return UserSettingsResponse(**parsed_settings)
+    except Exception as e:
+        logger.error(f"Error getting user settings: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve user settings")
+
+@app.post("/api/v1/settings", response_model=dict)
+async def create_or_update_settings(
+    settings_data: UserSettingsCreate,
+    user_id: int = Depends(get_current_user)
+):
+    """Create or update user settings."""
+    logger.info(f"POST /settings called - user_id: {user_id}")
+    db_path = get_database_path()
+    
+    try:
+        # Convert Pydantic models to JSON strings
+        learning_preferences_json = json.dumps(settings_data.learning_preferences.dict())
+        interface_settings_json = json.dumps(settings_data.interface_settings.dict())
+        ai_settings_json = json.dumps(settings_data.ai_settings.dict())
+        study_settings_json = json.dumps(settings_data.study_settings.dict())
+        
+        success = await upsert_user_settings_data(
+            db_path, user_id,
+            learning_preferences_json, interface_settings_json,
+            ai_settings_json, study_settings_json
+        )
+        
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to save user settings")
+        
+        return {"message": "User settings saved successfully", "user_id": user_id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error saving user settings: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to save user settings")
+
+@app.put("/api/v1/settings", response_model=dict)
+async def update_settings(
+    settings_data: UserSettingsUpdate,
+    user_id: int = Depends(get_current_user)
+):
+    """Update specific user settings."""
+    logger.info(f"PUT /settings called - user_id: {user_id}")
+    db_path = get_database_path()
+    
+    try:
+        # Convert provided settings to JSON strings
+        learning_preferences_json = None
+        if settings_data.learning_preferences:
+            learning_preferences_json = json.dumps(settings_data.learning_preferences.dict())
+            
+        interface_settings_json = None
+        if settings_data.interface_settings:
+            interface_settings_json = json.dumps(settings_data.interface_settings.dict())
+            
+        ai_settings_json = None
+        if settings_data.ai_settings:
+            ai_settings_json = json.dumps(settings_data.ai_settings.dict())
+            
+        study_settings_json = None
+        if settings_data.study_settings:
+            study_settings_json = json.dumps(settings_data.study_settings.dict())
+        
+        # 確保用戶設定存在，如果不存在則創建預設設定
+        existing_settings = await get_user_settings_data(db_path, user_id)
+        if not existing_settings:
+            # 創建預設設定
+            from schemas import LearningPreferences, InterfaceSettings, AISettings, StudySettings
+            default_learning = json.dumps(LearningPreferences().dict())
+            default_interface = json.dumps(InterfaceSettings().dict())
+            default_ai = json.dumps(AISettings().dict())
+            default_study = json.dumps(StudySettings().dict())
+            
+            create_success = await create_user_settings_data(
+                db_path, user_id,
+                default_learning, default_interface,
+                default_ai, default_study
+            )
+            if not create_success:
+                raise HTTPException(status_code=500, detail="Failed to create user settings")
+        
+        # 使用 update 函數來只更新提供的欄位
+        success = await update_user_settings_data(
+            db_path, user_id,
+            learning_preferences_json, interface_settings_json,
+            ai_settings_json, study_settings_json
+        )
+        
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to update user settings")
+        
+        return {"message": "User settings updated successfully", "user_id": user_id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating user settings: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to update user settings")
 
 # Legacy endpoints for backward compatibility
 @app.get("/api/v1/hello")

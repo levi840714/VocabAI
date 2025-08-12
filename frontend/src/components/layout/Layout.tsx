@@ -26,8 +26,8 @@ const pageVariants = {
 };
 
 const pageTransition = {
-  type: 'tween',
-  ease: 'anticipate',
+  type: 'tween' as const,
+  ease: 'anticipate' as const,
   duration: 0.3,
 };
 
@@ -50,7 +50,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   };
 
   // 處理滑動手勢
-  const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+  const handleDragEnd = (_event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     const { offset, velocity } = info;
     setIsDragging(false);
     
@@ -70,6 +70,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         navigate('/');
       }
     }
+    // 如果沒有觸發返回，頁面會自動透過 dragConstraints 和 dragElastic 彈回原位置
   };
 
   return (
@@ -81,17 +82,17 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           <motion.div
             key={location.pathname}
             initial="initial"
-            animate="in"
+            animate={isDragging ? "in" : { ...pageVariants.in, x: 0 }}
             exit="out"
             variants={pageVariants}
-            transition={pageTransition}
+            transition={isDragging ? pageTransition : { ...pageTransition, type: "spring", stiffness: 400, damping: 30 }}
             drag={!isHomePage && isMobile ? "x" : false}
             dragConstraints={{ left: 0, right: 150 }}
-            dragElastic={0.15}
+            dragElastic={0.2}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
             dragMomentum={false}
-            dragTransition={{ power: 0.3, timeConstant: 200 }}
+            dragTransition={{ power: 0.4, timeConstant: 150 }}
             whileDrag={{ scale: 0.99, rotateY: 2 }}
             className={`touch-pan-y select-none ${isDragging ? 'cursor-grabbing' : ''}`}
             style={{

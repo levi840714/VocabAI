@@ -1,12 +1,12 @@
 import * as React from "react"
 import type { FieldPath, FieldValues, ControllerProps } from "react-hook-form"
-import { Controller } from "react-hook-form"
+import { Controller, FormProvider } from "react-hook-form"
 import { Slot } from "@radix-ui/react-slot"
 
 import { cn } from "@/lib/utils"
 import { Label } from "@/components/ui/label"
 
-const Form = ({ ...props }) => <div {...props} />
+const Form = FormProvider
 
 type FormFieldContextValue<
   TFieldValues extends FieldValues = FieldValues,

@@ -169,3 +169,57 @@ class ErrorResponse(BaseModel):
 
 class UpdateNotesRequest(BaseModel):
     notes: Optional[str] = Field(None, description="User's personal notes for the word")
+
+# User Settings Models
+class LearningPreferences(BaseModel):
+    daily_review_target: int = Field(default=20, ge=1, le=100, description="每日複習目標數量")
+    difficulty_preference: str = Field(default="mixed", pattern=r"^(easy|normal|hard|mixed)$", description="難度偏好")
+    review_reminder_enabled: bool = Field(default=True, description="是否開啟複習提醒")
+    review_reminder_time: str = Field(default="09:00", pattern=r"^([01]?[0-9]|2[0-3]):[0-5][0-9]$", description="複習提醒時間")
+
+class InterfaceSettings(BaseModel):
+    voice_auto_play: bool = Field(default=False, description="語音自動播放")
+    theme_mode: str = Field(default="light", pattern=r"^(light|dark|auto)$", description="主題模式")
+    language: str = Field(default="zh-TW", description="介面語言")
+    animation_enabled: bool = Field(default=True, description="動畫效果")
+
+class AISettings(BaseModel):
+    default_explanation_type: str = Field(default="simple", pattern=r"^(simple|deep)$", description="預設AI解釋類型")
+    ai_provider_preference: str = Field(default="google", description="AI服務提供商偏好")
+    explanation_detail_level: str = Field(default="standard", pattern=r"^(concise|standard|detailed)$", description="解釋詳細程度")
+
+class StudySettings(BaseModel):
+    spaced_repetition_algorithm: str = Field(default="sm2", description="間隔重複算法")
+    show_pronunciation: bool = Field(default=True, description="顯示音標")
+    show_etymology: bool = Field(default=True, description="顯示詞源")
+    auto_mark_learned_threshold: int = Field(default=5, ge=3, le=10, description="自動標記為已學會的閾值")
+
+class UserSettings(BaseModel):
+    user_id: int
+    learning_preferences: LearningPreferences
+    interface_settings: InterfaceSettings
+    ai_settings: AISettings
+    study_settings: StudySettings
+    created_at: datetime
+    updated_at: datetime
+
+class UserSettingsCreate(BaseModel):
+    learning_preferences: Optional[LearningPreferences] = Field(default_factory=LearningPreferences)
+    interface_settings: Optional[InterfaceSettings] = Field(default_factory=InterfaceSettings)
+    ai_settings: Optional[AISettings] = Field(default_factory=AISettings)
+    study_settings: Optional[StudySettings] = Field(default_factory=StudySettings)
+
+class UserSettingsUpdate(BaseModel):
+    learning_preferences: Optional[LearningPreferences] = None
+    interface_settings: Optional[InterfaceSettings] = None
+    ai_settings: Optional[AISettings] = None
+    study_settings: Optional[StudySettings] = None
+
+class UserSettingsResponse(BaseModel):
+    user_id: int
+    learning_preferences: LearningPreferences
+    interface_settings: InterfaceSettings
+    ai_settings: AISettings
+    study_settings: StudySettings
+    created_at: datetime
+    updated_at: datetime

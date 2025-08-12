@@ -48,6 +48,58 @@ export interface AIExplanationResponse {
   structured_data?: StructuredAIResponse | DeepLearningAIResponse;
 }
 
+// User Settings interfaces
+export interface LearningPreferences {
+  daily_review_target: number;
+  difficulty_preference: 'easy' | 'normal' | 'hard' | 'mixed';
+  review_reminder_enabled: boolean;
+  review_reminder_time: string;
+}
+
+export interface InterfaceSettings {
+  voice_auto_play: boolean;
+  theme_mode: 'light' | 'dark' | 'auto';
+  language: string;
+  animation_enabled: boolean;
+}
+
+export interface AISettings {
+  default_explanation_type: 'simple' | 'deep';
+  ai_provider_preference: string;
+  explanation_detail_level: 'concise' | 'standard' | 'detailed';
+}
+
+export interface StudySettings {
+  spaced_repetition_algorithm: string;
+  show_pronunciation: boolean;
+  show_etymology: boolean;
+  auto_mark_learned_threshold: number;
+}
+
+export interface UserSettingsResponse {
+  user_id: number;
+  learning_preferences: LearningPreferences;
+  interface_settings: InterfaceSettings;
+  ai_settings: AISettings;
+  study_settings: StudySettings;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserSettingsCreate {
+  learning_preferences: LearningPreferences;
+  interface_settings: InterfaceSettings;
+  ai_settings: AISettings;
+  study_settings: StudySettings;
+}
+
+export interface UserSettingsUpdate {
+  learning_preferences?: LearningPreferences;
+  interface_settings?: InterfaceSettings;
+  ai_settings?: AISettings;
+  study_settings?: StudySettings;
+}
+
 class VocabotAPI {
   private baseUrl: string;
   private telegramAuthData: string | null = null;
@@ -232,6 +284,46 @@ class VocabotAPI {
     
     return this.request(endpoint, {
       method: 'PUT',
+    });
+  }
+
+  // User Settings endpoints
+  async getUserSettings(): Promise<UserSettingsResponse> {
+    let endpoint = '/v1/settings';
+    
+    // 本地測試模式下添加 user_id 參數
+    if (isLocalDevelopment() && !this.telegramAuthData) {
+      endpoint += '?user_id=613170570';
+    }
+    
+    return this.request(endpoint);
+  }
+
+  async createOrUpdateSettings(settings: UserSettingsCreate): Promise<{ message: string; user_id: number }> {
+    let endpoint = '/v1/settings';
+    
+    // 本地測試模式下添加 user_id 參數
+    if (isLocalDevelopment() && !this.telegramAuthData) {
+      endpoint += '?user_id=613170570';
+    }
+    
+    return this.request(endpoint, {
+      method: 'POST',
+      body: JSON.stringify(settings),
+    });
+  }
+
+  async updateSettings(settings: UserSettingsUpdate): Promise<{ message: string; user_id: number }> {
+    let endpoint = '/v1/settings';
+    
+    // 本地測試模式下添加 user_id 參數
+    if (isLocalDevelopment() && !this.telegramAuthData) {
+      endpoint += '?user_id=613170570';
+    }
+    
+    return this.request(endpoint, {
+      method: 'PUT',
+      body: JSON.stringify(settings),
     });
   }
 }
