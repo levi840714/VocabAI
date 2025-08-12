@@ -114,19 +114,28 @@ const WordDetailPage: React.FC = () => {
               )}
             </div>
           </div>
+          
+          {/* 右上角標記掌握按鈕 */}
+          <button
+            onClick={handleToggleLearned}
+            className={`flex flex-col items-center justify-center w-16 h-16 rounded-lg border-2 transition-colors ${
+              word.learned 
+                ? "border-orange-500 text-orange-600 bg-orange-50 hover:bg-orange-100" 
+                : "border-blue-500 text-blue-600 bg-blue-50 hover:bg-blue-100"
+            }`}
+            title={word.learned ? "標記為學習中" : "標記為已掌握"}
+          >
+            <span className="text-xs font-medium leading-tight">
+              {word.learned ? "重新" : "標記"}
+            </span>
+            <span className="text-xs font-medium leading-tight">
+              {word.learned ? "學習" : "掌握"}
+            </span>
+          </button>
         </div>
 
         {/* 操作按鈕 */}
         <div className="space-y-3">
-          {/* 主要操作按鈕 */}
-          <Button
-            onClick={handleToggleLearned}
-            variant={word.learned ? "outline" : "default"}
-            size="sm"
-            className="w-full"
-          >
-            {word.learned ? "標記為學習中" : "標記為已掌握"}
-          </Button>
           
           {/* 小方框按鈕組 */}
           <div className="flex gap-2 justify-center">

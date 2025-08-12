@@ -54,8 +54,15 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     const { offset, velocity } = info;
     setIsDragging(false);
     
-    // 只在非首頁且向右滑動距離超過閾值時觸發返回
-    if (!isHomePage && offset.x > 100 && velocity.x > 0) {
+    // 提高靈敏度：降低距離閾值並增加速度權重
+    const swipeDistance = offset.x;
+    const swipeVelocity = velocity.x;
+    
+    // 如果向右滑動距離超過60px，或者速度夠快（超過500px/s）
+    const shouldNavigateBack = !isHomePage && swipeDistance > 60 && swipeVelocity > 0 && 
+                              (swipeDistance > 80 || swipeVelocity > 500);
+    
+    if (shouldNavigateBack) {
       // 觸發返回導航
       if (window.history.length > 1) {
         navigate(-1);
@@ -79,15 +86,17 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             variants={pageVariants}
             transition={pageTransition}
             drag={!isHomePage && isMobile ? "x" : false}
-            dragConstraints={{ left: 0, right: 200 }}
-            dragElastic={0.2}
+            dragConstraints={{ left: 0, right: 150 }}
+            dragElastic={0.15}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
             dragMomentum={false}
-            whileDrag={{ scale: 0.98 }}
-            className={`touch-pan-y ${isDragging ? 'cursor-grabbing' : ''}`}
+            dragTransition={{ power: 0.3, timeConstant: 200 }}
+            whileDrag={{ scale: 0.99, rotateY: 2 }}
+            className={`touch-pan-y select-none ${isDragging ? 'cursor-grabbing' : ''}`}
             style={{
-              cursor: !isHomePage && isMobile ? 'grab' : 'default'
+              cursor: !isHomePage && isMobile ? 'grab' : 'default',
+              touchAction: !isHomePage && isMobile ? 'pan-y' : 'auto'
             }}
           >
             {children}

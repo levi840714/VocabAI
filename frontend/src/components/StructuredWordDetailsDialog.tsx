@@ -117,13 +117,13 @@ const StructuredWordDetailsDialog: React.FC<WordDetailsDialogProps> = ({ open, o
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle sx={{ fontWeight: 'bold', fontSize: '1.5rem', display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: { xs: 'flex-start', sm: 'center' }, gap: { xs: 1, sm: 2 } }}>
-        <span>{word.word}</span>
+      <DialogTitle sx={{ fontWeight: 'bold', fontSize: '1.5rem', display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <span style={{ textAlign: 'center' }}>{word.word}</span>
         <Box sx={{ 
-          display: 'flex', 
-          gap: { xs: 0.5, sm: 1 },
-          flexWrap: { xs: 'wrap', sm: 'nowrap' },
-          width: { xs: '100%', sm: 'auto' }
+          display: 'grid', 
+          gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(3, 1fr)' },
+          gap: 1,
+          width: '100%'
         }}>
           <Button
             variant="outlined"
@@ -131,17 +131,11 @@ const StructuredWordDetailsDialog: React.FC<WordDetailsDialogProps> = ({ open, o
             startIcon={<Volume2 size={16} />}
             onClick={handlePronunciation}
             sx={{ 
-              minWidth: 'auto', 
-              px: { xs: 0.5, sm: 1 },
-              fontSize: { xs: '0.7rem', sm: '0.875rem' },
-              flex: { xs: '1', sm: 'none' },
-              '& .MuiButton-startIcon': {
-                margin: { xs: '0 2px 0 0', sm: '0 4px 0 0' }
-              }
+              fontSize: { xs: '0.75rem', sm: '0.875rem' },
+              py: { xs: 1, sm: 0.75 },
             }}
           >
-            <Box sx={{ display: { xs: 'none', sm: 'inline' } }}>發音</Box>
-            <Box sx={{ display: { xs: 'inline', sm: 'none' } }}>🔊</Box>
+            發音
           </Button>
           <Button
             variant="outlined"
@@ -149,18 +143,14 @@ const StructuredWordDetailsDialog: React.FC<WordDetailsDialogProps> = ({ open, o
             startIcon={<Brain size={16} />}
             onClick={handleAIAnalysisClick}
             sx={{ 
-              minWidth: 'auto', 
-              px: { xs: 0.5, sm: 1 },
-              fontSize: { xs: '0.7rem', sm: '0.875rem' },
+              fontSize: { xs: '0.75rem', sm: '0.875rem' },
+              py: { xs: 1, sm: 0.75 },
               color: 'purple', 
               borderColor: 'purple',
-              flex: { xs: '1', sm: 'none' },
-              '& .MuiButton-startIcon': {
-                margin: { xs: '0 2px 0 0', sm: '0 4px 0 0' }
-              }
+              gridColumn: { xs: '1 / -1', sm: 'auto' }
             }}
           >
-            🧠 AI 解析
+            AI 解析
           </Button>
           <Button
             variant="outlined"
@@ -168,17 +158,11 @@ const StructuredWordDetailsDialog: React.FC<WordDetailsDialogProps> = ({ open, o
             startIcon={<ExternalLink size={16} />}
             onClick={handleDictionaryOpen}
             sx={{ 
-              minWidth: 'auto', 
-              px: { xs: 0.5, sm: 1 },
-              fontSize: { xs: '0.7rem', sm: '0.875rem' },
-              flex: { xs: '1', sm: 'none' },
-              '& .MuiButton-startIcon': {
-                margin: { xs: '0 2px 0 0', sm: '0 4px 0 0' }
-              }
+              fontSize: { xs: '0.75rem', sm: '0.875rem' },
+              py: { xs: 1, sm: 0.75 },
             }}
           >
-            <Box sx={{ display: { xs: 'none', sm: 'inline' } }}>字典</Box>
-            <Box sx={{ display: { xs: 'inline', sm: 'none' } }}>📚</Box>
+            字典
           </Button>
         </Box>
       </DialogTitle>
