@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Volume2, Plus, BookOpen, X, Loader2 } from 'lucide-react';
+import { Volume2, Star, BookOpen, X, Loader2, Brain } from 'lucide-react';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -11,8 +11,11 @@ interface QuickWordPopupProps {
   translation: Translation | null;
   isLoading: boolean;
   isAddingWord?: boolean;
+  isRemovingWord?: boolean;
+  isWordInVocabulary?: boolean;
   onClose: () => void;
   onAddWord: (word: string) => void;
+  onRemoveWord?: (word: string) => void;
   onDeepAnalysis: (word: string) => void;
 }
 
@@ -22,8 +25,11 @@ const QuickWordPopup: React.FC<QuickWordPopupProps> = ({
   translation,
   isLoading,
   isAddingWord = false,
+  isRemovingWord = false,
+  isWordInVocabulary = false,
   onClose,
   onAddWord,
+  onRemoveWord,
   onDeepAnalysis
 }) => {
   const popupRef = useRef<HTMLDivElement>(null);
@@ -182,20 +188,33 @@ const QuickWordPopup: React.FC<QuickWordPopupProps> = ({
         {/* Action Buttons */}
         <div className="flex gap-2 mt-4 pt-3 border-t">
           <Button
-            onClick={() => onAddWord(word)}
-            disabled={isAddingWord}
+            onClick={() => isWordInVocabulary ? onRemoveWord?.(word) : onAddWord(word)}
+            disabled={isAddingWord || isRemovingWord}
             size="sm"
-            className="flex-1 bg-green-600 hover:bg-green-700 disabled:opacity-50"
+            variant="outline"
+            className={`flex-1 disabled:opacity-50 border-2 transition-all duration-200 ${
+              isWordInVocabulary 
+                ? 'border-yellow-400 text-yellow-600 hover:bg-yellow-50 disabled:border-yellow-300' 
+                : 'border-amber-400 text-amber-600 hover:bg-amber-50 disabled:border-amber-300'
+            }`}
           >
             {isAddingWord ? (
               <>
                 <Loader2 className="animate-spin mr-1" size={16} />
                 加入中...
               </>
+            ) : isRemovingWord ? (
+              <>
+                <Loader2 className="animate-spin mr-1" size={16} />
+                移除中...
+              </>
             ) : (
               <>
-                <Plus size={16} className="mr-1" />
-                加入單字庫
+                <Star 
+                  size={16} 
+                  className={`mr-1 ${isWordInVocabulary ? 'fill-yellow-400' : ''}`} 
+                />
+                {isWordInVocabulary ? '取消收藏' : '加入單字庫'}
               </>
             )}
           </Button>
@@ -203,9 +222,10 @@ const QuickWordPopup: React.FC<QuickWordPopupProps> = ({
             onClick={() => onDeepAnalysis(word)}
             variant="outline"
             size="sm"
-            className="flex-1 border-purple-600 text-purple-600 hover:bg-purple-50"
+            className="flex-1 border-purple-600 text-purple-600 hover:bg-purple-50 flex items-center justify-center space-x-1"
           >
-            🧠 AI 解析
+            <Brain className="w-4 h-4" />
+            <span>AI 解析</span>
           </Button>
         </div>
       </Card>

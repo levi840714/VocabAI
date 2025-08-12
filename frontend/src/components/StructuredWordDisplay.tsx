@@ -9,9 +9,10 @@ interface StructuredWordDisplayProps {
   data: StructuredAIResponse;
   onAIAnalysisClick?: (word: string) => void;
   onWordAdded?: (word: string) => void;
+  showFullDetails?: boolean;
 }
 
-const StructuredWordDisplay: React.FC<StructuredWordDisplayProps> = ({ data, onAIAnalysisClick, onWordAdded }) => {
+const StructuredWordDisplay: React.FC<StructuredWordDisplayProps> = ({ data, onAIAnalysisClick, onWordAdded, showFullDetails = false }) => {
   // Handle pronunciation for text (word or sentence)
   const handlePronunciation = (text: string) => {
     // Use Web Speech API for pronunciation

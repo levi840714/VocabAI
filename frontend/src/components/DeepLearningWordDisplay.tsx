@@ -3,7 +3,7 @@ import { DeepLearningAIResponse } from '../lib/types';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
-import { Volume2, Plus } from 'lucide-react';
+import { Volume2, Star } from 'lucide-react';
 import ClickableTextWrapper from './ClickableTextWrapper';
 
 interface DeepLearningWordDisplayProps {
@@ -11,10 +11,22 @@ interface DeepLearningWordDisplayProps {
   onAIAnalysisClick?: (word: string) => void;
   onWordAdded?: (word: string) => void;
   onAddWordClick?: () => void;
+  onRemoveWordClick?: () => void;
   isAddingWord?: boolean;
+  isRemovingWord?: boolean;
+  isWordInVocabulary?: boolean;
 }
 
-const DeepLearningWordDisplay: React.FC<DeepLearningWordDisplayProps> = ({ data, onAIAnalysisClick, onWordAdded, onAddWordClick, isAddingWord }) => {
+const DeepLearningWordDisplay: React.FC<DeepLearningWordDisplayProps> = ({ 
+  data, 
+  onAIAnalysisClick, 
+  onWordAdded, 
+  onAddWordClick, 
+  onRemoveWordClick,
+  isAddingWord, 
+  isRemovingWord,
+  isWordInVocabulary 
+}) => {
   // Handle pronunciation for text (word or sentence)
   const handlePronunciation = (text: string) => {
     // Use Web Speech API for pronunciation
@@ -58,43 +70,56 @@ const DeepLearningWordDisplay: React.FC<DeepLearningWordDisplayProps> = ({ data,
   return (
     <div className="space-y-6">
       {/* Word Header with Pronunciations */}
-      <div className="text-center bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg relative">
-        {/* Add to Vocabulary Button - Top Right */}
-        {onAddWordClick && (
-          <div className="absolute top-4 right-4">
-            <Button
-              onClick={onAddWordClick}
-              disabled={isAddingWord}
-              size="sm"
-              className="bg-green-600 hover:bg-green-700 text-white"
-            >
-              {isAddingWord ? (
-                <>
-                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1"></div>
-                  加入中
-                </>
-              ) : (
-                <>
-                  <Plus size={12} className="mr-1" />
-                  加入詞彙庫
-                </>
-              )}
-            </Button>
-          </div>
-        )}
-        
-        <div className="flex items-center justify-center gap-3 mb-2">
+      <div className="text-center bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg">
+        <div className="relative flex items-center justify-center mb-2">
           <h2 className="text-3xl font-bold text-slate-800">
             {data.word}
           </h2>
-          <button
-            onClick={() => handlePronunciation(data.word)}
-            className="p-2 rounded-full bg-white shadow-sm border border-slate-200 hover:bg-slate-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            title="聆聽單字發音"
-            aria-label="聆聽單字發音"
-          >
-            <Volume2 size={18} className="text-slate-600" />
-          </button>
+          
+          {/* Action Buttons - positioned to the right */}
+          <div className="absolute right-0 flex items-center gap-2">
+            <button
+              onClick={() => handlePronunciation(data.word)}
+              className="p-2 rounded-full bg-white shadow-sm border border-slate-200 hover:bg-slate-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              title="聆聽單字發音"
+              aria-label="聆聽單字發音"
+            >
+              <Volume2 size={18} className="text-slate-600" />
+            </button>
+            
+            {(onAddWordClick || onRemoveWordClick) && (
+              <button
+                onClick={isWordInVocabulary ? onRemoveWordClick : onAddWordClick}
+                disabled={isAddingWord || isRemovingWord}
+                className={`p-2 rounded-full border-2 shadow-sm transition-all duration-200 focus:outline-none focus:ring-2 bg-white ${
+                  isWordInVocabulary 
+                    ? 'border-yellow-400 hover:bg-yellow-50 disabled:border-yellow-300 focus:ring-yellow-400 text-yellow-600' 
+                    : 'border-amber-400 hover:bg-amber-50 disabled:border-amber-300 focus:ring-amber-400 text-amber-600'
+                }`}
+                title={
+                  isAddingWord ? "加入中..." :
+                  isRemovingWord ? "移除中..." :
+                  isWordInVocabulary ? "已收藏，點擊取消收藏" : "點擊收藏到詞彙庫"
+                }
+                aria-label={
+                  isAddingWord ? "加入中..." :
+                  isRemovingWord ? "移除中..." :
+                  isWordInVocabulary ? "已收藏，點擊取消收藏" : "點擊收藏到詞彙庫"
+                }
+              >
+                {isAddingWord || isRemovingWord ? (
+                  <div className={`animate-spin rounded-full h-4 w-4 border-b-2 ${
+                    isWordInVocabulary ? 'border-yellow-600' : 'border-amber-600'
+                  }`}></div>
+                ) : (
+                  <Star 
+                    size={18} 
+                    className={`${isWordInVocabulary ? 'fill-yellow-400 text-yellow-600' : 'text-amber-600'}`} 
+                  />
+                )}
+              </button>
+            )}
+          </div>
         </div>
         {data.pronunciations.length > 0 && (
           <div className="flex justify-center gap-4 mb-3">

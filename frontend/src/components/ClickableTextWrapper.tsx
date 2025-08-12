@@ -20,8 +20,9 @@ const ClickableTextWrapper: React.FC<ClickableTextWrapperProps> = ({
   className = ''
 }) => {
   const { toast } = useToast();
-  const { addWord } = useVocabulary();
+  const { addWord, deleteWord, words } = useVocabulary();
   const [isAddingWord, setIsAddingWord] = useState(false);
+  const [isRemovingWord, setIsRemovingWord] = useState(false);
   const {
     clickedWord,
     translation,
@@ -39,8 +40,8 @@ const ClickableTextWrapper: React.FC<ClickableTextWrapperProps> = ({
       // 使用 vocabulary hook 的 addWord 方法，會自動刷新列表
       await addWord(word);
       toast({
-        title: "成功加入單字庫",
-        description: `「${word}」已加入您的學習清單，列表已自動更新`,
+        title: "成功收藏",
+        description: `「${word}」已收藏到您的單字庫，列表已自動更新`,
       });
       
       // 呼叫外部回調
@@ -58,6 +59,47 @@ const ClickableTextWrapper: React.FC<ClickableTextWrapperProps> = ({
       });
     } finally {
       setIsAddingWord(false);
+    }
+  };
+
+  // 處理移除單字庫
+  const handleRemoveWord = async (word: string) => {
+    if (isRemovingWord) return; // 防止重複提交
+    
+    // 找到要移除的單字
+    const existingWord = words.find(w => w.term.toLowerCase() === word.toLowerCase());
+    if (!existingWord) {
+      toast({
+        title: "錯誤",
+        description: "找不到要移除的單字",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setIsRemovingWord(true);
+    try {
+      await deleteWord(existingWord.id);
+      toast({
+        title: "取消收藏",
+        description: `「${word}」已從您的收藏中移除`,
+      });
+      
+      // 呼叫外部回調
+      if (onWordAdded) {
+        onWordAdded(word);
+      }
+      
+      closePopup();
+    } catch (error) {
+      console.error('移除單字失敗:', error);
+      toast({
+        title: "移除失敗",
+        description: "無法移除單字，請稍後再試",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRemovingWord(false);
     }
   };
 
@@ -91,8 +133,11 @@ const ClickableTextWrapper: React.FC<ClickableTextWrapperProps> = ({
           translation={translation}
           isLoading={isLoading}
           isAddingWord={isAddingWord}
+          isRemovingWord={isRemovingWord}
+          isWordInVocabulary={words.some(w => w.term.toLowerCase() === clickedWord.word.toLowerCase())}
           onClose={closePopup}
           onAddWord={handleAddWord}
+          onRemoveWord={handleRemoveWord}
           onDeepAnalysis={handleDeepAnalysis}
         />
       )}

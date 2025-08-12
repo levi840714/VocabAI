@@ -1,5 +1,6 @@
 import React, { useState } from "react"
-import { Search, Eye } from "lucide-react"
+import { useNavigate } from "react-router-dom"
+import { Search, Eye, Star } from "lucide-react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { TextInput } from "@/components/text-input"
 import { Button } from "@/components/ui/button"
@@ -18,6 +19,10 @@ export default function VocabularyList({ onAIAnalysisClick }: VocabularyListProp
   const [selectedWord, setSelectedWord] = useState<any>(null)
   const [selectedWordId, setSelectedWordId] = useState<string | null>(null)
   const { toast } = useToast()
+  const navigate = useNavigate()
+
+  // 檢測是否為手機裝置
+  const isMobile = window.innerWidth < 768
 
   // 當單字列表更新時，重新設定選中的單字 (保持對話框開啟)
   React.useEffect(() => {
@@ -118,14 +123,18 @@ export default function VocabularyList({ onAIAnalysisClick }: VocabularyListProp
                 <p className="font-medium mb-2">{word.definition}</p>
                 {word.example && <p className="text-sm text-slate-600 italic">"{word.example}"</p>}
               </CardContent>
-              <CardFooter className="flex justify-between pt-2">
+              <CardFooter className="flex justify-between items-center pt-2">
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => {
-                      setSelectedWord(word);
-                      setSelectedWordId(word.id);
+                      if (isMobile) {
+                        navigate(`/vocabulary/${word.id}`);
+                      } else {
+                        setSelectedWord(word);
+                        setSelectedWordId(word.id);
+                      }
                     }}
                     className="border-blue-300 text-blue-700 hover:bg-blue-100"
                   >
@@ -141,14 +150,28 @@ export default function VocabularyList({ onAIAnalysisClick }: VocabularyListProp
                     {word.learned ? "重新學習" : "標記為已學會"}
                   </Button>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                  onClick={() => handleDelete(word.id)}
-                >
-                  刪除
-                </Button>
+                <div className="flex gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onAIAnalysisClick?.(word.term)}
+                    className="p-2 text-amber-500 hover:text-amber-600 hover:bg-amber-50"
+                    title="AI 深度解析"
+                  >
+                    <Star className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50"
+                    onClick={() => handleDelete(word.id)}
+                    title="刪除單字"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </Button>
+                </div>
               </CardFooter>
             </Card>
           ))}

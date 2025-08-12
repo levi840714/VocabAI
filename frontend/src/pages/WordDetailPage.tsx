@@ -1,0 +1,187 @@
+import React from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { useVocabulary } from '@/hooks/use-vocabulary';
+import StructuredWordDisplay from '@/components/StructuredWordDisplay';
+import { ArrowLeft, Brain, Edit, Trash2, Volume2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+
+const WordDetailPage: React.FC = () => {
+  const { wordId } = useParams<{ wordId: string }>();
+  const navigate = useNavigate();
+  const { words, toggleLearned, deleteWord } = useVocabulary();
+
+  const word = words.find(w => w.id === wordId);
+
+  if (!word) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex items-center justify-center h-64"
+      >
+        <div className="text-center">
+          <h2 className="text-xl font-semibold text-slate-700 mb-2">找不到單字</h2>
+          <p className="text-slate-500 mb-4">此單字可能已被刪除或不存在</p>
+          <Button onClick={() => navigate('/vocabulary')} variant="outline">
+            返回單字列表
+          </Button>
+        </div>
+      </motion.div>
+    );
+  }
+
+  const handleDelete = async () => {
+    if (window.confirm(`確定要刪除「${word.term}」嗎？`)) {
+      try {
+        await deleteWord(word.id);
+        navigate('/vocabulary');
+      } catch (error) {
+        console.error('刪除單字失敗:', error);
+      }
+    }
+  };
+
+  const handleToggleLearned = async () => {
+    try {
+      await toggleLearned(word.id);
+    } catch (error) {
+      console.error('更新學習狀態失敗:', error);
+    }
+  };
+
+  const handleAIAnalysis = () => {
+    navigate(`/ai-analysis?word=${encodeURIComponent(word.term)}`);
+  };
+
+  const handlePronunciation = () => {
+    if ('speechSynthesis' in window) {
+      const utterance = new SpeechSynthesisUtterance(word.term);
+      utterance.lang = 'en-US';
+      utterance.rate = 0.8;
+      speechSynthesis.speak(utterance);
+    } else {
+      window.open(`https://translate.google.com/translate_tts?ie=UTF-8&tl=en&client=tw-ob&q=${encodeURIComponent(word.term)}`, '_blank');
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      className="space-y-6 max-w-4xl mx-auto"
+    >
+      {/* 單字標題和基本資訊 */}
+      <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 shadow-sm ring-1 ring-blue-200/30">
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex-1">
+            <div className="flex items-center space-x-3 mb-2">
+              <h1 className="text-3xl font-bold text-slate-900">{word.term}</h1>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handlePronunciation}
+                className="p-2 hover:bg-blue-100"
+              >
+                <Volume2 className="w-5 h-5 text-blue-600" />
+              </Button>
+            </div>
+            
+            {word.pronunciation && (
+              <p className="text-slate-600 text-lg mb-2">/{word.pronunciation}/</p>
+            )}
+            
+            <div className="flex items-center space-x-2 mb-3">
+              <Badge variant={word.learned ? "default" : "secondary"}>
+                {word.learned ? "已掌握" : "學習中"}
+              </Badge>
+              {word.dateAdded && (
+                <Badge variant="outline">
+                  {new Date(word.dateAdded).toLocaleDateString()}
+                </Badge>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* 操作按鈕 */}
+        <div className="flex flex-wrap gap-2">
+          <Button
+            onClick={handleToggleLearned}
+            variant={word.learned ? "outline" : "default"}
+            size="sm"
+          >
+            {word.learned ? "標記為學習中" : "標記為已掌握"}
+          </Button>
+          
+          <Button
+            onClick={handleAIAnalysis}
+            variant="outline"
+            size="sm"
+            className="flex items-center space-x-1 border-purple-600 text-purple-600 hover:bg-purple-50"
+          >
+            <Brain className="w-4 h-4" />
+            <span>AI 解析</span>
+          </Button>
+          
+          <Button
+            onClick={handleDelete}
+            variant="outline"
+            size="sm"
+            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
+      </div>
+
+      {/* 詳細資訊 */}
+      <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-sm ring-1 ring-slate-200/30 overflow-hidden">
+        <div className="p-6">
+          <h2 className="text-xl font-semibold text-slate-900 mb-4">詳細資訊</h2>
+          {word.structured_data ? (
+            <StructuredWordDisplay
+              data={word.structured_data}
+              onAIAnalysisClick={handleAIAnalysis}
+              showFullDetails={true}
+            />
+          ) : (
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-800 mb-2">定義</h3>
+                <p className="text-slate-700">{word.definition}</p>
+              </div>
+              {word.example && (
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-800 mb-2">例句</h3>
+                  <p className="text-slate-700 italic">"{word.example}"</p>
+                </div>
+              )}
+              {word.raw_explanation && (
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-800 mb-2">AI 解釋</h3>
+                  <p className="text-slate-700 whitespace-pre-wrap">{word.raw_explanation}</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 用戶備註 */}
+      {word.user_notes && (
+        <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 shadow-sm ring-1 ring-amber-200/30">
+          <h3 className="text-lg font-semibold text-slate-900 mb-3 flex items-center">
+            <Edit className="w-5 h-5 mr-2 text-amber-600" />
+            我的筆記
+          </h3>
+          <p className="text-slate-700 leading-relaxed">{word.user_notes}</p>
+        </div>
+      )}
+    </motion.div>
+  );
+};
+
+export default WordDetailPage;

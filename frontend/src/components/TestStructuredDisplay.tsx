@@ -6,6 +6,7 @@ import DeepLearningWordDisplay from './DeepLearningWordDisplay';
 import { vocabotAPI, AIExplanationResponse } from '@/lib/api';
 import { DeepLearningAIResponse } from '../lib/types';
 import { useToast } from '@/hooks/use-toast';
+import { useVocabulary } from '@/hooks/use-vocabulary';
 import { Plus } from 'lucide-react';
 
 interface TestStructuredDisplayProps {
@@ -21,7 +22,9 @@ const TestStructuredDisplay: React.FC<TestStructuredDisplayProps> = ({ initialWo
   const [error, setError] = useState<string | null>(null);
   const [lastProcessedWord, setLastProcessedWord] = useState<string | null>(null);
   const [isAddingWord, setIsAddingWord] = useState(false);
+  const [isRemovingWord, setIsRemovingWord] = useState(false);
   const { toast } = useToast();
+  const { words, addWord, deleteWord } = useVocabulary();
 
   // 當有新的 initialWord 時自動設置並分析（但避免重複請求）
   useEffect(() => {
@@ -65,6 +68,16 @@ const TestStructuredDisplay: React.FC<TestStructuredDisplayProps> = ({ initialWo
     await handleSubmitForWord(word);
   };
 
+  // 檢查單字是否已存在於詞彙庫中
+  const isWordInVocabulary = lastProcessedWord 
+    ? words.some(w => w.term.toLowerCase() === lastProcessedWord.toLowerCase())
+    : false;
+
+  // 獲取詞彙庫中的單字ID（用於刪除）
+  const existingWord = lastProcessedWord 
+    ? words.find(w => w.term.toLowerCase() === lastProcessedWord.toLowerCase())
+    : null;
+
   const handleAddWord = async () => {
     if (!lastProcessedWord || !result) {
       return;
@@ -72,16 +85,12 @@ const TestStructuredDisplay: React.FC<TestStructuredDisplayProps> = ({ initialWo
 
     setIsAddingWord(true);
     try {
-      // 使用深度解析的詳細解釋作為 AI 解釋
-      const simplifiedExplanation = `${result.definitions.map(def => 
-        `${def.part_of_speech}: ${def.meanings.map(m => m.definition).join('; ')}`
-      ).join('\n')}`;
-      
-      await vocabotAPI.addWord(lastProcessedWord, simplifiedExplanation);
+      // 使用 vocabulary hook 的 addWord 方法
+      await addWord(lastProcessedWord);
       
       toast({
-        title: "成功！",
-        description: `單字 "${lastProcessedWord}" 已加入到您的詞彙庫中`,
+        title: "成功收藏！",
+        description: `單字 "${lastProcessedWord}" 已收藏到您的詞彙庫中`,
       });
     } catch (error) {
       console.error('加入單字失敗:', error);
@@ -92,6 +101,31 @@ const TestStructuredDisplay: React.FC<TestStructuredDisplayProps> = ({ initialWo
       });
     } finally {
       setIsAddingWord(false);
+    }
+  };
+
+  const handleRemoveWord = async () => {
+    if (!existingWord) {
+      return;
+    }
+
+    setIsRemovingWord(true);
+    try {
+      await deleteWord(existingWord.id);
+      
+      toast({
+        title: "取消收藏",
+        description: `單字 "${lastProcessedWord}" 已從您的收藏中移除`,
+      });
+    } catch (error) {
+      console.error('移除單字失敗:', error);
+      toast({
+        title: "錯誤",
+        description: "移除單字失敗，請稍後重試",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRemovingWord(false);
     }
   };
 
@@ -142,7 +176,10 @@ const TestStructuredDisplay: React.FC<TestStructuredDisplayProps> = ({ initialWo
             onAIAnalysisClick={onAIAnalysisClick}
             onWordAdded={(word) => console.log(`單字 "${word}" 已在 AI 分析頁面中加入`)}
             onAddWordClick={handleAddWord}
+            onRemoveWordClick={handleRemoveWord}
             isAddingWord={isAddingWord}
+            isRemovingWord={isRemovingWord}
+            isWordInVocabulary={isWordInVocabulary}
           />
         </div>
       )}
