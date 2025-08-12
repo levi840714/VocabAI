@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useVocabulary } from '@/hooks/use-vocabulary';
 import StructuredWordDisplay from '@/components/StructuredWordDisplay';
-import { ArrowLeft, Brain, Edit, Trash2, Volume2 } from 'lucide-react';
+import { ArrowLeft, Brain, Edit, Trash2, Volume2, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
@@ -13,6 +13,11 @@ const WordDetailPage: React.FC = () => {
   const { words, toggleLearned, deleteWord } = useVocabulary();
 
   const word = words.find(w => w.id === wordId);
+
+  // 確保頁面載入時滾動到頂部
+  React.useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [wordId]);
 
   if (!word) {
     return (
@@ -66,6 +71,11 @@ const WordDetailPage: React.FC = () => {
     }
   };
 
+  const handleDictionaryOpen = () => {
+    const url = `https://www.vocabulary.com/dictionary/${encodeURIComponent(word.term)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -107,33 +117,46 @@ const WordDetailPage: React.FC = () => {
         </div>
 
         {/* 操作按鈕 */}
-        <div className="flex flex-wrap gap-2">
+        <div className="space-y-3">
+          {/* 主要操作按鈕 */}
           <Button
             onClick={handleToggleLearned}
             variant={word.learned ? "outline" : "default"}
             size="sm"
+            className="w-full"
           >
             {word.learned ? "標記為學習中" : "標記為已掌握"}
           </Button>
           
-          <Button
-            onClick={handleAIAnalysis}
-            variant="outline"
-            size="sm"
-            className="flex items-center space-x-1 border-purple-600 text-purple-600 hover:bg-purple-50"
-          >
-            <Brain className="w-4 h-4" />
-            <span>AI 解析</span>
-          </Button>
-          
-          <Button
-            onClick={handleDelete}
-            variant="outline"
-            size="sm"
-            className="text-red-600 hover:text-red-700 hover:bg-red-50"
-          >
-            <Trash2 className="w-4 h-4" />
-          </Button>
+          {/* 小方框按鈕組 */}
+          <div className="flex gap-2 justify-center">
+            <button
+              onClick={handleAIAnalysis}
+              className="flex flex-col items-center justify-center w-16 h-16 rounded-lg border-2 border-purple-600 text-purple-600 hover:bg-purple-50 transition-colors"
+              title="AI 解析"
+            >
+              <Brain className="w-5 h-5 mb-1" />
+              <span className="text-xs font-medium">AI 解析</span>
+            </button>
+
+            <button
+              onClick={handleDictionaryOpen}
+              className="flex flex-col items-center justify-center w-16 h-16 rounded-lg border-2 border-green-600 text-green-600 hover:bg-green-50 transition-colors"
+              title="字典"
+            >
+              <ExternalLink className="w-5 h-5 mb-1" />
+              <span className="text-xs font-medium">字典</span>
+            </button>
+            
+            <button
+              onClick={handleDelete}
+              className="flex flex-col items-center justify-center w-16 h-16 rounded-lg border-2 border-red-600 text-red-600 hover:bg-red-50 transition-colors"
+              title="刪除單字"
+            >
+              <Trash2 className="w-5 h-5 mb-1" />
+              <span className="text-xs font-medium">刪除</span>
+            </button>
+          </div>
         </div>
       </div>
 

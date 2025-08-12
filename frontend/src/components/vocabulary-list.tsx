@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 import { useVocabulary } from "@/hooks/use-vocabulary"
+import { useDeviceDetection } from "@/hooks/useDeviceDetection"
 import StructuredWordDetailsDialog from "./StructuredWordDetailsDialog"
 
 interface VocabularyListProps {
@@ -20,9 +21,7 @@ export default function VocabularyList({ onAIAnalysisClick }: VocabularyListProp
   const [selectedWordId, setSelectedWordId] = useState<string | null>(null)
   const { toast } = useToast()
   const navigate = useNavigate()
-
-  // 檢測是否為手機裝置
-  const isMobile = window.innerWidth < 768
+  const { isMobile } = useDeviceDetection()
 
   // 當單字列表更新時，重新設定選中的單字 (保持對話框開啟)
   React.useEffect(() => {

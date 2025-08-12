@@ -32,6 +32,19 @@ const StructuredWordDetailsDialog: React.FC<WordDetailsDialogProps> = ({ open, o
     }
   }, [word?.user_notes]);
 
+  // 確保彈窗打開時滾動到頂部
+  React.useEffect(() => {
+    if (open) {
+      // 延遲滾動，確保彈窗已渲染
+      setTimeout(() => {
+        const dialogContent = document.querySelector('[role="dialog"] .MuiDialogContent-root');
+        if (dialogContent) {
+          dialogContent.scrollTop = 0;
+        }
+      }, 100);
+    }
+  }, [open, word?.id]);
+
   if (!word) {
     return null;
   }

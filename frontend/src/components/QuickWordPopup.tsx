@@ -56,37 +56,56 @@ const QuickWordPopup: React.FC<QuickWordPopupProps> = ({
     }
   };
 
-  // 計算彈窗位置（避免超出螢幕邊界）
+  // 計算彈窗位置（避免超出螢幕邊界，盡量靠近點擊位置）
   const getPopupStyle = (): React.CSSProperties => {
-    const padding = 16;
+    const padding = 12;
     const popupWidth = 280;
-    const popupHeight = 200;
+    const popupHeight = 240;
+    const headerHeight = 80; // Header 高度
+    const navBarHeight = 80; // 底部導航欄高度
+    const verticalOffset = 8; // 與點擊位置的垂直距離
     
-    let x = position.x - popupWidth / 2;
-    let y = position.y - popupHeight - 10; // 顯示在點擊位置上方
+    // 計算可用螢幕空間
+    const viewportWidth = window.innerWidth;
+    const availableHeight = window.innerHeight - headerHeight - navBarHeight;
+    const scrollY = window.scrollY;
     
-    // 避免超出左邊界
-    if (x < padding) {
-      x = padding;
+    // 將點擊位置轉換為相對於可視區域的座標
+    const relativeY = position.y - scrollY - headerHeight;
+    
+    // 計算水平位置 - 優先居中，但確保不超出邊界
+    let x = Math.max(padding, Math.min(
+      position.x - popupWidth / 2,
+      viewportWidth - popupWidth - padding
+    ));
+    
+    // 計算垂直位置 - 優先在上方，距離點擊位置較近
+    let y: number;
+    const spaceAbove = relativeY - verticalOffset;
+    const spaceBelow = availableHeight - relativeY - verticalOffset;
+    
+    if (spaceAbove >= popupHeight) {
+      // 上方空間足夠，顯示在上方
+      y = headerHeight + scrollY + relativeY - popupHeight - verticalOffset;
+    } else if (spaceBelow >= popupHeight) {
+      // 下方空間足夠，顯示在下方
+      y = headerHeight + scrollY + relativeY + verticalOffset;
+    } else {
+      // 上下都不夠，選擇空間較大的一側，但調整彈窗大小適應
+      if (spaceAbove > spaceBelow) {
+        y = headerHeight + scrollY + padding;
+      } else {
+        y = headerHeight + scrollY + availableHeight - popupHeight - padding;
+      }
     }
     
-    // 避免超出右邊界
-    if (x + popupWidth > window.innerWidth - padding) {
-      x = window.innerWidth - popupWidth - padding;
-    }
-    
-    // 避免超出上邊界，顯示在下方
-    if (y < padding) {
-      y = position.y + 10;
-    }
-    
-    // 避免超出下邊界
-    if (y + popupHeight > window.innerHeight - padding) {
-      y = window.innerHeight - popupHeight - padding;
-    }
+    // 最終邊界檢查
+    const minY = headerHeight + scrollY + padding;
+    const maxY = headerHeight + scrollY + availableHeight - popupHeight - padding;
+    y = Math.max(minY, Math.min(y, maxY));
     
     return {
-      position: 'fixed',
+      position: 'absolute',
       left: `${x}px`,
       top: `${y}px`,
       zIndex: 1000,

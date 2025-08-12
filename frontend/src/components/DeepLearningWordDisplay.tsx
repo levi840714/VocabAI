@@ -71,13 +71,13 @@ const DeepLearningWordDisplay: React.FC<DeepLearningWordDisplayProps> = ({
     <div className="space-y-6">
       {/* Word Header with Pronunciations */}
       <div className="text-center bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg">
-        <div className="relative flex items-center justify-center mb-2">
-          <h2 className="text-3xl font-bold text-slate-800">
+        <div className="flex flex-col items-center mb-2">
+          <h2 className="text-3xl font-bold text-slate-800 mb-3">
             {data.word}
           </h2>
           
-          {/* Action Buttons - positioned to the right */}
-          <div className="absolute right-0 flex items-center gap-2">
+          {/* Action Buttons - positioned below the word on mobile */}
+          <div className="flex items-center gap-3 md:absolute md:right-0 md:top-2">
             <button
               onClick={() => handlePronunciation(data.word)}
               className="p-2 rounded-full bg-white shadow-sm border border-slate-200 hover:bg-slate-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
