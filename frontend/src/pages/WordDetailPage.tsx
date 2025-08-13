@@ -5,6 +5,7 @@ import { useVocabulary } from '@/hooks/use-vocabulary';
 import { useAnimation } from '@/hooks/useAnimation';
 import { useVoice } from '@/hooks/useVoice';
 import { useSettings } from '@/contexts/SettingsContext';
+import { useClickableTextContext } from '@/contexts/ClickableTextContext';
 import { ThemeCard, ThemeTitle, ThemeText, ThemeButton } from '@/components/ui/ThemeComponents';
 import StructuredWordDisplay from '@/components/StructuredWordDisplay';
 import { ArrowLeft, Brain, Edit, Trash2, Volume2, ExternalLink } from 'lucide-react';
@@ -18,6 +19,7 @@ const WordDetailPage: React.FC = () => {
   const animation = useAnimation();
   const { autoSpeakWord } = useVoice();
   const { isVoiceAutoPlay } = useSettings();
+  const { setCallbacks } = useClickableTextContext();
 
   const word = words.find(w => w.id === wordId);
 
@@ -35,6 +37,24 @@ const WordDetailPage: React.FC = () => {
       return () => clearTimeout(timer);
     }
   }, [wordId, word, autoSpeakWord, isVoiceAutoPlay]);
+
+  // 設置全域智能點擊回調
+  useEffect(() => {
+    setCallbacks({
+      onWordAdded: (addedWord) => {
+        console.log('✅ 單字詳情頁：單字已添加', addedWord);
+        // 可以在這裡添加刷新邏輯或其他處理
+      },
+      onDeepAnalysis: (word) => {
+        console.log('🧠 單字詳情頁：深度解析', word);
+        navigate(`/ai-analysis?word=${encodeURIComponent(word)}`);
+      },
+      onAIAnalysisClick: (word) => {
+        console.log('🔍 單字詳情頁：AI 解析點擊', word);
+        navigate(`/ai-analysis?word=${encodeURIComponent(word)}`);
+      }
+    });
+  }, [setCallbacks, navigate]);
 
   if (!word) {
     return (
@@ -189,6 +209,10 @@ const WordDetailPage: React.FC = () => {
             <StructuredWordDisplay
               data={word.structured_data}
               onAIAnalysisClick={handleAIAnalysis}
+              onWordAdded={(addedWord) => {
+                console.log('✅ 單字詳情頁：單字已添加', addedWord);
+                // 可以在這裡添加刷新邏輯或其他處理
+              }}
               showFullDetails={true}
             />
           ) : (

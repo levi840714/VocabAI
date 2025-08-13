@@ -1,21 +1,19 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useCallback, useRef } from 'react';
+import { useClickableTextContext } from '../contexts/ClickableTextContext';
+import type { ClickedWord, Translation } from '../contexts/ClickableTextContext';
 
-export interface ClickedWord {
-  word: string;
-  position: { x: number; y: number };
-}
-
-export interface Translation {
-  word: string;
-  translation: string;
-  partOfSpeech?: string;
-  pronunciation?: string;
-}
+export type { ClickedWord, Translation };
 
 export const useClickableText = () => {
-  const [clickedWord, setClickedWord] = useState<ClickedWord | null>(null);
-  const [translation, setTranslation] = useState<Translation | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const {
+    clickedWord,
+    translation,
+    isLoading,
+    setClickedWord,
+    setTranslation,
+    setIsLoading,
+    closePopup
+  } = useClickableTextContext();
   const containerRef = useRef<HTMLDivElement>(null);
 
   // 檢測英文單字的正則表達式
@@ -178,13 +176,13 @@ export const useClickableText = () => {
     const clickY = event.clientY;
     
     try {
-      // 現代瀏覽器支持的方法
-      if (document.caretPositionFromPoint) {
+      // 現代瀏覽器支持的方法 - 添加型別檢查
+      if ('caretPositionFromPoint' in document && document.caretPositionFromPoint) {
         const caretPos = document.caretPositionFromPoint(clickX, clickY);
         if (caretPos && caretPos.offsetNode === target.firstChild) {
           clickedCharIndex = caretPos.offset;
         }
-      } else if (document.caretRangeFromPoint) {
+      } else if ('caretRangeFromPoint' in document && document.caretRangeFromPoint) {
         const caretRange = document.caretRangeFromPoint(clickX, clickY);
         if (caretRange && caretRange.startContainer === target.firstChild) {
           clickedCharIndex = caretRange.startOffset;
@@ -204,24 +202,30 @@ export const useClickableText = () => {
         testElement.style.whiteSpace = 'nowrap';
         document.body.appendChild(testElement);
         
-        // 二分搜索找到最接近的字符位置
-        let left = 0;
-        let right = textContent.length;
-        
-        while (left < right) {
-          const mid = Math.floor((left + right) / 2);
-          testElement.textContent = textContent.substring(0, mid);
-          const width = testElement.offsetWidth;
+        try {
+          // 二分搜索找到最接近的字符位置
+          let left = 0;
+          let right = textContent.length;
           
-          if (width < relativeClickX) {
-            left = mid + 1;
-          } else {
-            right = mid;
+          while (left < right) {
+            const mid = Math.floor((left + right) / 2);
+            testElement.textContent = textContent.substring(0, mid);
+            const width = testElement.offsetWidth;
+            
+            if (width < relativeClickX) {
+              left = mid + 1;
+            } else {
+              right = mid;
+            }
+          }
+          
+          clickedCharIndex = Math.max(0, left - 1);
+        } finally {
+          // 確保測試元素被清理
+          if (testElement.parentNode) {
+            document.body.removeChild(testElement);
           }
         }
-        
-        clickedCharIndex = Math.max(0, left - 1);
-        document.body.removeChild(testElement);
       }
       
       if (clickedCharIndex >= 0 && clickedCharIndex < textContent.length) {
@@ -229,8 +233,8 @@ export const useClickableText = () => {
         let wordStart = clickedCharIndex;
         let wordEnd = clickedCharIndex;
         
-        // 確保點擊的是字母字符
-        if (!/[A-Za-z]/.test(textContent[clickedCharIndex])) {
+        // 確保點擊的是字母字符（防止越界訪問）
+        if (clickedCharIndex >= textContent.length || !/[A-Za-z]/.test(textContent[clickedCharIndex])) {
           // 如果點擊的不是字母，嘗試找附近的字母
           let found = false;
           for (let offset = 1; offset <= 3 && !found; offset++) {
@@ -258,6 +262,7 @@ export const useClickableText = () => {
         const word = textContent.substring(wordStart, wordEnd + 1);
         
         if (word && word.length >= 2 && /^[A-Za-z]+$/.test(word)) {
+          console.log('🎯 智能點擊檢測到單字:', word);
           const position = {
             x: event.clientX,
             y: event.clientY
@@ -265,9 +270,11 @@ export const useClickableText = () => {
           
           setClickedWord({ word, position });
           setIsLoading(true);
+          console.log('📡 開始翻譯請求...');
           
           try {
             const translationResult = await getQuickTranslation(word);
+            console.log('✅ 翻譯結果:', translationResult);
             setTranslation(translationResult);
           } finally {
             setIsLoading(false);
@@ -280,12 +287,6 @@ export const useClickableText = () => {
     }
   }, [getQuickTranslation]);
 
-  // 關閉彈窗
-  const closePopup = useCallback(() => {
-    setClickedWord(null);
-    setTranslation(null);
-    setIsLoading(false);
-  }, []);
 
   // 處理文本內容，使其可點擊（無視覺變化）
   const makeTextClickable = useCallback((children: React.ReactNode) => {
@@ -294,6 +295,10 @@ export const useClickableText = () => {
       {
         ref: containerRef,
         onClick: handleTextClick,
+        onMouseDown: (e: React.MouseEvent) => {
+          // 防止事件被阻止
+          e.stopPropagation();
+        },
         className: 'cursor-text select-text',
         style: { userSelect: 'text' as const }
       },

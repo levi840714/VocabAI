@@ -5,6 +5,7 @@ import { VocabularyProvider } from "@/hooks/use-vocabulary"
 import { Toaster } from "@/components/ui/toaster"
 import { TelegramProvider, useAuth } from "@/contexts/TelegramContext"
 import { SettingsProvider, useSettings } from "@/contexts/SettingsContext"
+import { ClickableTextProvider } from "@/contexts/ClickableTextContext"
 import { createVocabotMuiTheme } from "@/theme/muiTheme"
 import BackgroundScene from "@/components/background-scene"
 import AppRouter from "@/router/AppRouter"
@@ -42,8 +43,10 @@ function AppContent() {
     <ThemeProvider theme={muiTheme}>
       <CssBaseline />
       <VocabularyProvider>
-        <AppRouter />
-        <Toaster />
+        <ClickableTextProvider>
+          <AppRouter />
+          <Toaster />
+        </ClickableTextProvider>
       </VocabularyProvider>
     </ThemeProvider>
   );

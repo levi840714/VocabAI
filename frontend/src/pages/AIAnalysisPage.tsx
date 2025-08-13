@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAnimation } from '@/hooks/useAnimation';
 import { ThemeCard, ThemeTitle, ThemeText } from '@/components/ui/ThemeComponents';
 import TestStructuredDisplay from '@/components/TestStructuredDisplay';
+import { useClickableTextContext } from '@/contexts/ClickableTextContext';
 import { Sparkles, Zap, Brain } from 'lucide-react';
 
 const AIAnalysisPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const [initialWord, setInitialWord] = useState<string | null>(null);
   const animation = useAnimation();
+  const navigate = useNavigate();
+  const { setCallbacks } = useClickableTextContext();
 
   useEffect(() => {
     const word = searchParams.get('word');
@@ -17,6 +20,25 @@ const AIAnalysisPage: React.FC = () => {
       setInitialWord(word);
     }
   }, [searchParams]);
+
+  // 設置全域智能點擊回調
+  useEffect(() => {
+    console.log('🔄 AI 解析頁面：設置智能點擊回調');
+    setCallbacks({
+      onWordAdded: (addedWord) => {
+        console.log('✅ AI 解析頁面：單字已添加', addedWord);
+        // 可以在這裡添加刷新邏輯或其他處理
+      },
+      onDeepAnalysis: (word) => {
+        console.log('🧠 AI 解析頁面：深度解析', word);
+        setInitialWord(word);
+      },
+      onAIAnalysisClick: (word) => {
+        console.log('🔍 AI 解析頁面：AI 解析點擊', word);
+        setInitialWord(word);
+      }
+    });
+  }, [setCallbacks]);
 
   const handleAnalysisProcessed = () => {
     setInitialWord(null);

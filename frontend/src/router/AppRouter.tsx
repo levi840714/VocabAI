@@ -13,6 +13,8 @@ import AIAnalysisPage from '@/pages/AIAnalysisPage';
 import WordDetailPage from '@/pages/WordDetailPage';
 import SettingsPage from '@/pages/SettingsPage';
 import SettingsTestPage from '@/pages/SettingsTestPage';
+import DebugClickablePage from '@/pages/DebugClickablePage';
+import GlobalQuickWordPopup from '@/components/GlobalQuickWordPopup';
 
 const AppRouter: React.FC = () => {
   return (
@@ -29,9 +31,11 @@ const AppRouter: React.FC = () => {
             <Route path="/ai-analysis" element={<AIAnalysisPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/settings-test" element={<SettingsTestPage />} />
+            <Route path="/debug-clickable" element={<DebugClickablePage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </AnimatePresence>
+        <GlobalQuickWordPopup />
       </Layout>
     </Router>
   );

@@ -176,7 +176,11 @@ const TestStructuredDisplay: React.FC<TestStructuredDisplayProps> = ({ initialWo
           <DeepLearningWordDisplay 
             data={result} 
             onAIAnalysisClick={onAIAnalysisClick}
-            onWordAdded={(word) => console.log(`單字 "${word}" 已在 AI 分析頁面中加入`)}
+            onWordAdded={(word) => {
+              console.log(`✅ TestStructuredDisplay：單字 "${word}" 智能點擊觸發`);
+              // 這個回調會被 ClickableTextWrapper 內部調用，不需要額外處理
+              // 因為全域回調已經在 AIAnalysisPage 中設置了
+            }}
             onAddWordClick={handleAddWord}
             onRemoveWordClick={handleRemoveWord}
             isAddingWord={isAddingWord}

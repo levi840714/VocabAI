@@ -174,9 +174,17 @@ const DeepLearningWordDisplay: React.FC<DeepLearningWordDisplayProps> = ({
               <h4 className="font-medium text-amber-800 dark:text-amber-300">相關詞彙：</h4>
               <div className="flex flex-wrap gap-2 mt-2">
                 {data.etymology.related_words.map((word, index) => (
-                  <Badge key={index} variant="outline" className="bg-amber-100 dark:bg-amber-800/30 text-amber-700 dark:text-amber-200 border-amber-200 dark:border-amber-600">
-                    {word}
-                  </Badge>
+                  <ClickableTextWrapper 
+                    key={index}
+                    onAIAnalysisClick={onAIAnalysisClick}
+                    onWordAdded={onWordAdded}
+                    onDeepAnalysis={onAIAnalysisClick}
+                    className="inline-block"
+                  >
+                    <Badge variant="outline" className="bg-amber-100 dark:bg-amber-800/30 text-amber-700 dark:text-amber-200 border-amber-200 dark:border-amber-600">
+                      {word}
+                    </Badge>
+                  </ClickableTextWrapper>
                 ))}
               </div>
             </div>
@@ -232,9 +240,17 @@ const DeepLearningWordDisplay: React.FC<DeepLearningWordDisplayProps> = ({
               <h4 className="font-medium text-purple-700 dark:text-purple-300 mb-2">常見片語：</h4>
               <div className="space-y-1">
                 {data.collocations.common_phrases.map((phrase, index) => (
-                  <Badge key={index} variant="outline" className="mr-2 mb-2 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-600">
-                    {phrase}
-                  </Badge>
+                  <ClickableTextWrapper 
+                    key={index}
+                    onAIAnalysisClick={onAIAnalysisClick}
+                    onWordAdded={onWordAdded}
+                    onDeepAnalysis={onAIAnalysisClick}
+                    className="inline-block mr-2 mb-2"
+                  >
+                    <Badge variant="outline" className="bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-600">
+                      {phrase}
+                    </Badge>
+                  </ClickableTextWrapper>
                 ))}
               </div>
             </div>
@@ -245,9 +261,17 @@ const DeepLearningWordDisplay: React.FC<DeepLearningWordDisplayProps> = ({
               <h4 className="font-medium text-green-700 dark:text-green-300 mb-2">動詞搭配：</h4>
               <div className="space-y-1">
                 {data.collocations.verb_combinations.map((combo, index) => (
-                  <Badge key={index} variant="outline" className="mr-2 mb-2 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-600">
-                    {combo}
-                  </Badge>
+                  <ClickableTextWrapper 
+                    key={index}
+                    onAIAnalysisClick={onAIAnalysisClick}
+                    onWordAdded={onWordAdded}
+                    onDeepAnalysis={onAIAnalysisClick}
+                    className="inline-block mr-2 mb-2"
+                  >
+                    <Badge variant="outline" className="bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-600">
+                      {combo}
+                    </Badge>
+                  </ClickableTextWrapper>
                 ))}
               </div>
             </div>
@@ -258,9 +282,17 @@ const DeepLearningWordDisplay: React.FC<DeepLearningWordDisplayProps> = ({
               <h4 className="font-medium text-blue-700 dark:text-blue-300 mb-2">形容詞搭配：</h4>
               <div className="space-y-1">
                 {data.collocations.adjective_combinations.map((combo, index) => (
-                  <Badge key={index} variant="outline" className="mr-2 mb-2 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-600">
-                    {combo}
-                  </Badge>
+                  <ClickableTextWrapper 
+                    key={index}
+                    onAIAnalysisClick={onAIAnalysisClick}
+                    onWordAdded={onWordAdded}
+                    onDeepAnalysis={onAIAnalysisClick}
+                    className="inline-block mr-2 mb-2"
+                  >
+                    <Badge variant="outline" className="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-600">
+                      {combo}
+                    </Badge>
+                  </ClickableTextWrapper>
                 ))}
               </div>
             </div>
@@ -271,9 +303,17 @@ const DeepLearningWordDisplay: React.FC<DeepLearningWordDisplayProps> = ({
               <h4 className="font-medium text-orange-700 dark:text-orange-300 mb-2">介詞搭配：</h4>
               <div className="space-y-1">
                 {data.collocations.preposition_combinations.map((combo, index) => (
-                  <Badge key={index} variant="outline" className="mr-2 mb-2 bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-600">
-                    {combo}
-                  </Badge>
+                  <ClickableTextWrapper 
+                    key={index}
+                    onAIAnalysisClick={onAIAnalysisClick}
+                    onWordAdded={onWordAdded}
+                    onDeepAnalysis={onAIAnalysisClick}
+                    className="inline-block mr-2 mb-2"
+                  >
+                    <Badge variant="outline" className="bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-600">
+                      {combo}
+                    </Badge>
+                  </ClickableTextWrapper>
                 ))}
               </div>
             </div>
@@ -294,6 +334,7 @@ const DeepLearningWordDisplay: React.FC<DeepLearningWordDisplayProps> = ({
                   className="text-slate-700 dark:text-slate-200 italic font-medium mb-2 pr-8"
                   onAIAnalysisClick={onAIAnalysisClick}
                   onWordAdded={onWordAdded}
+                  onDeepAnalysis={onAIAnalysisClick}
                 >
                   "{highlightWord(example.sentence, data.word)}"
                 </ClickableTextWrapper>
@@ -326,10 +367,24 @@ const DeepLearningWordDisplay: React.FC<DeepLearningWordDisplayProps> = ({
           <div className="space-y-3">
             {data.synonyms.map((synonym, index) => (
               <div key={index} className="flex items-start gap-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                <Badge variant="outline" className="text-green-700 dark:text-green-300 border-green-300 dark:border-green-600 shrink-0">
-                  {synonym.word}
-                </Badge>
-                <p className="text-sm text-slate-700 dark:text-slate-200">{synonym.difference}</p>
+                <ClickableTextWrapper 
+                  onAIAnalysisClick={onAIAnalysisClick}
+                  onWordAdded={onWordAdded}
+                  onDeepAnalysis={onAIAnalysisClick}
+                  className="shrink-0"
+                >
+                  <Badge variant="outline" className="text-green-700 dark:text-green-300 border-green-300 dark:border-green-600">
+                    {synonym.word}
+                  </Badge>
+                </ClickableTextWrapper>
+                <ClickableTextWrapper 
+                  onAIAnalysisClick={onAIAnalysisClick}
+                  onWordAdded={onWordAdded}
+                  onDeepAnalysis={onAIAnalysisClick}
+                  className="text-sm text-slate-700 dark:text-slate-200"
+                >
+                  {synonym.difference}
+                </ClickableTextWrapper>
               </div>
             ))}
           </div>
@@ -344,9 +399,17 @@ const DeepLearningWordDisplay: React.FC<DeepLearningWordDisplayProps> = ({
           </h3>
           <div className="flex flex-wrap gap-2">
             {data.antonyms.map((antonym, index) => (
-              <Badge key={index} variant="outline" className="text-red-700 dark:text-red-400 border-red-300 dark:border-red-600">
-                {antonym}
-              </Badge>
+              <ClickableTextWrapper 
+                key={index}
+                onAIAnalysisClick={onAIAnalysisClick}
+                onWordAdded={onWordAdded}
+                onDeepAnalysis={onAIAnalysisClick}
+                className="inline-block"
+              >
+                <Badge variant="outline" className="text-red-700 dark:text-red-400 border-red-300 dark:border-red-600">
+                  {antonym}
+                </Badge>
+              </ClickableTextWrapper>
             ))}
           </div>
         </Card>
@@ -360,19 +423,47 @@ const DeepLearningWordDisplay: React.FC<DeepLearningWordDisplayProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <h4 className="font-medium text-indigo-700 dark:text-indigo-300 mb-2">👁️ 視覺記憶：</h4>
-            <p className="text-sm text-slate-700 dark:text-slate-200">{data.memory_strategies.visual}</p>
+            <ClickableTextWrapper 
+              onAIAnalysisClick={onAIAnalysisClick}
+              onWordAdded={onWordAdded}
+              onDeepAnalysis={onAIAnalysisClick}
+              className="text-sm text-slate-700 dark:text-slate-200"
+            >
+              {data.memory_strategies.visual}
+            </ClickableTextWrapper>
           </div>
           <div>
             <h4 className="font-medium text-indigo-700 dark:text-indigo-300 mb-2">🔗 聯想記憶：</h4>
-            <p className="text-sm text-slate-700 dark:text-slate-200">{data.memory_strategies.association}</p>
+            <ClickableTextWrapper 
+              onAIAnalysisClick={onAIAnalysisClick}
+              onWordAdded={onWordAdded}
+              onDeepAnalysis={onAIAnalysisClick}
+              className="text-sm text-slate-700 dark:text-slate-200"
+            >
+              {data.memory_strategies.association}
+            </ClickableTextWrapper>
           </div>
           <div>
             <h4 className="font-medium text-indigo-700 dark:text-indigo-300 mb-2">🏗️ 構詞記憶：</h4>
-            <p className="text-sm text-slate-700 dark:text-slate-200">{data.memory_strategies.word_formation}</p>
+            <ClickableTextWrapper 
+              onAIAnalysisClick={onAIAnalysisClick}
+              onWordAdded={onWordAdded}
+              onDeepAnalysis={onAIAnalysisClick}
+              className="text-sm text-slate-700 dark:text-slate-200"
+            >
+              {data.memory_strategies.word_formation}
+            </ClickableTextWrapper>
           </div>
           <div>
             <h4 className="font-medium text-indigo-700 dark:text-indigo-300 mb-2">📚 故事記憶：</h4>
-            <p className="text-sm text-slate-700 dark:text-slate-200">{data.memory_strategies.story}</p>
+            <ClickableTextWrapper 
+              onAIAnalysisClick={onAIAnalysisClick}
+              onWordAdded={onWordAdded}
+              onDeepAnalysis={onAIAnalysisClick}
+              className="text-sm text-slate-700 dark:text-slate-200"
+            >
+              {data.memory_strategies.story}
+            </ClickableTextWrapper>
           </div>
         </div>
       </Card>
@@ -383,9 +474,14 @@ const DeepLearningWordDisplay: React.FC<DeepLearningWordDisplayProps> = ({
           <h3 className="text-lg font-semibold text-slate-800 dark:text-white mb-3 flex items-center">
             🌍 文化背景
           </h3>
-          <p className="text-slate-700 dark:text-slate-200">
+          <ClickableTextWrapper 
+            onAIAnalysisClick={onAIAnalysisClick}
+            onWordAdded={onWordAdded}
+            onDeepAnalysis={onAIAnalysisClick}
+            className="text-slate-700 dark:text-slate-200"
+          >
             {data.cultural_notes}
-          </p>
+          </ClickableTextWrapper>
         </Card>
       )}
     </div>

@@ -3,7 +3,7 @@ import { Volume2, Star, BookOpen, X, Loader2, Brain } from 'lucide-react';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { Translation } from '../hooks/useClickableText';
+import type { Translation } from '../hooks/useClickableText';
 
 interface QuickWordPopupProps {
   word: string;
@@ -105,10 +105,10 @@ const QuickWordPopup: React.FC<QuickWordPopupProps> = ({
     y = Math.max(minY, Math.min(y, maxY));
     
     return {
-      position: 'absolute',
+      position: 'fixed',
       left: `${x}px`,
       top: `${y}px`,
-      zIndex: 1000,
+      zIndex: 9999,
     };
   };
 
@@ -139,12 +139,12 @@ const QuickWordPopup: React.FC<QuickWordPopupProps> = ({
     <div style={getPopupStyle()}>
       <Card 
         ref={popupRef}
-        className="w-[280px] p-4 shadow-lg border-2 border-blue-100 bg-white/95 backdrop-blur-sm"
+        className="w-[280px] p-4 shadow-lg border-2 border-blue-100 bg-white dark:bg-slate-800"
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <h3 className="text-lg font-bold text-slate-800">
+            <h3 className="text-lg font-bold text-slate-800 dark:text-white">
               {word}
             </h3>
             <Button
