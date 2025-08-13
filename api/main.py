@@ -468,6 +468,26 @@ async def create_or_update_settings(
         if not success:
             raise HTTPException(status_code=500, detail="Failed to save user settings")
         
+        # 發布設定變更事件
+        try:
+            from bot.utils.event_manager import get_event_manager
+            event_manager = get_event_manager()
+            
+            # 發布通用設定更新事件
+            await event_manager.publish_user_settings_updated(user_id)
+            
+            # 檢查是否有提醒相關的設定變更
+            learning_prefs = settings_data.learning_preferences.dict()
+            if 'review_reminder_enabled' in learning_prefs or 'review_reminder_time' in learning_prefs:
+                await event_manager.publish_reminder_settings_changed(
+                    user_id=user_id,
+                    reminder_enabled=learning_prefs.get('review_reminder_enabled', False),
+                    reminder_time=learning_prefs.get('review_reminder_time', '09:00')
+                )
+                logger.info(f"🚀 API 發布提醒設定變更事件 - 用戶: {user_id}")
+        except Exception as e:
+            logger.warning(f"發布事件失敗: {e}")
+        
         return {"message": "User settings saved successfully", "user_id": user_id}
     except HTTPException:
         raise
@@ -529,6 +549,27 @@ async def update_settings(
         
         if not success:
             raise HTTPException(status_code=500, detail="Failed to update user settings")
+        
+        # 發布設定變更事件
+        try:
+            from bot.utils.event_manager import get_event_manager
+            event_manager = get_event_manager()
+            
+            # 發布通用設定更新事件
+            await event_manager.publish_user_settings_updated(user_id)
+            
+            # 檢查是否有提醒相關的設定變更
+            if settings_data.learning_preferences:
+                learning_prefs = settings_data.learning_preferences.dict()
+                if 'review_reminder_enabled' in learning_prefs or 'review_reminder_time' in learning_prefs:
+                    await event_manager.publish_reminder_settings_changed(
+                        user_id=user_id,
+                        reminder_enabled=learning_prefs.get('review_reminder_enabled', False),
+                        reminder_time=learning_prefs.get('review_reminder_time', '09:00')
+                    )
+                    logger.info(f"🚀 API PUT 發布提醒設定變更事件 - 用戶: {user_id}")
+        except Exception as e:
+            logger.warning(f"發布事件失敗: {e}")
         
         return {"message": "User settings updated successfully", "user_id": user_id}
     except HTTPException:

@@ -353,10 +353,36 @@ async def setup_api_routes(app):
         return await convert_fastapi_to_aiohttp(get_user_settings, request)
     
     async def create_or_update_settings_wrapper(request):
-        return await convert_fastapi_to_aiohttp(create_or_update_settings, request)
+        result = await convert_fastapi_to_aiohttp(create_or_update_settings, request)
+        
+        # 發布用戶設定更新事件
+        try:
+            from bot.utils.event_manager import get_event_manager
+            query_params = dict(request.query)
+            user_id = validate_user_access(query_params.get('user_id'))
+            
+            event_manager = get_event_manager()
+            await event_manager.publish_user_settings_updated(user_id)
+        except Exception as e:
+            logging.warning(f"發布設定更新事件失敗: {e}")
+        
+        return result
     
     async def update_settings_wrapper(request):
-        return await convert_fastapi_to_aiohttp(update_settings, request)
+        result = await convert_fastapi_to_aiohttp(update_settings, request)
+        
+        # 發布用戶設定更新事件
+        try:
+            from bot.utils.event_manager import get_event_manager
+            query_params = dict(request.query)
+            user_id = validate_user_access(query_params.get('user_id'))
+            
+            event_manager = get_event_manager()
+            await event_manager.publish_user_settings_updated(user_id)
+        except Exception as e:
+            logging.warning(f"發布設定更新事件失敗: {e}")
+        
+        return result
     
     # Add routes
     app.router.add_get('/api/v1/words', get_words_wrapper)

@@ -354,8 +354,25 @@ async def get_user_settings(db_path, user_id):
         row = await cursor.fetchone()
         
         if row:
+            import json
             columns = ['user_id', 'learning_preferences', 'interface_settings', 'ai_settings', 'study_settings', 'created_at', 'updated_at']
-            return dict(zip(columns, row))
+            settings_dict = dict(zip(columns, row))
+            
+            # 解析 JSON 字符串為字典
+            try:
+                settings_dict['learning_preferences'] = json.loads(settings_dict['learning_preferences']) if settings_dict['learning_preferences'] else {}
+                settings_dict['interface_settings'] = json.loads(settings_dict['interface_settings']) if settings_dict['interface_settings'] else {}
+                settings_dict['ai_settings'] = json.loads(settings_dict['ai_settings']) if settings_dict['ai_settings'] else {}
+                settings_dict['study_settings'] = json.loads(settings_dict['study_settings']) if settings_dict['study_settings'] else {}
+            except (json.JSONDecodeError, TypeError) as e:
+                logging.warning(f"解析用戶 {user_id} 設定 JSON 失敗: {e}")
+                # 如果解析失敗，設為空字典
+                settings_dict['learning_preferences'] = {}
+                settings_dict['interface_settings'] = {}
+                settings_dict['ai_settings'] = {}
+                settings_dict['study_settings'] = {}
+            
+            return settings_dict
         return None
 
 async def create_user_settings(db_path, user_id, learning_preferences, interface_settings, ai_settings, study_settings):
@@ -435,3 +452,35 @@ async def upsert_user_settings(db_path, user_id, learning_preferences, interface
             learning_preferences, interface_settings, 
             ai_settings, study_settings
         )
+
+async def get_all_users_with_reminders(db_path):
+    """獲取所有啟用提醒功能的用戶設定"""
+    async with aiosqlite.connect(db_path) as db:
+        cursor = await db.execute("""
+        SELECT user_id, learning_preferences, interface_settings, ai_settings, study_settings
+        FROM user_settings
+        """)
+        rows = await cursor.fetchall()
+        
+        users_with_reminders = []
+        if rows:
+            import json
+            for row in rows:
+                user_id, learning_prefs, interface_settings, ai_settings, study_settings = row
+                try:
+                    # 解析 JSON 字串
+                    learning_preferences = json.loads(learning_prefs) if learning_prefs else {}
+                    
+                    # 檢查是否啟用提醒
+                    if learning_preferences.get('review_reminder_enabled', False):
+                        reminder_time = learning_preferences.get('review_reminder_time', '09:00')
+                        users_with_reminders.append({
+                            'user_id': user_id,
+                            'reminder_time': reminder_time,
+                            'learning_preferences': learning_preferences
+                        })
+                except (json.JSONDecodeError, KeyError) as e:
+                    logging.warning(f"解析用戶 {user_id} 設定失敗: {e}")
+                    continue
+        
+        return users_with_reminders
