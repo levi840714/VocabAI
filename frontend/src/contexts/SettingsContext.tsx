@@ -75,12 +75,48 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // 從本地儲存讀取設定
+  const loadLocalSettings = () => {
+    try {
+      const storedSettings = localStorage.getItem('vocabot_user_settings');
+      if (storedSettings) {
+        const parsed = JSON.parse(storedSettings);
+        setLearningPreferences(parsed.learning_preferences || defaultLearningPreferences);
+        setInterfaceSettings(parsed.interface_settings || defaultInterfaceSettings);
+        setAISettings(parsed.ai_settings || defaultAISettings);
+        setStudySettings(parsed.study_settings || defaultStudySettings);
+        return true;
+      }
+    } catch (err) {
+      console.error('載入本地設定失敗:', err);
+    }
+    return false;
+  };
+
+  // 保存設定到本地儲存
+  const saveLocalSettings = (settings: {
+    learning_preferences: LearningPreferences;
+    interface_settings: InterfaceSettings;
+    ai_settings: AISettings;
+    study_settings: StudySettings;
+  }) => {
+    try {
+      localStorage.setItem('vocabot_user_settings', JSON.stringify(settings));
+    } catch (err) {
+      console.error('保存本地設定失敗:', err);
+    }
+  };
+
   // 載入設定
   const refreshSettings = async () => {
     try {
       setIsLoading(true);
       setError(null);
       
+      // 先載入本地設定作為臨時方案
+      const hasLocalSettings = loadLocalSettings();
+      
+      // 嘗試從 API 載入設定
       const userSettings = await vocabotAPI.getUserSettings();
       
       setLearningPreferences(userSettings.learning_preferences);
@@ -88,10 +124,23 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setAISettings(userSettings.ai_settings);
       setStudySettings(userSettings.study_settings);
       
+      // 保存到本地儲存
+      saveLocalSettings({
+        learning_preferences: userSettings.learning_preferences,
+        interface_settings: userSettings.interface_settings,
+        ai_settings: userSettings.ai_settings,
+        study_settings: userSettings.study_settings
+      });
+      
     } catch (err) {
       console.error('載入設定失敗:', err);
       setError(err instanceof Error ? err.message : '載入設定失敗');
-      // 載入失敗時保持預設設定
+      
+      // API 失敗時，如果沒有本地設定，使用預設值
+      const hasLocalSettings = loadLocalSettings();
+      if (!hasLocalSettings) {
+        console.log('使用預設設定');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -107,6 +156,14 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       });
       
       setLearningPreferences(newPreferences);
+      
+      // 同步更新本地儲存
+      saveLocalSettings({
+        learning_preferences: newPreferences,
+        interface_settings: interfaceSettings,
+        ai_settings: aiSettings,
+        study_settings: studySettings
+      });
     } catch (err) {
       console.error('更新學習偏好失敗:', err);
       throw err;
@@ -118,19 +175,29 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     try {
       const newSettings = { ...interfaceSettings, ...updates };
       
+      // 先立即應用變更到本地狀態和 DOM
+      setInterfaceSettings(newSettings);
+      if (updates.theme_mode) {
+        applyTheme(updates.theme_mode);
+      }
+      
+      // 同步更新本地儲存（即使 API 失敗也要保存）
+      saveLocalSettings({
+        learning_preferences: learningPreferences,
+        interface_settings: newSettings,
+        ai_settings: aiSettings,
+        study_settings: studySettings
+      });
+      
+      // 然後嘗試同步到後端
       await vocabotAPI.updateSettings({
         interface_settings: newSettings
       });
       
-      setInterfaceSettings(newSettings);
-      
-      // 立即應用主題變更
-      if (updates.theme_mode) {
-        applyTheme(updates.theme_mode);
-      }
     } catch (err) {
       console.error('更新介面設定失敗:', err);
-      throw err;
+      // 即使 API 失敗，本地變更已經應用，不拋出錯誤
+      console.log('本地設定已更新，但後端同步失敗');
     }
   };
 
@@ -144,6 +211,14 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       });
       
       setAISettings(newSettings);
+      
+      // 同步更新本地儲存
+      saveLocalSettings({
+        learning_preferences: learningPreferences,
+        interface_settings: interfaceSettings,
+        ai_settings: newSettings,
+        study_settings: studySettings
+      });
     } catch (err) {
       console.error('更新 AI 設定失敗:', err);
       throw err;
@@ -160,6 +235,14 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       });
       
       setStudySettings(newSettings);
+      
+      // 同步更新本地儲存
+      saveLocalSettings({
+        learning_preferences: learningPreferences,
+        interface_settings: interfaceSettings,
+        ai_settings: aiSettings,
+        study_settings: newSettings
+      });
     } catch (err) {
       console.error('更新學習策略失敗:', err);
       throw err;
@@ -170,19 +253,33 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const applyTheme = (themeMode: string) => {
     const root = document.documentElement;
     
+    console.log('🎨 [Theme] 正在應用主題:', themeMode);
+    
     if (themeMode === 'dark') {
       root.classList.add('dark');
+      console.log('🌙 [Theme] 已設定為深色模式');
     } else if (themeMode === 'light') {
       root.classList.remove('dark');
+      console.log('☀️ [Theme] 已設定為淺色模式');
     } else if (themeMode === 'auto') {
       // 根據系統偏好設定
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
       if (prefersDark) {
         root.classList.add('dark');
+        console.log('🌙 [Theme] 自動模式：使用深色模式（系統偏好）');
       } else {
         root.classList.remove('dark');
+        console.log('☀️ [Theme] 自動模式：使用淺色模式（系統偏好）');
       }
     }
+    
+    // 驗證設定是否生效
+    const hasLight = root.classList.contains('dark');
+    console.log('📋 [Theme] DOM 狀態檢查:', {
+      themeMode,
+      hasDarkClass: hasLight,
+      allClasses: root.className
+    });
   };
 
   // 監聽系統主題變更
@@ -200,15 +297,26 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
   // 初始載入
   useEffect(() => {
+    // 在 API 載入前先嘗試應用本地設定的主題
+    const localSettings = localStorage.getItem('vocabot_user_settings');
+    if (localSettings) {
+      try {
+        const parsed = JSON.parse(localSettings);
+        if (parsed.interface_settings?.theme_mode) {
+          applyTheme(parsed.interface_settings.theme_mode);
+        }
+      } catch (err) {
+        console.error('解析本地主題設定失敗:', err);
+      }
+    }
+    
     refreshSettings();
   }, []);
 
-  // 應用初始主題
+  // 應用主題變更（包括載入過程中）
   useEffect(() => {
-    if (!isLoading) {
-      applyTheme(interfaceSettings.theme_mode);
-    }
-  }, [isLoading, interfaceSettings.theme_mode]);
+    applyTheme(interfaceSettings.theme_mode);
+  }, [interfaceSettings.theme_mode]);
 
   // 便利屬性
   const isDarkMode = interfaceSettings.theme_mode === 'dark' || 

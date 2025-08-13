@@ -1,4 +1,4 @@
-import React from "react"
+import React, { useEffect } from "react"
 import { ThemeProvider } from '@mui/material/styles'
 import { CssBaseline } from '@mui/material'
 import { VocabularyProvider } from "@/hooks/use-vocabulary"
@@ -10,6 +10,46 @@ import { createVocabotMuiTheme } from "@/theme/muiTheme"
 import BackgroundScene from "@/components/background-scene"
 import AppRouter from "@/router/AppRouter"
 import { User } from "lucide-react"
+
+// 早期主題應用函數
+const applyEarlyTheme = () => {
+  try {
+    console.log('🚀 [Early Theme] 開始早期主題應用');
+    const localSettings = localStorage.getItem('vocabot_user_settings');
+    if (localSettings) {
+      const parsed = JSON.parse(localSettings);
+      const themeMode = parsed.interface_settings?.theme_mode || 'light';
+      console.log('📱 [Early Theme] 從本地儲存讀取主題:', themeMode);
+      
+      const root = document.documentElement;
+      if (themeMode === 'dark') {
+        root.classList.add('dark');
+        console.log('🌙 [Early Theme] 應用深色模式');
+      } else if (themeMode === 'light') {
+        root.classList.remove('dark');
+        console.log('☀️ [Early Theme] 應用淺色模式');
+      } else if (themeMode === 'auto') {
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (prefersDark) {
+          root.classList.add('dark');
+          console.log('🌙 [Early Theme] 自動模式：應用深色模式');
+        } else {
+          root.classList.remove('dark');
+          console.log('☀️ [Early Theme] 自動模式：應用淺色模式');
+        }
+      }
+      
+      console.log('✅ [Early Theme] 當前 HTML classes:', root.className);
+    } else {
+      console.log('❌ [Early Theme] 沒有找到本地設定');
+    }
+  } catch (err) {
+    console.error('❌ [Early Theme] 早期主題應用失敗:', err);
+  }
+};
+
+// 在模組載入時立即嘗試應用主題
+applyEarlyTheme();
 
 // 應用程式內容組件（有設定 context）
 function AppContent() {
