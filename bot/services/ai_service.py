@@ -67,9 +67,18 @@ class AIService:
         
         # Use the simple explanation method with enhanced prompt
         api_key = self.config['ai_services']['google']['api_key']
-        enhanced_prompt = f"""請使用繁體中文提供「{word}」的深度學習解析，包含詞源、記憶法、搭配等。請回覆 JSON 格式：
+        enhanced_prompt = f"""請使用繁體中文提供「{word}」的深度學習解析，包含詞源、記憶法、搭配等。
+
+**重要**：如果查詢的單字是變形形態（如動詞過去式、現在分詞、複數形等），請務必識別並提供原型單字資訊。
+
+請回覆 JSON 格式：
 {{
   "word": "{word}",
+  "is_inflected": false,
+  "base_form": {{
+    "word": "原型單字",
+    "inflection_type": "變形類型（如：過去式、現在分詞、複數形等）"
+  }},
   "pronunciations": ["音標"],
   "etymology": {{"origin": "詞源", "root_analysis": "字根分析", "related_words": ["相關詞"]}},
   "definitions": [{{"part_of_speech": "詞性", "meanings": [{{"definition": "定義", "context": "語境", "formality": "正式度", "usage_notes": "用法"}}]}}],
@@ -81,7 +90,9 @@ class AIService:
   "cultural_notes": "文化背景",
   "difficulty_level": "難度等級",
   "frequency": "使用頻率"
-}}"""
+}}
+
+如果是變形單字，請將 is_inflected 設為 true，並在 base_form 中提供原型單字和變形類型。如果是原型單字，請將 is_inflected 設為 false，base_form 可設為 null。"""
 
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
         headers = {"Content-Type": "application/json"}

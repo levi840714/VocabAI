@@ -59,6 +59,28 @@ const StructuredWordDisplay: React.FC<StructuredWordDisplayProps> = ({ data, onA
         <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
           {data.word}
         </h2>
+        
+        {/* Base form information for inflected words */}
+        {data.is_inflected && data.base_form && (
+          <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
+            <p className="text-sm text-slate-600 dark:text-slate-300">
+              <span className="text-blue-600 dark:text-blue-400 font-medium">🔄 變形單字：</span> 
+              {data.word} （{data.base_form.inflection_type}）
+            </p>
+            <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">
+              <span className="text-blue-600 dark:text-blue-400 font-medium">📝 原型單字：</span> 
+              <ClickableTextWrapper
+                onAIAnalysisClick={onAIAnalysisClick}
+                onWordAdded={onWordAdded}
+              >
+                <span className="text-slate-900 dark:text-white font-semibold cursor-pointer hover:underline">
+                  {data.base_form.word}
+                </span>
+              </ClickableTextWrapper>
+            </p>
+          </div>
+        )}
+        
         {shouldShowPronunciation && data.pronunciations.length > 0 && (
           <div className="mt-2">
             {data.pronunciations.map((pronunciation, index) => (

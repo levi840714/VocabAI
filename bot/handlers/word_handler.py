@@ -18,6 +18,8 @@ def format_word_explanation(structured_data: dict, is_deep_learning: bool = Fals
             return format_deep_learning_explanation(structured_data)
         
         word = structured_data.get('word', 'Unknown')
+        is_inflected = structured_data.get('is_inflected', False)
+        base_form = structured_data.get('base_form', {})
         pronunciations = structured_data.get('pronunciations', [])
         definitions = structured_data.get('definitions', [])
         examples = structured_data.get('examples', [])
@@ -26,6 +28,14 @@ def format_word_explanation(structured_data: dict, is_deep_learning: bool = Fals
         memory_tips = structured_data.get('memory_tips', '')
         
         formatted = ""
+        
+        # Base form information for inflected words
+        if is_inflected and base_form:
+            base_word = base_form.get('word', '')
+            inflection_type = base_form.get('inflection_type', '')
+            if base_word and inflection_type:
+                formatted += f"🔄 <b>變形單字:</b> {word} （{inflection_type}）\n"
+                formatted += f"📝 <b>原型單字:</b> {base_word}\n\n"
         
         # Pronunciations
         if pronunciations:
@@ -78,6 +88,8 @@ def format_deep_learning_explanation(structured_data: dict) -> str:
     """Formats deep learning structured word data for display in Telegram."""
     try:
         word = structured_data.get('word', 'Unknown')
+        is_inflected = structured_data.get('is_inflected', False)
+        base_form = structured_data.get('base_form', {})
         pronunciations = structured_data.get('pronunciations', [])
         etymology = structured_data.get('etymology', {})
         definitions = structured_data.get('definitions', [])
@@ -91,6 +103,14 @@ def format_deep_learning_explanation(structured_data: dict) -> str:
         frequency = structured_data.get('frequency', '')
         
         formatted = ""
+        
+        # Base form information for inflected words
+        if is_inflected and base_form:
+            base_word = base_form.get('word', '')
+            inflection_type = base_form.get('inflection_type', '')
+            if base_word and inflection_type:
+                formatted += f"🔄 <b>變形單字:</b> {word} （{inflection_type}）\n"
+                formatted += f"📝 <b>原型單字:</b> {base_word}\n\n"
         
         # Header with level and frequency
         if difficulty_level or frequency:

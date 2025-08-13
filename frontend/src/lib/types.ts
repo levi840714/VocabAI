@@ -52,8 +52,15 @@ export interface MemoryStrategies {
   story: string
 }
 
+export interface BaseForm {
+  word: string
+  inflection_type: string
+}
+
 export interface StructuredAIResponse {
   word: string
+  is_inflected?: boolean
+  base_form?: BaseForm | null
   pronunciations: string[]
   definitions: WordDefinition[]
   examples: string[]
@@ -64,6 +71,8 @@ export interface StructuredAIResponse {
 
 export interface DeepLearningAIResponse {
   word: string
+  is_inflected?: boolean
+  base_form?: BaseForm | null
   pronunciations: string[]
   etymology: Etymology
   definitions: WordDefinition[]

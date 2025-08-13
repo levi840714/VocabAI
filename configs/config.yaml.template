@@ -48,9 +48,16 @@ prompts:
 
     單字：{word}
 
+    **重要**：如果查詢的單字是變形形態（如動詞過去式、現在分詞、複數形、比較級等），請務必識別並提供原型單字資訊。
+
     請回覆以下 JSON 格式（請注意：回覆必須是有效的 JSON，不要包含任何其他文字）：
     {{
       "word": "{word}",
+      "is_inflected": false,
+      "base_form": {{
+        "word": "原型單字",
+        "inflection_type": "變形類型（如：過去式、現在分詞、複數形、比較級等）"
+      }},
       "pronunciations": ["音標1", "音標2"],
       "definitions": [
         {{
@@ -81,6 +88,8 @@ prompts:
       "antonyms": ["反義詞1", "反義詞2"],
       "memory_tips": "記憶技巧或字源解釋"
     }}
+
+    如果是變形單字，請將 is_inflected 設為 true，並在 base_form 中提供原型單字和變形類型。如果是原型單字，請將 is_inflected 設為 false，base_form 可設為 null。
 
   deep_learning: |
     請深度分析英文單字 "{word}"，使用繁體中文回覆，包含詞源、記憶法、搭配用法等深入內容。請回覆 JSON 格式：
