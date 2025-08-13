@@ -109,6 +109,13 @@ const GlobalQuickWordPopup: React.FC = () => {
     return null;
   }
 
+  console.log('🚀 GlobalQuickWordPopup 渲染:', {
+    clickedWord,
+    translation,
+    isLoading,
+    position: clickedWord.position
+  });
+
   return (
     <QuickWordPopup
       word={clickedWord.word}

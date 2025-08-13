@@ -56,59 +56,51 @@ const QuickWordPopup: React.FC<QuickWordPopupProps> = ({
     }
   };
 
-  // 計算彈窗位置（避免超出螢幕邊界，盡量靠近點擊位置）
+  // 計算彈窗位置（簡化邏輯，確保在螢幕範圍內）
   const getPopupStyle = (): React.CSSProperties => {
-    const padding = 12;
+    const padding = 16;
     const popupWidth = 280;
-    const popupHeight = 240;
-    const headerHeight = 80; // Header 高度
-    const navBarHeight = 80; // 底部導航欄高度
-    const verticalOffset = 8; // 與點擊位置的垂直距離
+    const popupHeight = 300; // 增加一點高度以容納所有內容
+    const offset = 12; // 與點擊位置的距離
     
-    // 計算可用螢幕空間
+    // 獲取視窗尺寸
     const viewportWidth = window.innerWidth;
-    const availableHeight = window.innerHeight - headerHeight - navBarHeight;
-    const scrollY = window.scrollY;
+    const viewportHeight = window.innerHeight;
     
-    // 將點擊位置轉換為相對於可視區域的座標
-    const relativeY = position.y - scrollY - headerHeight;
+    // 計算水平位置（優先置中，但確保不超出邊界）
+    let x = position.x - popupWidth / 2;
+    x = Math.max(padding, Math.min(x, viewportWidth - popupWidth - padding));
     
-    // 計算水平位置 - 優先居中，但確保不超出邊界
-    let x = Math.max(padding, Math.min(
-      position.x - popupWidth / 2,
-      viewportWidth - popupWidth - padding
-    ));
+    // 計算垂直位置（優先在上方，空間不夠則下方）
+    let y = position.y - popupHeight - offset;
     
-    // 計算垂直位置 - 優先在上方，距離點擊位置較近
-    let y: number;
-    const spaceAbove = relativeY - verticalOffset;
-    const spaceBelow = availableHeight - relativeY - verticalOffset;
-    
-    if (spaceAbove >= popupHeight) {
-      // 上方空間足夠，顯示在上方
-      y = headerHeight + scrollY + relativeY - popupHeight - verticalOffset;
-    } else if (spaceBelow >= popupHeight) {
-      // 下方空間足夠，顯示在下方
-      y = headerHeight + scrollY + relativeY + verticalOffset;
-    } else {
-      // 上下都不夠，選擇空間較大的一側，但調整彈窗大小適應
-      if (spaceAbove > spaceBelow) {
-        y = headerHeight + scrollY + padding;
-      } else {
-        y = headerHeight + scrollY + availableHeight - popupHeight - padding;
+    // 如果上方空間不夠，嘗試下方
+    if (y < padding) {
+      y = position.y + offset;
+      
+      // 如果下方也不夠，則居中顯示
+      if (y + popupHeight > viewportHeight - padding) {
+        y = Math.max(padding, (viewportHeight - popupHeight) / 2);
       }
     }
     
     // 最終邊界檢查
-    const minY = headerHeight + scrollY + padding;
-    const maxY = headerHeight + scrollY + availableHeight - popupHeight - padding;
-    y = Math.max(minY, Math.min(y, maxY));
+    y = Math.max(padding, Math.min(y, viewportHeight - popupHeight - padding));
+    x = Math.max(padding, Math.min(x, viewportWidth - popupWidth - padding));
+    
+    console.log('🎯 彈窗位置計算:', {
+      click: { x: position.x, y: position.y },
+      popup: { x, y, width: popupWidth, height: popupHeight },
+      viewport: { width: viewportWidth, height: viewportHeight }
+    });
     
     return {
       position: 'fixed',
       left: `${x}px`,
       top: `${y}px`,
-      zIndex: 9999,
+      zIndex: 10000,
+      // 確保彈窗不會被其他元素遮擋
+      pointerEvents: 'auto'
     };
   };
 
@@ -139,7 +131,11 @@ const QuickWordPopup: React.FC<QuickWordPopupProps> = ({
     <div style={getPopupStyle()}>
       <Card 
         ref={popupRef}
-        className="w-[280px] p-4 shadow-lg border-2 border-blue-100 bg-white dark:bg-slate-800"
+        className="w-[280px] p-4 shadow-2xl border-2 border-blue-100 bg-white dark:bg-slate-800"
+        style={{ 
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)', 
+          zIndex: 10001 
+        }}
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-3">

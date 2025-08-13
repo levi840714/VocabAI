@@ -19,6 +19,7 @@ export default function VocabularyList({ onAIAnalysisClick }: VocabularyListProp
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedWord, setSelectedWord] = useState<any>(null)
   const [selectedWordId, setSelectedWordId] = useState<string | null>(null)
+  const [clickPosition, setClickPosition] = useState<{ x: number; y: number } | null>(null)
   const { toast } = useToast()
   const navigate = useNavigate()
   const { isMobile } = useDeviceDetection()
@@ -127,12 +128,15 @@ export default function VocabularyList({ onAIAnalysisClick }: VocabularyListProp
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => {
+                    onClick={(e) => {
                       if (isMobile) {
                         navigate(`/vocabulary/${word.id}`);
                       } else {
+                        // 捕獲點擊位置
+                        setClickPosition({ x: e.clientX, y: e.clientY });
                         setSelectedWord(word);
                         setSelectedWordId(word.id);
+                        console.log('🎯 詳情按鈕點擊位置:', { x: e.clientX, y: e.clientY });
                       }
                     }}
                     className="bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-600 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/30"
@@ -183,6 +187,7 @@ export default function VocabularyList({ onAIAnalysisClick }: VocabularyListProp
         onClose={() => {
           setSelectedWord(null);
           setSelectedWordId(null);
+          setClickPosition(null);
         }}
         word={selectedWord ? {
           id: parseInt(selectedWord.id),
@@ -192,6 +197,7 @@ export default function VocabularyList({ onAIAnalysisClick }: VocabularyListProp
         } : undefined}
         onNotesUpdate={silentRefreshWords}
         onAIAnalysisClick={onAIAnalysisClick}
+        clickPosition={clickPosition}
       />
     </div>
   )

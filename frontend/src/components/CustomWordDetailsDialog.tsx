@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { ExternalLink, Volume2, Edit, Save, X, Brain } from 'lucide-react';
 import StructuredWordDisplay from './StructuredWordDisplay';
 import { parseStructuredResponse, cleanStructuredResponse } from '../lib/parseStructuredResponse';
@@ -18,6 +19,7 @@ interface CustomWordDetailsDialogProps {
   };
   onNotesUpdate?: () => void;
   onAIAnalysisClick?: (word: string) => void;
+  clickPosition?: { x: number; y: number }; // 新增點擊位置參數
 }
 
 const CustomWordDetailsDialog: React.FC<CustomWordDetailsDialogProps> = ({ 
@@ -25,12 +27,46 @@ const CustomWordDetailsDialog: React.FC<CustomWordDetailsDialogProps> = ({
   onClose, 
   word, 
   onNotesUpdate, 
-  onAIAnalysisClick 
+  onAIAnalysisClick,
+  clickPosition 
 }) => {
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [notesValue, setNotesValue] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
   const { isVoiceAutoPlay } = useSettings();
+
+  // 計算對話框的最佳位置
+  const getDialogPositionClass = () => {
+    if (!clickPosition) {
+      return 'items-center justify-center'; // 默認居中
+    }
+    
+    const viewportHeight = window.innerHeight;
+    const clickY = clickPosition.y;
+    const dialogHeight = Math.min(viewportHeight * 0.9, 800); // 對話框預估高度
+    const upperThreshold = viewportHeight * 0.35; // 上方閾值
+    const lowerThreshold = viewportHeight * 0.65; // 下方閾值
+    
+    console.log('🎯 對話框位置計算 (使用Portal):', {
+      clickY,
+      viewportHeight,
+      upperThreshold,
+      lowerThreshold,
+      recommendPosition: clickY < upperThreshold ? 'bottom' : clickY > lowerThreshold ? 'top' : 'center'
+    });
+    
+    // 三段式位置計算 - 更保守的策略
+    if (clickY < upperThreshold) {
+      // 點擊在上方35%，對話框靠下顯示
+      return 'items-end justify-center pb-6';
+    } else if (clickY > lowerThreshold) {
+      // 點擊在下方35%，對話框靠上顯示
+      return 'items-start justify-center pt-6';
+    } else {
+      // 點擊在中間區域，對話框居中（最安全的選擇）
+      return 'items-center justify-center';
+    }
+  };
 
   // Initialize notes value when word changes
   useEffect(() => {
@@ -122,7 +158,7 @@ const CustomWordDetailsDialog: React.FC<CustomWordDetailsDialogProps> = ({
     console.log(`單字 "${addedWord}" 已在詳情對話框中加入`);
   };
 
-  return (
+  const dialogContent = (
     <>
       {/* Backdrop */}
       <div 
@@ -131,7 +167,7 @@ const CustomWordDetailsDialog: React.FC<CustomWordDetailsDialogProps> = ({
       />
       
       {/* Dialog */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className={`fixed inset-0 z-50 flex ${getDialogPositionClass()} p-4`}>
         <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
           {/* Header */}
           <div className="p-6 border-b border-slate-200 dark:border-slate-600 flex flex-col items-center gap-4">
@@ -267,6 +303,9 @@ const CustomWordDetailsDialog: React.FC<CustomWordDetailsDialogProps> = ({
       </div>
     </>
   );
+
+  // 使用 Portal 將對話框渲染到 document.body，跳脫容器限制
+  return createPortal(dialogContent, document.body);
 };
 
 export default CustomWordDetailsDialog;
