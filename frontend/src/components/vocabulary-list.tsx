@@ -1,38 +1,22 @@
 import React, { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Search, Eye, Star } from "lucide-react"
+import { Search, Eye } from "lucide-react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { TextInput } from "@/components/text-input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 import { useVocabulary } from "@/hooks/use-vocabulary"
-import { useDeviceDetection } from "@/hooks/useDeviceDetection"
-import CustomWordDetailsDialog from "./CustomWordDetailsDialog"
 
 interface VocabularyListProps {
   onAIAnalysisClick?: (word: string) => void;
 }
 
 export default function VocabularyList({ onAIAnalysisClick }: VocabularyListProps) {
-  const { words, toggleLearned, deleteWord, loading, error, refreshWords, silentRefreshWords } = useVocabulary()
+  const { words, toggleLearned, deleteWord, loading, error, refreshWords } = useVocabulary()
   const [searchTerm, setSearchTerm] = useState("")
-  const [selectedWord, setSelectedWord] = useState<any>(null)
-  const [selectedWordId, setSelectedWordId] = useState<string | null>(null)
-  const [clickPosition, setClickPosition] = useState<{ x: number; y: number } | null>(null)
   const { toast } = useToast()
   const navigate = useNavigate()
-  const { isMobile } = useDeviceDetection()
-
-  // 當單字列表更新時，重新設定選中的單字 (保持對話框開啟)
-  React.useEffect(() => {
-    if (selectedWordId && words.length > 0) {
-      const updatedWord = words.find(w => w.id === selectedWordId)
-      if (updatedWord) {
-        setSelectedWord(updatedWord)
-      }
-    }
-  }, [words, selectedWordId])
 
   if (loading) {
     return (
@@ -128,17 +112,7 @@ export default function VocabularyList({ onAIAnalysisClick }: VocabularyListProp
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={(e) => {
-                      if (isMobile) {
-                        navigate(`/vocabulary/${word.id}`);
-                      } else {
-                        // 捕獲點擊位置
-                        setClickPosition({ x: e.clientX, y: e.clientY });
-                        setSelectedWord(word);
-                        setSelectedWordId(word.id);
-                        console.log('🎯 詳情按鈕點擊位置:', { x: e.clientX, y: e.clientY });
-                      }
-                    }}
+                    onClick={() => navigate(`/vocabulary/${word.id}`)}
                     className="bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-600 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/30"
                   >
                     <Eye className="w-4 h-4 mr-1" />
@@ -157,15 +131,6 @@ export default function VocabularyList({ onAIAnalysisClick }: VocabularyListProp
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => onAIAnalysisClick?.(word.term)}
-                    className="p-2 text-amber-500 dark:text-amber-400 hover:text-amber-600 dark:hover:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/30"
-                    title="AI 深度解析"
-                  >
-                    <Star className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
                     className="p-2 text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/30"
                     onClick={() => handleDelete(word.id)}
                     title="刪除單字"
@@ -180,25 +145,6 @@ export default function VocabularyList({ onAIAnalysisClick }: VocabularyListProp
           ))}
         </div>
       )}
-      
-      {/* Word Details Dialog */}
-      <CustomWordDetailsDialog
-        open={!!selectedWord}
-        onClose={() => {
-          setSelectedWord(null);
-          setSelectedWordId(null);
-          setClickPosition(null);
-        }}
-        word={selectedWord ? {
-          id: parseInt(selectedWord.id),
-          word: selectedWord.term,
-          initial_ai_explanation: selectedWord.raw_explanation,
-          user_notes: selectedWord.user_notes
-        } : undefined}
-        onNotesUpdate={silentRefreshWords}
-        onAIAnalysisClick={onAIAnalysisClick}
-        clickPosition={clickPosition}
-      />
     </div>
   )
 }

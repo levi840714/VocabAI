@@ -53,62 +53,103 @@ const StructuredWordDisplay: React.FC<StructuredWordDisplayProps> = ({ data, onA
   };
 
   return (
-    <div className="space-y-4">
-      {/* Word and Pronunciations */}
-      <div className="text-center">
-        <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
-          {data.word}
-        </h2>
+    <div className="space-y-6">
+      {/* Word and Pronunciations - 為網頁版優化，保持手機版不變 */}
+      {!showFullDetails && (
+        <div className="text-center">
+          <h2 className="text-xl md:text-2xl lg:text-3xl font-bold text-slate-900 dark:text-white">
+            {data.word}
+          </h2>
         
-        {/* Base form information for inflected words */}
-        {data.is_inflected && data.base_form && (
-          <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
-            <p className="text-sm text-slate-600 dark:text-slate-300">
-              <span className="text-blue-600 dark:text-blue-400 font-medium">🔄 變形單字：</span> 
-              {data.word} （{data.base_form.inflection_type}）
-            </p>
-            <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">
-              <span className="text-blue-600 dark:text-blue-400 font-medium">📝 原型單字：</span> 
-              <ClickableTextWrapper
-                onAIAnalysisClick={onAIAnalysisClick}
-                onWordAdded={onWordAdded}
-              >
-                <span className="text-slate-900 dark:text-white font-semibold cursor-pointer hover:underline">
-                  {data.base_form.word}
+          {/* Base form information for inflected words */}
+          {data.is_inflected && data.base_form && (
+            <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
+              <p className="text-sm text-slate-600 dark:text-slate-300">
+                <span className="text-blue-600 dark:text-blue-400 font-medium">🔄 變形單字：</span> 
+                {data.word} （{data.base_form.inflection_type}）
+              </p>
+              <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">
+                <span className="text-blue-600 dark:text-blue-400 font-medium">📝 原型單字：</span> 
+                <ClickableTextWrapper
+                  onAIAnalysisClick={onAIAnalysisClick}
+                  onWordAdded={onWordAdded}
+                  inline={true}
+                >
+                  <span className="text-slate-900 dark:text-white font-semibold cursor-pointer hover:underline">
+                    {data.base_form.word}
+                  </span>
+                </ClickableTextWrapper>
+              </p>
+            </div>
+          )}
+        
+          {shouldShowPronunciation && data.pronunciations.length > 0 && (
+            <div className="mt-2">
+              {data.pronunciations.map((pronunciation, index) => (
+                <span key={index} className="text-lg text-slate-600 dark:text-slate-300 mr-4">
+                  {pronunciation}
                 </span>
-              </ClickableTextWrapper>
-            </p>
-          </div>
-        )}
-        
-        {shouldShowPronunciation && data.pronunciations.length > 0 && (
-          <div className="mt-2">
-            {data.pronunciations.map((pronunciation, index) => (
-              <span key={index} className="text-lg text-slate-600 dark:text-slate-300 mr-4">
-                {pronunciation}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
-      {/* Definitions by Part of Speech */}
-      <div className="space-y-3">
+      {/* Base form information for inflected words - 當 showFullDetails 為 true 時顯示 */}
+      {showFullDetails && data.is_inflected && data.base_form && (
+        <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
+          <p className="text-sm text-slate-600 dark:text-slate-300">
+            <span className="text-blue-600 dark:text-blue-400 font-medium">🔄 變形單字：</span> 
+            {data.word} （{data.base_form.inflection_type}）
+          </p>
+          <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">
+            <span className="text-blue-600 dark:text-blue-400 font-medium">📝 原型單字：</span> 
+            <ClickableTextWrapper
+              onAIAnalysisClick={onAIAnalysisClick}
+              onWordAdded={onWordAdded}
+              inline={true}
+            >
+              <span className="text-slate-900 dark:text-white font-semibold cursor-pointer hover:underline">
+                {data.base_form.word}
+              </span>
+            </ClickableTextWrapper>
+          </p>
+        </div>
+      )}
+
+      {/* Definitions by Part of Speech - 豐富視覺設計 */}
+      <div className="space-y-6">
         {data.definitions.map((definition, defIndex) => (
-          <Card key={defIndex} className="p-4 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600">
-            <Badge variant="secondary" className="mb-3 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-600">
+          <Card key={defIndex} className="relative p-6 lg:p-8 bg-gradient-to-br from-blue-50/90 via-indigo-50/70 to-purple-50/90 dark:from-slate-800/95 dark:via-slate-700/80 dark:to-slate-600/95 backdrop-blur-sm border-2 border-blue-200/60 dark:border-slate-600/60 shadow-xl hover:shadow-2xl transition-all duration-300 rounded-2xl overflow-hidden">
+            {/* 多層背景裝飾 */}
+            <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-bl from-blue-200/50 to-indigo-200/50 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-full -translate-y-10 translate-x-10 blur-xl"></div>
+            <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-purple-200/40 to-blue-200/40 dark:from-purple-900/20 dark:to-blue-900/20 rounded-full translate-y-12 -translate-x-12 blur-xl"></div>
+            <div className="absolute top-1/2 left-1/2 w-12 h-12 bg-gradient-to-r from-indigo-200/30 to-purple-200/30 dark:from-indigo-900/15 dark:to-purple-900/15 rounded-full -translate-x-6 -translate-y-6 blur-lg"></div>
+            
+            <Badge variant="secondary" className="relative mb-4 text-sm lg:text-base px-3 py-2 bg-gradient-to-r from-blue-100/90 via-indigo-100/90 to-purple-100/90 dark:from-blue-900/60 dark:via-indigo-900/60 dark:to-purple-900/60 text-blue-800 dark:text-blue-200 border-2 border-blue-300/60 dark:border-blue-600/60 font-semibold shadow-md rounded-xl backdrop-blur-sm">
               {definition.part_of_speech}
             </Badge>
-            <div className="space-y-2">
+            
+            <div className="relative space-y-4">
               {definition.meanings.map((meaning, meaningIndex) => (
-                <div key={meaningIndex} className="border-l-4 border-blue-200 dark:border-blue-600 pl-3">
-                  <p className="text-slate-900 dark:text-white font-medium">
+                <div key={meaningIndex} className="relative bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm p-4 lg:p-5 rounded-xl border-l-4 border-gradient-to-b border-blue-500 dark:border-blue-400 shadow-lg hover:shadow-xl transition-all duration-300">
+                  {/* 裝飾元素 */}
+                  <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-blue-500 dark:bg-blue-400 rounded-full opacity-70"></div>
+                  <div className="absolute top-0 left-0 w-8 h-8 bg-gradient-to-br from-blue-100/60 to-indigo-100/60 dark:from-blue-900/40 dark:to-indigo-900/40 rounded-full -translate-x-4 -translate-y-4 blur-sm"></div>
+                  
+                  <p className="relative text-slate-800 dark:text-slate-100 font-semibold text-sm md:text-base lg:text-lg leading-relaxed mb-3 pl-2">
                     {meaning.definition}
                   </p>
                   {meaning.context && (
-                    <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">
-                      {meaning.context}
-                    </p>
+                    <div className="relative mt-3 bg-gradient-to-r from-blue-50/90 to-indigo-50/90 dark:from-slate-800/90 dark:to-slate-700/90 p-3 lg:p-4 rounded-lg border border-blue-200/50 dark:border-slate-600/50 shadow-inner">
+                      <div className="flex items-center mb-2">
+                        <div className="w-1 h-1 bg-blue-500 dark:bg-blue-400 rounded-full mr-2"></div>
+                        <span className="text-blue-600 dark:text-blue-400 text-xs font-medium uppercase tracking-wider">用法說明</span>
+                      </div>
+                      <p className="text-xs md:text-sm lg:text-base text-slate-700 dark:text-slate-200 leading-relaxed">
+                        {meaning.context}
+                      </p>
+                    </div>
                   )}
                 </div>
               ))}
@@ -117,52 +158,91 @@ const StructuredWordDisplay: React.FC<StructuredWordDisplayProps> = ({ data, onA
         ))}
       </div>
 
-      {/* Examples */}
+      {/* Examples - 極致視覺優化 */}
       {data.examples.length > 0 && (
-        <Card className="p-4 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600">
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-3">
-            📝 例句
+        <Card className="relative overflow-hidden p-8 lg:p-10 bg-gradient-to-br from-white via-blue-50/30 to-indigo-50/30 dark:from-slate-800 dark:via-slate-700/50 dark:to-slate-600/50 border-2 border-blue-200/50 dark:border-slate-600/50 shadow-xl hover:shadow-2xl transition-all duration-300 rounded-2xl">
+          {/* 背景裝飾 */}
+          <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-blue-200/40 to-indigo-200/40 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-full -translate-y-12 translate-x-12 blur-xl"></div>
+          <div className="absolute bottom-0 left-0 w-32 h-32 bg-gradient-to-tr from-indigo-200/30 to-blue-200/30 dark:from-indigo-900/15 dark:to-blue-900/15 rounded-full translate-y-16 -translate-x-16 blur-2xl"></div>
+          
+          <h3 className="relative text-base md:text-lg lg:text-xl font-bold text-slate-900 dark:text-white mb-6 flex items-center">
+            <div className="p-2 bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/40 dark:to-indigo-900/40 rounded-xl shadow-lg mr-3">
+              <span className="text-xl">📝</span>
+            </div>
+            <div>
+              <div>例句展示</div>
+              <div className="text-xs font-normal text-slate-600 dark:text-slate-400 mt-0.5">實境應用範例</div>
+            </div>
           </h3>
-          <div className="space-y-2">
+          
+          <div className="relative space-y-6">
             {data.examples.map((example, index) => (
-              <div key={index} className="bg-slate-50 dark:bg-slate-700 p-3 rounded-lg relative group">
-                <ClickableTextWrapper 
-                  className="text-slate-700 dark:text-slate-200 italic pr-8"
-                  onAIAnalysisClick={onAIAnalysisClick}
-                  onWordAdded={onWordAdded}
-                >
-                  "{highlightWord(example, data.word)}"
-                </ClickableTextWrapper>
+              <div key={index} className="group relative bg-gradient-to-r from-white/90 via-blue-50/60 to-white/90 dark:from-slate-700/90 dark:via-slate-600/60 dark:to-slate-700/90 backdrop-blur-sm p-6 lg:p-8 rounded-xl border-2 border-blue-100/60 dark:border-slate-600/60 shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all duration-300">
+                {/* 例句編號裝飾 */}
+                <div className="absolute -top-2 -left-2 w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center shadow-lg">
+                  <span className="text-white text-sm font-bold">{index + 1}</span>
+                </div>
+                
+                {/* 例句內容 */}
+                <div className="relative">
+                  <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-blue-400 to-indigo-500 rounded-full"></div>
+                  <ClickableTextWrapper 
+                    className="pl-6 text-slate-800 dark:text-slate-100 italic pr-16 text-sm md:text-base lg:text-lg leading-relaxed font-medium block"
+                    onAIAnalysisClick={onAIAnalysisClick}
+                    onWordAdded={onWordAdded}
+                  >
+                    "{highlightWord(example, data.word)}"
+                  </ClickableTextWrapper>
+                </div>
+                
+                {/* 發音按鈕 */}
                 <button
                   onClick={() => handlePronunciation(example)}
-                  className="absolute top-3 right-3 p-1 rounded-full bg-white dark:bg-slate-600 shadow-sm border border-slate-200 dark:border-slate-500 hover:bg-slate-100 dark:hover:bg-slate-500 opacity-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="absolute top-4 right-4 p-3 rounded-xl bg-white/90 dark:bg-slate-600/90 backdrop-blur-sm shadow-lg border-2 border-blue-200/50 dark:border-slate-500/50 hover:bg-blue-50/90 dark:hover:bg-slate-500/90 hover:border-blue-400 dark:hover:border-blue-400 hover:shadow-xl hover:scale-110 opacity-0 group-hover:opacity-100 transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-blue-200/50"
                   title="聆聽例句發音"
                   aria-label="聆聽例句發音"
                 >
-                  <Volume2 size={14} className="text-slate-600 dark:text-slate-200" />
+                  <Volume2 size={18} className="text-blue-600 dark:text-blue-400" />
                 </button>
+                
+                {/* 底部裝飾線 */}
+                <div className="absolute bottom-0 left-6 right-6 h-0.5 bg-gradient-to-r from-transparent via-blue-200 to-transparent dark:from-transparent dark:via-blue-600/30 dark:to-transparent"></div>
               </div>
             ))}
           </div>
         </Card>
       )}
 
-      {/* Synonyms and Antonyms */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Synonyms and Antonyms - 極致視覺優化 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {data.synonyms.length > 0 && (
-          <Card className="p-4 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600">
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-3">
-              🔄 同義詞
+          <Card className="relative overflow-hidden p-8 lg:p-10 bg-gradient-to-br from-emerald-50/80 via-green-50/60 to-teal-50/80 dark:from-emerald-900/20 dark:via-slate-800/60 dark:to-teal-900/20 border-2 border-emerald-200/50 dark:border-slate-600/50 shadow-xl hover:shadow-2xl transition-all duration-300 rounded-2xl">
+            {/* 背景裝飾 */}
+            <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-bl from-emerald-200/40 to-green-200/40 dark:from-emerald-900/20 dark:to-green-900/20 rounded-full -translate-y-10 translate-x-10 blur-xl"></div>
+            
+            <h3 className="relative text-base md:text-lg lg:text-xl font-bold text-slate-900 dark:text-white mb-4 flex items-center">
+              <div className="p-2 bg-gradient-to-br from-emerald-100 to-green-100 dark:from-emerald-900/40 dark:to-green-900/40 rounded-xl shadow-lg mr-3">
+                <span className="text-xl">🔄</span>
+              </div>
+              <div>
+                <div>同義詞</div>
+                <div className="text-xs font-normal text-emerald-600 dark:text-emerald-400 mt-0.5">相似詞彙</div>
+              </div>
             </h3>
-            <div className="flex flex-wrap gap-2">
+            
+            <div className="relative flex flex-wrap gap-4">
               {data.synonyms.map((synonym, index) => (
                 <ClickableTextWrapper 
                   key={index}
                   onAIAnalysisClick={onAIAnalysisClick}
                   onWordAdded={onWordAdded}
                 >
-                  <Badge variant="outline" className="text-green-700 dark:text-green-400 border-green-300 dark:border-green-600 cursor-pointer hover:bg-green-50 dark:hover:bg-green-900/30">
-                    {synonym}
+                  <Badge 
+                    variant="outline" 
+                    className="group relative px-4 py-3 text-sm md:text-base lg:text-lg bg-white/90 dark:bg-slate-700/90 backdrop-blur-sm text-emerald-700 dark:text-emerald-300 border-2 border-emerald-300/60 dark:border-emerald-600/60 cursor-pointer hover:bg-emerald-50/90 dark:hover:bg-emerald-900/40 hover:border-emerald-500 dark:hover:border-emerald-400 hover:shadow-lg hover:scale-105 transition-all duration-300 font-semibold rounded-xl overflow-hidden"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-emerald-200/20 to-green-200/20 dark:from-emerald-900/20 dark:to-green-900/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    <span className="relative">{synonym}</span>
                   </Badge>
                 </ClickableTextWrapper>
               ))}
@@ -171,19 +251,33 @@ const StructuredWordDisplay: React.FC<StructuredWordDisplayProps> = ({ data, onA
         )}
 
         {data.antonyms.length > 0 && (
-          <Card className="p-4 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600">
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-3">
-              ↔️ 反義詞
+          <Card className="relative overflow-hidden p-8 lg:p-10 bg-gradient-to-br from-rose-50/80 via-red-50/60 to-pink-50/80 dark:from-rose-900/20 dark:via-slate-800/60 dark:to-pink-900/20 border-2 border-rose-200/50 dark:border-slate-600/50 shadow-xl hover:shadow-2xl transition-all duration-300 rounded-2xl">
+            {/* 背景裝飾 */}
+            <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-bl from-rose-200/40 to-red-200/40 dark:from-rose-900/20 dark:to-red-900/20 rounded-full -translate-y-10 translate-x-10 blur-xl"></div>
+            
+            <h3 className="relative text-base md:text-lg lg:text-xl font-bold text-slate-900 dark:text-white mb-4 flex items-center">
+              <div className="p-2 bg-gradient-to-br from-rose-100 to-red-100 dark:from-rose-900/40 dark:to-red-900/40 rounded-xl shadow-lg mr-3">
+                <span className="text-xl">↔️</span>
+              </div>
+              <div>
+                <div>反義詞</div>
+                <div className="text-xs font-normal text-rose-600 dark:text-rose-400 mt-0.5">對比詞彙</div>
+              </div>
             </h3>
-            <div className="flex flex-wrap gap-2">
+            
+            <div className="relative flex flex-wrap gap-4">
               {data.antonyms.map((antonym, index) => (
                 <ClickableTextWrapper 
                   key={index}
                   onAIAnalysisClick={onAIAnalysisClick}
                   onWordAdded={onWordAdded}
                 >
-                  <Badge variant="outline" className="text-red-700 dark:text-red-400 border-red-300 dark:border-red-600 cursor-pointer hover:bg-red-50 dark:hover:bg-red-900/30">
-                    {antonym}
+                  <Badge 
+                    variant="outline" 
+                    className="group relative px-4 py-3 text-sm md:text-base lg:text-lg bg-white/90 dark:bg-slate-700/90 backdrop-blur-sm text-rose-700 dark:text-rose-300 border-2 border-rose-300/60 dark:border-rose-600/60 cursor-pointer hover:bg-rose-50/90 dark:hover:bg-rose-900/40 hover:border-rose-500 dark:hover:border-rose-400 hover:shadow-lg hover:scale-105 transition-all duration-300 font-semibold rounded-xl overflow-hidden"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-rose-200/20 to-red-200/20 dark:from-rose-900/20 dark:to-red-900/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    <span className="relative">{antonym}</span>
                   </Badge>
                 </ClickableTextWrapper>
               ))}
@@ -192,15 +286,36 @@ const StructuredWordDisplay: React.FC<StructuredWordDisplayProps> = ({ data, onA
         )}
       </div>
 
-      {/* Memory Tips */}
+      {/* Memory Tips - 極致視覺優化 */}
       {data.memory_tips && (
-        <Card className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-700">
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-3 flex items-center">
-            💡 記憶小技巧
+        <Card className="relative overflow-hidden p-8 lg:p-10 bg-gradient-to-br from-amber-50/90 via-yellow-50/70 to-orange-50/90 dark:from-amber-900/30 dark:via-slate-800/60 dark:to-orange-900/30 border-2 border-amber-200/60 dark:border-amber-700/60 shadow-xl hover:shadow-2xl transition-all duration-300 rounded-2xl">
+          {/* 背景裝飾 */}
+          <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-amber-200/50 to-yellow-200/50 dark:from-amber-900/25 dark:to-yellow-900/25 rounded-full -translate-y-12 translate-x-12 blur-xl"></div>
+          <div className="absolute bottom-0 left-0 w-32 h-32 bg-gradient-to-tr from-yellow-200/40 to-orange-200/40 dark:from-yellow-900/20 dark:to-orange-900/20 rounded-full translate-y-16 -translate-x-16 blur-2xl"></div>
+          <div className="absolute top-1/2 left-1/2 w-16 h-16 bg-gradient-to-r from-amber-300/30 to-yellow-300/30 dark:from-amber-800/20 dark:to-yellow-800/20 rounded-full -translate-x-8 -translate-y-8 blur-lg"></div>
+          
+          <h3 className="relative text-lg lg:text-xl font-bold text-slate-900 dark:text-white mb-6 flex items-center">
+            <div className="p-2 bg-gradient-to-br from-amber-100 via-yellow-100 to-orange-100 dark:from-amber-900/50 dark:via-yellow-900/50 dark:to-orange-900/50 rounded-xl shadow-lg mr-3">
+              <span className="text-xl">💡</span>
+            </div>
+            <div>
+              <div>記憶小技巧</div>
+              <div className="text-xs font-normal text-amber-600 dark:text-amber-400 mt-0.5">學習助記方法</div>
+            </div>
           </h3>
-          <p className="text-slate-700 dark:text-slate-200">
-            {data.memory_tips}
-          </p>
+          
+          <div className="relative bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm p-6 lg:p-8 rounded-xl border-2 border-amber-200/50 dark:border-amber-600/50 shadow-inner">
+            {/* 裝飾引號 */}
+            <div className="absolute top-2 left-2 text-4xl text-amber-400/40 dark:text-amber-500/40 font-serif">"</div>
+            <div className="absolute bottom-2 right-2 text-4xl text-amber-400/40 dark:text-amber-500/40 font-serif rotate-180">"</div>
+            
+            <p className="relative text-slate-800 dark:text-slate-100 text-base lg:text-lg leading-relaxed font-medium px-6">
+              {data.memory_tips}
+            </p>
+            
+            {/* 底部裝飾線 */}
+            <div className="mt-6 h-1 bg-gradient-to-r from-transparent via-amber-300/60 to-transparent dark:from-transparent dark:via-amber-600/40 dark:to-transparent rounded-full"></div>
+          </div>
         </Card>
       )}
     </div>

@@ -289,9 +289,9 @@ export const useClickableText = () => {
 
 
   // 處理文本內容，使其可點擊（無視覺變化）
-  const makeTextClickable = useCallback((children: React.ReactNode) => {
+  const makeTextClickable = useCallback((children: React.ReactNode, elementType: 'div' | 'span' = 'div') => {
     return React.createElement(
-      'div',
+      elementType,
       {
         ref: containerRef,
         onClick: handleTextClick,

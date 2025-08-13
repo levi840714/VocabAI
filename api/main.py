@@ -427,13 +427,13 @@ async def get_user_settings(user_id: int = Depends(get_current_user)):
             )
             return default_settings
             
-        # Parse JSON strings back to objects
+        # Settings data is already parsed in get_user_settings
         parsed_settings = {
             "user_id": settings_data["user_id"],
-            "learning_preferences": json.loads(settings_data["learning_preferences"]),
-            "interface_settings": json.loads(settings_data["interface_settings"]),
-            "ai_settings": json.loads(settings_data["ai_settings"]),
-            "study_settings": json.loads(settings_data["study_settings"]),
+            "learning_preferences": settings_data["learning_preferences"],
+            "interface_settings": settings_data["interface_settings"],
+            "ai_settings": settings_data["ai_settings"],
+            "study_settings": settings_data["study_settings"],
             "created_at": datetime.fromisoformat(settings_data["created_at"]),
             "updated_at": datetime.fromisoformat(settings_data["updated_at"])
         }

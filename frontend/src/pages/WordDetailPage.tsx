@@ -8,7 +8,7 @@ import { useSettings } from '@/contexts/SettingsContext';
 import { useClickableTextContext } from '@/contexts/ClickableTextContext';
 import { ThemeCard, ThemeTitle, ThemeText, ThemeButton } from '@/components/ui/ThemeComponents';
 import StructuredWordDisplay from '@/components/StructuredWordDisplay';
-import { ArrowLeft, Brain, Edit, Trash2, Volume2, ExternalLink } from 'lucide-react';
+import { Brain, Edit, Trash2, Volume2, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
@@ -18,7 +18,7 @@ const WordDetailPage: React.FC = () => {
   const { words, toggleLearned, deleteWord } = useVocabulary();
   const animation = useAnimation();
   const { autoSpeakWord } = useVoice();
-  const { isVoiceAutoPlay } = useSettings();
+  const { isVoiceAutoPlay, shouldShowPronunciation } = useSettings();
   const { setCallbacks } = useClickableTextContext();
 
   const word = words.find(w => w.id === wordId);
@@ -117,89 +117,84 @@ const WordDetailPage: React.FC = () => {
       className="space-y-6 max-w-4xl mx-auto"
     >
       {/* 單字標題和基本資訊 */}
-      <ThemeCard className="ring-blue-200/30 dark:ring-blue-700/30">
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex-1">
-            <div className="flex items-center space-x-3 mb-2">
-              <ThemeTitle level={1} className="text-3xl">{word.term}</ThemeTitle>
-              <ThemeButton
-                variant="ghost"
-                size="sm"
-                onClick={handlePronunciation}
-                className="p-2"
-              >
-                <Volume2 className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-              </ThemeButton>
-            </div>
-            
-            {word.pronunciation && (
-              <ThemeText variant="body" className="text-lg mb-2 font-mono">/{word.pronunciation}/</ThemeText>
-            )}
-            
-            <div className="flex items-center space-x-2 mb-3">
-              <Badge variant={word.learned ? "default" : "secondary"} className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
-                {word.learned ? "已掌握" : "學習中"}
-              </Badge>
-              {word.dateAdded && (
-                <Badge variant="outline" className="border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300">
-                  {new Date(word.dateAdded).toLocaleDateString()}
-                </Badge>
-              )}
-            </div>
-          </div>
-          
-          {/* 右上角標記掌握按鈕 */}
+      <ThemeCard className="relative ring-blue-200/30 dark:ring-blue-700/30">
+        {/* 操作按鈕 - 移到左上角 */}
+        <div className="flex gap-2 mb-6">
           <button
-            onClick={handleToggleLearned}
-            className={`flex flex-col items-center justify-center w-16 h-16 rounded-lg border-2 transition-colors ${
-              word.learned 
-                ? "border-orange-500 dark:border-orange-400 text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20 hover:bg-orange-100 dark:hover:bg-orange-900/30" 
-                : "border-blue-500 dark:border-blue-400 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30"
-            }`}
-            title={word.learned ? "標記為學習中" : "標記為已掌握"}
+            onClick={handleAIAnalysis}
+            className="flex flex-col items-center justify-center w-12 h-12 md:w-14 md:h-14 rounded-lg border-2 border-purple-600 dark:border-purple-400 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
+            title="AI 解析"
           >
-            <span className="text-xs font-medium leading-tight">
-              {word.learned ? "重新" : "標記"}
-            </span>
-            <span className="text-xs font-medium leading-tight">
-              {word.learned ? "學習" : "掌握"}
-            </span>
+            <Brain className="w-4 h-4 md:w-5 md:h-5 mb-0.5" />
+            <span className="text-xs font-medium">AI 解析</span>
+          </button>
+
+          <button
+            onClick={handleDictionaryOpen}
+            className="flex flex-col items-center justify-center w-12 h-12 md:w-14 md:h-14 rounded-lg border-2 border-green-600 dark:border-green-400 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
+            title="字典"
+          >
+            <ExternalLink className="w-4 h-4 md:w-5 md:h-5 mb-0.5" />
+            <span className="text-xs font-medium">字典</span>
+          </button>
+          
+          <button
+            onClick={handleDelete}
+            className="flex flex-col items-center justify-center w-12 h-12 md:w-14 md:h-14 rounded-lg border-2 border-red-600 dark:border-red-400 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+            title="刪除單字"
+          >
+            <Trash2 className="w-4 h-4 md:w-5 md:h-5 mb-0.5" />
+            <span className="text-xs font-medium">刪除</span>
           </button>
         </div>
 
-        {/* 操作按鈕 */}
-        <div className="space-y-3">
+        {/* 單字標題和資訊 - 移到中下方並置中 */}
+        <div className="text-center">
+          <div className="flex items-center justify-center space-x-3 mb-2">
+            <ThemeTitle level={1} className="text-2xl md:text-3xl">{word.term}</ThemeTitle>
+            <ThemeButton
+              variant="ghost"
+              size="sm"
+              onClick={handlePronunciation}
+              className="p-2"
+            >
+              <Volume2 className="w-4 h-4 md:w-5 md:h-5 text-blue-600 dark:text-blue-400" />
+            </ThemeButton>
+          </div>
           
-          {/* 小方框按鈕組 */}
-          <div className="flex gap-2 justify-center">
-            <button
-              onClick={handleAIAnalysis}
-              className="flex flex-col items-center justify-center w-16 h-16 rounded-lg border-2 border-purple-600 dark:border-purple-400 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
-              title="AI 解析"
-            >
-              <Brain className="w-5 h-5 mb-1" />
-              <span className="text-xs font-medium">AI 解析</span>
-            </button>
-
-            <button
-              onClick={handleDictionaryOpen}
-              className="flex flex-col items-center justify-center w-16 h-16 rounded-lg border-2 border-green-600 dark:border-green-400 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
-              title="字典"
-            >
-              <ExternalLink className="w-5 h-5 mb-1" />
-              <span className="text-xs font-medium">字典</span>
-            </button>
-            
-            <button
-              onClick={handleDelete}
-              className="flex flex-col items-center justify-center w-16 h-16 rounded-lg border-2 border-red-600 dark:border-red-400 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-              title="刪除單字"
-            >
-              <Trash2 className="w-5 h-5 mb-1" />
-              <span className="text-xs font-medium">刪除</span>
-            </button>
+          {shouldShowPronunciation && word.pronunciation && (
+            <ThemeText variant="body" className="text-lg mb-2 font-mono">/{word.pronunciation}/</ThemeText>
+          )}
+          
+          <div className="flex items-center justify-center space-x-2 mb-3">
+            <Badge variant={word.learned ? "default" : "secondary"} className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
+              {word.learned ? "已掌握" : "學習中"}
+            </Badge>
+            {word.dateAdded && (
+              <Badge variant="outline" className="border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300">
+                {new Date(word.dateAdded).toLocaleDateString()}
+              </Badge>
+            )}
           </div>
         </div>
+        
+        {/* 右上角固定的標記掌握按鈕 - 相對於整個卡片定位 */}
+        <button
+          onClick={handleToggleLearned}
+          className={`absolute top-4 right-4 flex flex-col items-center justify-center w-12 h-12 md:w-14 md:h-14 rounded-lg border-2 transition-colors z-10 ${
+            word.learned 
+              ? "border-orange-500 dark:border-orange-400 text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20 hover:bg-orange-100 dark:hover:bg-orange-900/30" 
+              : "border-blue-500 dark:border-blue-400 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30"
+          }`}
+          title={word.learned ? "標記為學習中" : "標記為已掌握"}
+        >
+          <span className="text-xs font-medium leading-tight">
+            {word.learned ? "重新" : "標記"}
+          </span>
+          <span className="text-xs font-medium leading-tight">
+            {word.learned ? "學習" : "掌握"}
+          </span>
+        </button>
       </ThemeCard>
 
       {/* 詳細資訊 */}

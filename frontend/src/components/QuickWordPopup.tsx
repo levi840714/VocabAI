@@ -98,7 +98,7 @@ const QuickWordPopup: React.FC<QuickWordPopupProps> = ({
       position: 'fixed',
       left: `${x}px`,
       top: `${y}px`,
-      zIndex: 10000,
+      zIndex: 10100,  // 確保在單字詳情彈窗(9999)之上
       // 確保彈窗不會被其他元素遮擋
       pointerEvents: 'auto'
     };
@@ -131,10 +131,10 @@ const QuickWordPopup: React.FC<QuickWordPopupProps> = ({
     <div style={getPopupStyle()}>
       <Card 
         ref={popupRef}
-        className="w-[280px] p-4 shadow-2xl border-2 border-blue-100 bg-white dark:bg-slate-800"
+        className="w-[280px] p-4 shadow-2xl border-2 border-blue-200/50 dark:border-slate-600/50 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl"
         style={{ 
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)', 
-          zIndex: 10001 
+          zIndex: 10101  // 確保在最上層
         }}
       >
         {/* Header */}
@@ -180,21 +180,21 @@ const QuickWordPopup: React.FC<QuickWordPopupProps> = ({
               )}
               
               {/* 翻譯 */}
-              <div className="bg-slate-50 p-3 rounded-lg">
-                <p className="text-slate-800 font-medium">
+              <div className="bg-gradient-to-r from-slate-50/80 to-slate-100/80 dark:from-slate-700/80 dark:to-slate-600/80 p-3 rounded-lg border border-slate-200/50 dark:border-slate-600/50">
+                <p className="text-slate-800 dark:text-slate-100 font-medium">
                   {translation.translation}
                 </p>
               </div>
               
               {/* 發音標示 */}
               {translation.pronunciation && (
-                <div className="text-sm text-slate-600">
+                <div className="text-sm text-slate-600 dark:text-slate-300">
                   <span className="font-mono">/{translation.pronunciation}/</span>
                 </div>
               )}
             </>
           ) : (
-            <div className="text-center text-slate-500 py-4">
+            <div className="text-center text-slate-500 dark:text-slate-400 py-4">
               翻譯載入失敗
             </div>
           )}
