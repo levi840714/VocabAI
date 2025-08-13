@@ -29,6 +29,8 @@ import {
   TestTube
 } from 'lucide-react';
 import { useSettings } from '@/contexts/SettingsContext';
+import { useBackground } from '@/contexts/BackgroundContext';
+import BackgroundThemePreview from '@/components/BackgroundThemePreview';
 
 // 設定區塊組件
 interface SettingsSectionProps {
@@ -98,6 +100,8 @@ const SettingsPage: React.FC = () => {
     updateStudySettings,
     refreshSettings
   } = useSettings();
+  
+  const { currentTheme, setTheme, availableThemes } = useBackground();
   
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
@@ -275,6 +279,15 @@ const SettingsPage: React.FC = () => {
             <option value="auto">自動</option>
           </select>
         </SettingItem>
+
+        {/* 背景主題選擇器 */}
+        <div className="col-span-full">
+          <div className="mb-4">
+            <ThemeText variant="body" className="font-medium mb-1">背景主題</ThemeText>
+            <ThemeText variant="caption">選擇適合您的背景風格，立即生效</ThemeText>
+          </div>
+          <BackgroundThemePreview />
+        </div>
 
         <SettingItem 
           label="動畫效果"

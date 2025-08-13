@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster"
 import { TelegramProvider, useAuth } from "@/contexts/TelegramContext"
 import { SettingsProvider, useSettings } from "@/contexts/SettingsContext"
 import { ClickableTextProvider } from "@/contexts/ClickableTextContext"
+import { BackgroundProvider } from "@/contexts/BackgroundContext"
 import { createVocabotMuiTheme } from "@/theme/muiTheme"
 import BackgroundScene from "@/components/background-scene"
 import AppRouter from "@/router/AppRouter"
@@ -96,7 +97,9 @@ function AppContent() {
 function MainApp() {
   return (
     <SettingsProvider>
-      <AppContent />
+      <BackgroundProvider>
+        <AppContent />
+      </BackgroundProvider>
     </SettingsProvider>
   );
 }

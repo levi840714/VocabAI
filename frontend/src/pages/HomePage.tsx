@@ -76,152 +76,167 @@ const HomePage: React.FC = () => {
   const { dailyTarget, learningPreferences } = useSettings();
   const animation = useAnimation();
 
-  const features = [
+  // 核心功能 (仿照幣安主要功能區)
+  const coreFeatures = [
     {
       icon: <BookOpen className="w-6 h-6 text-white" />,
       title: '單字管理',
-      description: '瀏覽和管理您的個人單字庫，快速搜尋和查看詳細資訊',
+      description: '瀏覽和管理詞彙庫',
       onClick: () => navigate('/vocabulary'),
       gradient: 'from-blue-500 to-blue-600',
     },
     {
       icon: <Plus className="w-6 h-6 text-white" />,
       title: '快速新增',
-      description: '一鍵新增單字到您的學習清單，支援 AI 智能解釋',
+      description: '一鍵新增新單字',
       onClick: () => navigate('/add-word'),
       gradient: 'from-green-500 to-green-600',
     },
     {
       icon: <Brain className="w-6 h-6 text-white" />,
       title: '智能複習',
-      description: '基於間隔重複算法的科學複習，提升記憶效果',
+      description: '科學記憶訓練',
       onClick: () => navigate('/study'),
       gradient: 'from-purple-500 to-purple-600',
     },
     {
+      icon: <Zap className="w-6 h-6 text-white" />,
+      title: 'AI 解析',
+      description: '深度單字分析',
+      onClick: () => navigate('/ai-analysis'),
+      gradient: 'from-pink-500 to-pink-600',
+    },
+  ];
+
+  // 進階功能 (仿照幣安次要功能區)
+  const advancedFeatures = [
+    {
       icon: <TrendingUp className="w-6 h-6 text-white" />,
       title: '學習報告',
-      description: '詳細的學習進度分析和統計圖表',
+      description: '進度分析統計',
       onClick: () => navigate('/progress'),
       gradient: 'from-orange-500 to-orange-600',
     },
     {
-      icon: <Zap className="w-6 h-6 text-white" />,
-      title: 'AI 深度解析',
-      description: '使用人工智慧進行單字深度分析和學習建議',
-      onClick: () => navigate('/ai-analysis'),
-      gradient: 'from-pink-500 to-pink-600',
-    },
-    {
       icon: <Settings className="w-6 h-6 text-white" />,
       title: '個人設定',
-      description: '自訂學習偏好、介面主題和 AI 助手設定',
+      description: '自訂學習偏好',
       onClick: () => navigate('/settings'),
       gradient: 'from-indigo-500 to-indigo-600',
     },
   ];
 
   return (
-    <div className="space-y-8">
-      {/* 歡迎標題 */}
+    <div className="space-y-6">
+      {/* 頂部：重要學習數據 (仿照幣安資產區域) */}
       <motion.div
         {...animation.slideDown}
-        className="text-center"
+        className="bg-gradient-to-br from-blue-600 to-purple-700 dark:from-blue-700 dark:to-purple-800 rounded-2xl p-6 text-white shadow-xl"
       >
-        <ThemeTitle level={1} className="mb-2">
-          歡迎回來！
-        </ThemeTitle>
-        <ThemeText variant="body">
-          準備好開始今天的學習之旅嗎？
-        </ThemeText>
+        {/* 主要數據 */}
+        <div className="text-center mb-4">
+          <div className="text-sm opacity-80 mb-1">學習總進度</div>
+          <div className="text-4xl font-bold mb-2">
+            {!isLoading ? (stats?.total_words || 0) : '---'}
+          </div>
+          <div className="text-sm opacity-80">已學習單字</div>
+        </div>
+
+        {/* 今日數據 */}
+        <div className="flex items-center justify-center space-x-1 mb-4">
+          <span className="text-sm opacity-80">今日複習：</span>
+          <span className={`font-semibold ${(stats?.reviewed_today || 0) >= dailyTarget ? 'text-green-300' : 'text-yellow-300'}`}>
+            {!isLoading ? `+${stats?.reviewed_today || 0}` : '---'}
+          </span>
+          <span className="text-sm opacity-80">
+            ({((stats?.reviewed_today || 0) / dailyTarget * 100).toFixed(1)}%)
+          </span>
+        </div>
+
+        {/* 進度條 */}
+        <div className="w-full bg-white/20 rounded-full h-2 mb-4">
+          <div 
+            className="bg-gradient-to-r from-yellow-400 to-green-400 h-2 rounded-full transition-all duration-500"
+            style={{
+              width: `${Math.min((stats?.reviewed_today || 0) / dailyTarget * 100, 100)}%`
+            }}
+          />
+        </div>
+
+        {/* 快速統計 */}
+        <div className="grid grid-cols-3 gap-4 text-center">
+          <div>
+            <div className="text-lg font-semibold">{!isLoading ? (stats?.due_today || 0) : '---'}</div>
+            <div className="text-xs opacity-80">待複習</div>
+          </div>
+          <div>
+            <div className="text-lg font-semibold">{dailyTarget}</div>
+            <div className="text-xs opacity-80">每日目標</div>
+          </div>
+          <div>
+            <div className="text-lg font-semibold">
+              {!isLoading ? Math.max(0, dailyTarget - (stats?.reviewed_today || 0)) : '---'}
+            </div>
+            <div className="text-xs opacity-80">剩餘任務</div>
+          </div>
+        </div>
+
+        {/* 達成狀態提示 */}
+        {(stats?.reviewed_today || 0) >= dailyTarget && (
+          <div className="text-center mt-4 py-2 bg-green-500/20 rounded-lg">
+            <span className="text-green-200 font-medium">🎉 今日目標已達成！</span>
+          </div>
+        )}
       </motion.div>
 
-      {/* 學習統計卡片 */}
-      {!isLoading && (
-        <motion.div
-          {...animation.slideUp}
-          transition={animation.withDelay(0.1)}
-          className="grid grid-cols-2 md:grid-cols-3 gap-4"
-        >
-          <StatsCard
-            icon={<BookOpen className="w-5 h-5 text-blue-500 dark:text-blue-400" />}
-            value={stats?.total_words || 0}
-            label="總單字數"
-            color="blue"
-          />
-          <StatsCard
-            icon={<Target className="w-5 h-5 text-green-500 dark:text-green-400" />}
-            value={stats?.reviewed_today || 0}
-            label="今日已複習"
-            color="green"
-          />
-          <StatsCard
-            icon={<Clock className="w-5 h-5 text-orange-500 dark:text-orange-400" />}
-            value={stats?.due_today || 0}
-            label="今日待複習"
-            color="orange"
-          />
-        </motion.div>
-      )}
-
-      {/* 功能卡片網格 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {features.map((feature, index) => (
-          <FeatureCard
-            key={feature.title}
-            {...feature}
-            delay={0.2 + index * 0.1}
-          />
-        ))}
-      </div>
-
-      {/* 快速行動區域 */}
-      <ThemeCard
-        motionProps={{
-          ...animation.slideUp,
-          transition: animation.withDelay(0.8)
-        }}
+      {/* 中間：核心功能區 (仿照幣安主功能) */}
+      <motion.div
+        {...animation.slideUp}
+        transition={animation.withDelay(0.1)}
       >
-        <div className="flex items-center space-x-3 mb-4">
-          <Award className="w-6 h-6 text-amber-500 dark:text-amber-400" />
-          <ThemeTitle level={2}>今日目標</ThemeTitle>
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          {coreFeatures.map((feature, index) => (
+            <FeatureCard
+              key={feature.title}
+              {...feature}
+              delay={0.2 + index * 0.05}
+            />
+          ))}
         </div>
-        
-        <div className="grid md:grid-cols-2 gap-4">
-          <div className="bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-xl p-4">
-            <ThemeText variant="small" className="mb-1">總單字數</ThemeText>
-            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-              {stats?.total_words || 0}
-            </div>
-            <ThemeText variant="caption">您的單字庫</ThemeText>
-          </div>
-          
-          <div className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-xl p-4">
-            <ThemeText variant="small" className="mb-1">每日進度</ThemeText>
-            <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-              {stats?.reviewed_today || 0}/{dailyTarget}
-            </div>
-            <ThemeText variant="caption">已完成/每日目標</ThemeText>
-            
-            {/* 進度條 */}
-            <div className="mt-2 w-full bg-purple-100 dark:bg-purple-800 rounded-full h-2">
-              <div 
-                className="bg-purple-500 dark:bg-purple-400 h-2 rounded-full transition-all duration-300"
-                style={{
-                  width: `${Math.min((stats?.reviewed_today || 0) / dailyTarget * 100, 100)}%`
-                }}
-              />
-            </div>
-            
-            {/* 達成狀態 */}
-            {(stats?.reviewed_today || 0) >= dailyTarget && (
-              <ThemeText variant="caption" className="mt-1 font-medium text-purple-600 dark:text-purple-400">
-                🎉 今日目標已達成！
-              </ThemeText>
-            )}
-          </div>
+      </motion.div>
+
+      {/* 進階功能區 */}
+      <motion.div
+        {...animation.slideUp}
+        transition={animation.withDelay(0.3)}
+      >
+        <div className="grid grid-cols-2 gap-4">
+          {advancedFeatures.map((feature, index) => (
+            <FeatureCard
+              key={feature.title}
+              {...feature}
+              delay={0.4 + index * 0.05}
+            />
+          ))}
         </div>
-      </ThemeCard>
+      </motion.div>
+
+      {/* 底部：個人化推薦 (仿照幣安推廣區) */}
+      <motion.div
+        {...animation.slideUp}
+        transition={animation.withDelay(0.5)}
+        className="bg-gradient-to-r from-amber-400 to-orange-500 dark:from-amber-500 dark:to-orange-600 rounded-2xl p-4 text-white cursor-pointer hover:shadow-lg transition-shadow"
+        onClick={() => navigate('/ai-analysis')}
+      >
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="font-semibold mb-1">探索個人化學習體驗！</div>
+            <div className="text-sm opacity-90">使用 AI 深度解析提升學習效率</div>
+          </div>
+          <div className="text-2xl">→</div>
+        </div>
+      </motion.div>
+
     </div>
   );
 };
