@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useVocabulary } from '@/hooks/use-vocabulary';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useAnalysisState } from '@/hooks/useAnalysisCache';
-import { Plus, BookOpen, MessageSquare } from 'lucide-react';
+import { Plus, BookOpen, Brain } from 'lucide-react';
 
 interface TestStructuredDisplayProps {
   initialWord?: string | null;
@@ -271,7 +271,7 @@ const TestStructuredDisplay: React.FC<TestStructuredDisplayProps> = ({ initialWo
                 : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
-            <MessageSquare size={18} />
+            <Brain size={18} />
             句子分析
           </button>
         </div>

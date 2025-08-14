@@ -1,4 +1,4 @@
-import { StructuredAIResponse, DeepLearningAIResponse, SentenceAnalysisResponse } from './types';
+import { StructuredAIResponse, DeepLearningAIResponse, SentenceAnalysisResponse, DailyDiscoveryResponse } from './types';
 import { createTelegramAuthHeader, isLocalDevelopment } from '../hooks/use-telegram';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
@@ -332,6 +332,29 @@ class MemWhizAPI {
       method: 'PUT',
       body: JSON.stringify(settings),
     });
+  }
+
+  // Daily Discovery endpoints
+  async getDailyDiscovery(date?: string): Promise<DailyDiscoveryResponse> {
+    let endpoint = '/v1/daily-discovery';
+    
+    const params = new URLSearchParams();
+    
+    // 添加日期參數（如果提供）
+    if (date) {
+      params.append('date_str', date);
+    }
+    
+    // 本地測試模式下添加 user_id 參數
+    if (isLocalDevelopment() && !this.telegramAuthData) {
+      params.append('user_id', '613170570');
+    }
+    
+    if (params.toString()) {
+      endpoint += '?' + params.toString();
+    }
+    
+    return this.request(endpoint);
   }
 }
 

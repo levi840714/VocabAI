@@ -35,7 +35,13 @@ const QuickWordPopup: React.FC<QuickWordPopupProps> = ({
   const popupRef = useRef<HTMLDivElement>(null);
 
   // 處理 TTS 發音
-  const handlePronunciation = (text: string) => {
+  const handlePronunciation = (text: string, event?: React.MouseEvent) => {
+    // 阻止事件冒泡，避免觸發彈窗關閉
+    if (event) {
+      event.stopPropagation();
+      event.preventDefault();
+    }
+    
     if ('speechSynthesis' in window) {
       // 停止當前播放
       speechSynthesis.cancel();
@@ -146,7 +152,7 @@ const QuickWordPopup: React.FC<QuickWordPopupProps> = ({
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => handlePronunciation(word)}
+              onClick={(e) => handlePronunciation(word, e)}
               className="h-8 w-8 p-0 hover:bg-blue-50"
               title="發音"
             >
@@ -156,7 +162,11 @@ const QuickWordPopup: React.FC<QuickWordPopupProps> = ({
           <Button
             variant="ghost"
             size="sm"
-            onClick={onClose}
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onClose();
+            }}
             className="h-8 w-8 p-0 hover:bg-slate-100"
           >
             <X size={16} />
@@ -203,7 +213,11 @@ const QuickWordPopup: React.FC<QuickWordPopupProps> = ({
         {/* Action Buttons */}
         <div className="flex gap-2 mt-4 pt-3 border-t">
           <Button
-            onClick={() => isWordInVocabulary ? onRemoveWord?.(word) : onAddWord(word)}
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              isWordInVocabulary ? onRemoveWord?.(word) : onAddWord(word);
+            }}
             disabled={isAddingWord || isRemovingWord}
             size="sm"
             variant="outline"
@@ -234,7 +248,11 @@ const QuickWordPopup: React.FC<QuickWordPopupProps> = ({
             )}
           </Button>
           <Button
-            onClick={() => onDeepAnalysis(word)}
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onDeepAnalysis(word);
+            }}
             variant="outline"
             size="sm"
             className="flex-1 border-purple-600 text-purple-600 hover:bg-purple-50 flex items-center justify-center space-x-1"

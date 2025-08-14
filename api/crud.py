@@ -27,7 +27,10 @@ from bot.database.sqlite_db import (
     get_user_settings,
     create_user_settings,
     update_user_settings,
-    upsert_user_settings
+    upsert_user_settings,
+    get_daily_discovery,
+    create_daily_discovery,
+    cleanup_expired_daily_discovery
 )
 from bot.core.spaced_repetition import calculate_next_review_date
 
@@ -141,3 +144,16 @@ async def update_user_settings_data(db_path: str, user_id: int, learning_prefere
 async def upsert_user_settings_data(db_path: str, user_id: int, learning_preferences: str, interface_settings: str, ai_settings: str, study_settings: str) -> bool:
     """Create or update user settings (upsert)."""
     return await upsert_user_settings(db_path, user_id, learning_preferences, interface_settings, ai_settings, study_settings)
+
+# Daily Discovery CRUD functions
+async def get_daily_discovery_data(db_path: str, date_str: str):
+    """Get daily discovery data for specific date."""
+    return await get_daily_discovery(db_path, date_str)
+
+async def create_daily_discovery_data(db_path: str, date_str: str, article_title: str, article_content: str, knowledge_points: list) -> bool:
+    """Create daily discovery content."""
+    return await create_daily_discovery(db_path, date_str, article_title, article_content, knowledge_points)
+
+async def cleanup_expired_daily_discovery_data(db_path: str) -> int:
+    """Clean up expired daily discovery content."""
+    return await cleanup_expired_daily_discovery(db_path)

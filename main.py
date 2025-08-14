@@ -226,7 +226,8 @@ async def setup_api_routes(app):
     from api.main import (
         get_words, add_word, get_word_by_id, get_next_review, submit_review,
         get_ai_explanation, get_user_statistics, update_word_notes, delete_word,
-        toggle_word_learned, get_current_user, get_user_settings, create_or_update_settings, update_settings
+        toggle_word_learned, get_current_user, get_user_settings, create_or_update_settings, update_settings,
+        get_daily_discovery
     )
     
     # Convert FastAPI handlers to aiohttp handlers
@@ -242,13 +243,17 @@ async def setup_api_routes(app):
             # Handle different request types
             if request.method == 'GET':
                 if 'word_id' in request.match_info:
-                    result = await fastapi_handler(int(request.match_info['word_id']))
+                    result = await fastapi_handler(word_id=int(request.match_info['word_id']), user_id=user_id)
                 elif request.path.endswith('/next'):
                     result = await fastapi_handler(user_id=user_id)
                 elif request.path.endswith('/stats'):
                     result = await fastapi_handler(user_id=user_id)
                 elif request.path.endswith('/settings'):
                     result = await fastapi_handler(user_id=user_id)
+                elif request.path.endswith('/daily-discovery'):
+                    # Handle daily-discovery endpoint
+                    date_str = query_params.get('date_str')
+                    result = await fastapi_handler(date_str=date_str, user_id=user_id)
                 elif 'words' in request.path:
                     # Handle words list endpoint
                     page = int(query_params.get('page', 0))
@@ -304,11 +309,13 @@ async def setup_api_routes(app):
             
             # 處理 datetime 序列化問題
             import json
-            from datetime import datetime
+            from datetime import datetime, date
             
             def json_serializer(obj):
-                """JSON 序列化器，處理 datetime 對象"""
+                """JSON 序列化器，處理 datetime 和 date 對象"""
                 if isinstance(obj, datetime):
+                    return obj.isoformat()
+                elif isinstance(obj, date):
                     return obj.isoformat()
                 raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
             
@@ -384,6 +391,10 @@ async def setup_api_routes(app):
         
         return result
     
+    # Daily Discovery wrapper function
+    async def get_daily_discovery_wrapper(request):
+        return await convert_fastapi_to_aiohttp(get_daily_discovery, request)
+    
     # Add routes
     app.router.add_get('/api/v1/words', get_words_wrapper)
     app.router.add_post('/api/v1/words', add_word_wrapper)
@@ -403,6 +414,9 @@ async def setup_api_routes(app):
     app.router.add_get('/api/v1/settings', get_user_settings_wrapper)
     app.router.add_post('/api/v1/settings', create_or_update_settings_wrapper)
     app.router.add_put('/api/v1/settings', update_settings_wrapper)
+    
+    # Daily Discovery route
+    app.router.add_get('/api/v1/daily-discovery', get_daily_discovery_wrapper)
     
     app.router.add_get('/api/v1/health', health_handler)
     app.router.add_post('/api/v1/sync-db', sync_db_handler)  # 手動同步端點

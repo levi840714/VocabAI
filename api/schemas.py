@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any, Union
-from datetime import datetime
+from datetime import datetime, date
 
 class WordBase(BaseModel):
     word: str = Field(..., min_length=1, max_length=100, description="The English word")
@@ -220,6 +220,32 @@ class UserSettingsResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+# Daily Discovery Models
+class KnowledgePoint(BaseModel):
+    id: str = Field(..., description="知識點ID")
+    type: str = Field(..., description="知識點類型 (vocabulary/grammar/cultural/expression)")
+    title: str = Field(..., description="知識點標題")
+    content: str = Field(..., description="知識點內容")
+    examples: List[str] = Field(default=[], description="例句或相關資訊")
+    difficulty: str = Field(default="中級", description="難度等級")
+
+class DailyDiscoveryArticle(BaseModel):
+    title: str = Field(..., description="文章標題")
+    content: str = Field(..., description="文章內容")
+    word_count: int = Field(..., description="文章字數")
+    difficulty_level: str = Field(default="中級", description="難度等級")
+    topic_category: str = Field(..., description="主題類別")
+
+class DailyDiscoveryResponse(BaseModel):
+    id: int = Field(..., description="內容ID")
+    content_date: date = Field(..., description="內容日期")
+    article: DailyDiscoveryArticle = Field(..., description="文章內容")
+    knowledge_points: List[KnowledgePoint] = Field(default=[], description="知識點列表")
+    learning_objectives: List[str] = Field(default=[], description="學習目標")
+    discussion_questions: List[str] = Field(default=[], description="討論問題")
+    created_at: datetime = Field(..., description="創建時間")
+    expires_at: datetime = Field(..., description="過期時間")
+
 # Sentence Analysis Models
 class GrammarComponent(BaseModel):
     component: str = Field(..., description="語法成分（主語、謂語、賓語等）")
@@ -334,3 +360,29 @@ class UserSettingsResponse(BaseModel):
     study_settings: StudySettings
     created_at: datetime
     updated_at: datetime
+
+# Daily Discovery Models
+class KnowledgePoint(BaseModel):
+    id: str = Field(..., description="知識點ID")
+    type: str = Field(..., description="知識點類型 (vocabulary/grammar/cultural/expression)")
+    title: str = Field(..., description="知識點標題")
+    content: str = Field(..., description="知識點內容")
+    examples: List[str] = Field(default=[], description="例句或相關資訊")
+    difficulty: str = Field(default="中級", description="難度等級")
+
+class DailyDiscoveryArticle(BaseModel):
+    title: str = Field(..., description="文章標題")
+    content: str = Field(..., description="文章內容")
+    word_count: int = Field(..., description="文章字數")
+    difficulty_level: str = Field(default="中級", description="難度等級")
+    topic_category: str = Field(..., description="主題類別")
+
+class DailyDiscoveryResponse(BaseModel):
+    id: int = Field(..., description="內容ID")
+    content_date: date = Field(..., description="內容日期")
+    article: DailyDiscoveryArticle = Field(..., description="文章內容")
+    knowledge_points: List[KnowledgePoint] = Field(default=[], description="知識點列表")
+    learning_objectives: List[str] = Field(default=[], description="學習目標")
+    discussion_questions: List[str] = Field(default=[], description="討論問題")
+    created_at: datetime = Field(..., description="創建時間")
+    expires_at: datetime = Field(..., description="過期時間")

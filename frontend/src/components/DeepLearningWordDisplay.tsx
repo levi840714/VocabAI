@@ -3,7 +3,7 @@ import { DeepLearningAIResponse } from '../lib/types';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
-import { Volume2, Star, MessageSquare, MoreHorizontal } from 'lucide-react';
+import { Volume2, Star, Brain, MoreHorizontal } from 'lucide-react';
 import ClickableTextWrapper from './ClickableTextWrapper';
 import { useSettings } from '@/contexts/SettingsContext';
 
@@ -383,11 +383,11 @@ const DeepLearningWordDisplay: React.FC<DeepLearningWordDisplayProps> = ({
                     {onSentenceAnalysis && (
                       <button
                         onClick={() => onSentenceAnalysis(example.sentence)}
-                        className="p-2 rounded-full bg-white dark:bg-slate-600 shadow-sm border border-slate-200 dark:border-slate-500 hover:bg-slate-100 dark:hover:bg-slate-500 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-500"
-                        title="句子語法分析"
-                        aria-label="句子語法分析"
+                        className="p-2 rounded-full bg-white dark:bg-slate-600 shadow-sm border border-slate-200 dark:border-slate-500 hover:bg-slate-100 dark:hover:bg-slate-500 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        title="AI 句子語法分析"
+                        aria-label="AI 句子語法分析"
                       >
-                        <MessageSquare size={14} className="text-slate-600 dark:text-slate-200" />
+                        <Brain size={14} className="text-purple-600 dark:text-purple-400" />
                       </button>
                     )}
                   </div>
@@ -409,11 +409,11 @@ const DeepLearningWordDisplay: React.FC<DeepLearningWordDisplayProps> = ({
                       {onSentenceAnalysis && (
                         <button
                           onClick={() => onSentenceAnalysis(example.sentence)}
-                          className="p-2 rounded-md bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/40 transition-all duration-200"
-                          title="句子語法分析"
-                          aria-label="句子語法分析"
+                          className="p-2 rounded-md bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-all duration-200"
+                          title="AI 句子語法分析"
+                          aria-label="AI 句子語法分析"
                         >
-                          <MessageSquare size={14} />
+                          <Brain size={14} />
                         </button>
                       )}
                     </div>

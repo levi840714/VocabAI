@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { StructuredAIResponse } from '../lib/types';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
-import { Volume2, MessageSquare } from 'lucide-react';
+import { Volume2, Brain } from 'lucide-react';
 import ClickableTextWrapper from './ClickableTextWrapper';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useVoice } from '@/hooks/useVoice';
@@ -211,11 +211,11 @@ const StructuredWordDisplay: React.FC<StructuredWordDisplayProps> = ({ data, onA
                     {onSentenceAnalysis && (
                       <button
                         onClick={() => onSentenceAnalysis(example)}
-                        className="p-3 rounded-xl bg-white/90 dark:bg-slate-600/90 backdrop-blur-sm shadow-lg border-2 border-green-200/50 dark:border-slate-500/50 hover:bg-green-50/90 dark:hover:bg-slate-500/90 hover:border-green-400 dark:hover:border-green-400 hover:shadow-xl hover:scale-110 transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-green-200/50"
-                        title="句子語法分析"
-                        aria-label="句子語法分析"
+                        className="p-3 rounded-xl bg-white/90 dark:bg-slate-600/90 backdrop-blur-sm shadow-lg border-2 border-purple-200/50 dark:border-slate-500/50 hover:bg-purple-50/90 dark:hover:bg-slate-500/90 hover:border-purple-400 dark:hover:border-purple-400 hover:shadow-xl hover:scale-110 transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-purple-200/50"
+                        title="AI 句子語法分析"
+                        aria-label="AI 句子語法分析"
                       >
-                        <MessageSquare size={16} className="text-green-600 dark:text-green-400" />
+                        <Brain size={16} className="text-purple-600 dark:text-purple-400" />
                       </button>
                     )}
                   </div>
@@ -237,11 +237,11 @@ const StructuredWordDisplay: React.FC<StructuredWordDisplayProps> = ({ data, onA
                       {onSentenceAnalysis && (
                         <button
                           onClick={() => onSentenceAnalysis(example)}
-                          className="p-2.5 rounded-lg bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 text-green-600 dark:text-green-400 hover:from-green-100 hover:to-emerald-100 dark:hover:from-green-900/40 dark:hover:to-emerald-900/40 transition-all duration-200 shadow-sm border border-green-200/30 dark:border-green-700/30"
-                          title="句子語法分析"
-                          aria-label="句子語法分析"
+                          className="p-2.5 rounded-lg bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 text-purple-600 dark:text-purple-400 hover:from-purple-100 hover:to-indigo-100 dark:hover:from-purple-900/40 dark:hover:to-indigo-900/40 transition-all duration-200 shadow-sm border border-purple-200/30 dark:border-purple-700/30"
+                          title="AI 句子語法分析"
+                          aria-label="AI 句子語法分析"
                         >
-                          <MessageSquare size={15} />
+                          <Brain size={15} />
                         </button>
                       )}
                     </div>

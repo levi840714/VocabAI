@@ -302,3 +302,103 @@ class AIService:
         except Exception as e:
             print(f"Sentence analysis error: {e}")
             return "An unexpected error occurred while analyzing the sentence."
+
+    async def generate_daily_discovery(self) -> str:
+        """生成每日探索內容（短文章 + 知識點提取）"""
+        if self.provider == "google":
+            return await self._generate_google_daily_discovery()
+        else:
+            raise ValueError(f"Unsupported AI provider: {self.provider}")
+
+    async def _generate_google_daily_discovery(self) -> str:
+        """使用 Google Gemini API 生成每日探索內容"""
+        api_key = self.config['ai_services']['google']['api_key']
+        
+        discovery_prompt = """請生成一篇適合英語學習者的短文章，並提供知識點解析。
+
+要求：
+1. 文章長度：150-250 詞
+2. 主題：日常生活、科技、文化、自然、歷史等有趣話題
+3. 語言難度：中級程度，包含一些挑戰性詞彙
+4. 內容要有教育價值且引人入勝
+
+請回覆 JSON 格式：
+{
+  "article": {
+    "title": "文章標題（英文）",
+    "content": "文章內容（英文）",
+    "word_count": 文章字數,
+    "difficulty_level": "中級",
+    "topic_category": "主題類別"
+  },
+  "knowledge_points": [
+    {
+      "id": "kp1",
+      "type": "vocabulary",
+      "title": "重點詞彙",
+      "content": "詞彙解釋和用法",
+      "examples": ["例句1", "例句2"],
+      "difficulty": "中級"
+    },
+    {
+      "id": "kp2", 
+      "type": "grammar",
+      "title": "語法重點",
+      "content": "語法解釋",
+      "examples": ["例句1", "例句2"],
+      "difficulty": "中級"
+    },
+    {
+      "id": "kp3",
+      "type": "cultural",
+      "title": "文化背景",
+      "content": "相關文化知識",
+      "examples": ["相關資訊1", "相關資訊2"],
+      "difficulty": "中級"
+    },
+    {
+      "id": "kp4",
+      "type": "expression",
+      "title": "實用表達",
+      "content": "常用片語或表達方式",
+      "examples": ["例句1", "例句2"],
+      "difficulty": "中級"
+    }
+  ],
+  "learning_objectives": [
+    "學習目標1",
+    "學習目標2",
+    "學習目標3"
+  ],
+  "discussion_questions": [
+    "思考問題1",
+    "思考問題2"
+  ]
+}
+
+請確保：
+- 文章內容豐富有趣，適合激發學習興趣
+- 知識點涵蓋詞彙、語法、文化、表達等不同層面
+- 例句實用且易於理解
+- 整體內容有教育意義且引人深思"""
+
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
+        headers = {"Content-Type": "application/json"}
+        data = {"contents": [{"parts": [{"text": discovery_prompt}]}]}
+
+        try:
+            response = await self.client.post(url, headers=headers, json=data)
+            response.raise_for_status()
+            
+            result = response.json()            
+            if 'candidates' in result and result['candidates']:
+                if 'content' in result['candidates'][0] and 'parts' in result['candidates'][0]['content']:
+                    raw_response = result['candidates'][0]['content']['parts'][0]['text'].strip()
+                    print(f"Generated daily discovery content length: {len(raw_response)}")
+                    return raw_response
+            
+            return "Sorry, I couldn't generate daily discovery content."
+
+        except Exception as e:
+            print(f"Daily discovery generation error: {e}")
+            return "An unexpected error occurred while generating daily discovery content."

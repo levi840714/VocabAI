@@ -20,15 +20,17 @@ from schemas import (
     WordCreate, WordResponse, WordSimpleResponse, WordDetailResponse, WordsListResponse, 
     ReviewRequest, ReviewResponse, AIExplanationRequest, AIExplanationResponse, 
     StructuredAIResponse, DeepLearningAIResponse, SentenceAnalysisResponse, StatsResponse, HealthResponse, ErrorResponse, UpdateNotesRequest,
-    UserSettingsCreate, UserSettingsUpdate, UserSettingsResponse
+    UserSettingsCreate, UserSettingsUpdate, UserSettingsResponse,
+    DailyDiscoveryResponse, DailyDiscoveryArticle, KnowledgePoint
 )
 from crud import (
     ensure_db_initialized, create_word, get_user_words, get_due_words, get_recent_words,
     get_next_review_word, update_review_result, get_user_stats, find_word_by_text, find_word_by_id,
     update_user_notes, delete_user_word, mark_user_word_as_learned, reset_user_word_learning_status, is_word_learned,
-    get_user_settings_data, create_user_settings_data, update_user_settings_data, upsert_user_settings_data
+    get_user_settings_data, create_user_settings_data, update_user_settings_data, upsert_user_settings_data,
+    get_daily_discovery_data, create_daily_discovery_data, cleanup_expired_daily_discovery_data
 )
-from dependencies import get_database_path, get_ai_service, validate_user_access
+from dependencies import get_database_path, get_ai_service, validate_user_access, get_whitelist_users, is_whitelist_enabled
 from telegram_auth import get_user_from_telegram_header
 
 # Uvicorn will handle the logging configuration. We just get the logger instance for our custom logs.
@@ -59,6 +61,14 @@ def get_current_user(
     
     # 優先使用 Telegram 驗證的用戶 ID
     effective_user_id = telegram_user_id if telegram_user_id is not None else user_id
+    
+    # 如果都沒有，且白名單未啟用，使用默認測試用戶
+    if effective_user_id is None:
+        if not is_whitelist_enabled():
+            whitelist = get_whitelist_users()
+            if whitelist:
+                effective_user_id = whitelist[0]
+                logger.info(f"Using default test user: {effective_user_id}")
     
     # 驗證用戶訪問權限
     validated_user_id = validate_user_access(effective_user_id)
@@ -595,8 +605,127 @@ async def update_settings(
         logger.error(f"Error updating user settings: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to update user settings")
 
+# Daily Discovery endpoints
+@app.get("/api/v1/daily-discovery", response_model=DailyDiscoveryResponse)
+async def get_daily_discovery(
+    date_str: Optional[str] = Query(None, description="Date string in YYYY-MM-DD format, defaults to today"),
+    user_id: int = Depends(get_current_user)
+):
+    """Get daily discovery content for specific date (defaults to today)."""
+    logger.info(f"GET /daily-discovery called - user_id: {user_id}, date: {date_str}")
+    db_path = get_database_path()
+    
+    # 自動清理過期內容
+    try:
+        await cleanup_expired_daily_discovery_data(db_path)
+    except Exception as e:
+        logger.warning(f"Failed to cleanup expired content: {e}")
+    
+    # 使用今天的日期如果沒有指定
+    if not date_str:
+        from datetime import date
+        date_str = date.today().strftime('%Y-%m-%d')
+    
+    try:
+        # 檢查是否已有當天的內容
+        discovery_data = await get_daily_discovery_data(db_path, date_str)
+        
+        if not discovery_data:
+            # 沒有內容則生成新的
+            logger.info(f"生成 {date_str} 的每日探索內容")
+            ai_service = get_ai_service()
+            raw_content = await ai_service.generate_daily_discovery()
+            
+            # 解析 AI 生成的內容
+            try:
+                parsed_content = ai_service.parse_structured_response(raw_content)
+                article_data = parsed_content.get('article', {})
+                knowledge_points_data = parsed_content.get('knowledge_points', [])
+                
+                # 創建並保存新內容
+                success = await create_daily_discovery_data(
+                    db_path, date_str, 
+                    article_data.get('title', 'Daily Discovery'),
+                    article_data.get('content', 'Content generation failed'),
+                    parsed_content
+                )
+                
+                if success:
+                    # 重新獲取剛創建的內容
+                    discovery_data = await get_daily_discovery_data(db_path, date_str)
+                else:
+                    raise HTTPException(status_code=500, detail="Failed to save generated content")
+                    
+            except Exception as parse_error:
+                logger.error(f"Failed to parse AI content: {parse_error}")
+                raise HTTPException(status_code=500, detail="Failed to generate daily content")
+        
+        if not discovery_data:
+            raise HTTPException(status_code=500, detail="Failed to retrieve daily discovery content")
+            
+        # 構建響應數據
+        knowledge_points = []
+        article_obj = None
+        learning_objectives = []
+        discussion_questions = []
+        
+        if 'knowledge_points' in discovery_data:
+            raw_points = discovery_data['knowledge_points']
+            if isinstance(raw_points, list):
+                for point in raw_points:
+                    if isinstance(point, dict):
+                        knowledge_points.append(KnowledgePoint(**point))
+            
+            # 從原始資料中提取其他資訊
+            if isinstance(raw_points, dict):
+                if 'article' in raw_points:
+                    article_info = raw_points['article']
+                    article_obj = DailyDiscoveryArticle(**article_info)
+                
+                if 'knowledge_points' in raw_points and isinstance(raw_points['knowledge_points'], list):
+                    for point in raw_points['knowledge_points']:
+                        if isinstance(point, dict):
+                            knowledge_points.append(KnowledgePoint(**point))
+                
+                learning_objectives = raw_points.get('learning_objectives', [])
+                discussion_questions = raw_points.get('discussion_questions', [])
+        
+        # 如果沒有解析到文章物件，使用資料庫中的基本資訊
+        if not article_obj:
+            article_obj = DailyDiscoveryArticle(
+                title=discovery_data['article_title'],
+                content=discovery_data['article_content'],
+                word_count=len(discovery_data['article_content'].split()),
+                difficulty_level="中級",
+                topic_category="General"
+            )
+        
+        # 解析時間戳
+        from datetime import datetime
+        created_at = datetime.fromisoformat(discovery_data['created_at'])
+        expires_at = datetime.fromisoformat(discovery_data['expires_at'])
+        content_date = datetime.strptime(discovery_data['content_date'], '%Y-%m-%d').date()
+        
+        return DailyDiscoveryResponse(
+            id=discovery_data['id'],
+            content_date=content_date,
+            article=article_obj,
+            knowledge_points=knowledge_points,
+            learning_objectives=learning_objectives,
+            discussion_questions=discussion_questions,
+            created_at=created_at,
+            expires_at=expires_at
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting daily discovery: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve daily discovery content")
+
 # Legacy endpoints for backward compatibility
 @app.get("/api/v1/hello")
 async def read_root():
     """Legacy hello endpoint."""
     return {"message": "Hello from MemWhiz API!", "version": "1.0.0"}
+

@@ -49,6 +49,18 @@ async def init_db(db_path):
         )
         """)
         
+        await db.execute("""
+        CREATE TABLE IF NOT EXISTS daily_discovery (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            content_date DATE UNIQUE NOT NULL,
+            article_title TEXT NOT NULL,
+            article_content TEXT NOT NULL,
+            knowledge_points TEXT NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            expires_at TEXT NOT NULL
+        )
+        """)
+        
         await db.commit()
     logging.info("Database initialized.")
 
@@ -139,7 +151,10 @@ async def get_all_user_ids(db_path):
 async def get_word_by_id(db_path, word_id):
     """Retrieves a single word by its ID."""
     async with aiosqlite.connect(db_path) as db:
-        cursor = await db.execute("SELECT * FROM words WHERE id = ?", (word_id,))
+        cursor = await db.execute("""
+        SELECT id, user_id, word, initial_ai_explanation, user_notes, next_review, interval, difficulty, created_at, chinese_meaning 
+        FROM words WHERE id = ?
+        """, (word_id,))
         row = await cursor.fetchone()
         
         if row:
@@ -152,11 +167,14 @@ async def get_word_by_id(db_path, word_id):
 async def get_word_by_word(db_path, user_id, word):
     """Retrieves a single word by its word string and user ID."""
     async with aiosqlite.connect(db_path) as db:
-        cursor = await db.execute("SELECT * FROM words WHERE user_id = ? AND word = ?", (user_id, word))
+        cursor = await db.execute("""
+        SELECT id, user_id, word, initial_ai_explanation, user_notes, next_review, interval, difficulty, created_at, chinese_meaning 
+        FROM words WHERE user_id = ? AND word = ?
+        """, (user_id, word))
         row = await cursor.fetchone()
         
         if row:
-            columns = ['id', 'user_id', 'word', 'initial_ai_explanation', 'chinese_meaning', 'user_notes', 'next_review', 'interval', 'difficulty', 'created_at']
+            columns = ['id', 'user_id', 'word', 'initial_ai_explanation', 'user_notes', 'next_review', 'interval', 'difficulty', 'created_at', 'chinese_meaning']
             word_data = dict(zip(columns, row))
         else:
             word_data = None
@@ -484,3 +502,66 @@ async def get_all_users_with_reminders(db_path):
                     continue
         
         return users_with_reminders
+
+# Daily Discovery CRUD functions
+async def get_daily_discovery(db_path, date_str):
+    """獲取指定日期的每日探索內容"""
+    async with aiosqlite.connect(db_path) as db:
+        cursor = await db.execute("""
+        SELECT id, content_date, article_title, article_content, knowledge_points, created_at, expires_at
+        FROM daily_discovery
+        WHERE content_date = ?
+        """, (date_str,))
+        row = await cursor.fetchone()
+        
+        if row:
+            columns = ['id', 'content_date', 'article_title', 'article_content', 'knowledge_points', 'created_at', 'expires_at']
+            discovery_data = dict(zip(columns, row))
+            
+            # 解析 JSON 知識點
+            try:
+                import json
+                discovery_data['knowledge_points'] = json.loads(discovery_data['knowledge_points'])
+            except (json.JSONDecodeError, TypeError) as e:
+                logging.warning(f"解析每日探索知識點 JSON 失敗: {e}")
+                discovery_data['knowledge_points'] = []
+            
+            return discovery_data
+        return None
+
+async def create_daily_discovery(db_path, date_str, article_title, article_content, knowledge_points):
+    """創建每日探索內容"""
+    from datetime import datetime, timedelta
+    import json
+    
+    # 設定過期時間為明天同一時間
+    expires_at = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d %H:%M:%S')
+    knowledge_points_json = json.dumps(knowledge_points, ensure_ascii=False)
+    
+    async with aiosqlite.connect(db_path) as db:
+        try:
+            await db.execute("""
+            INSERT INTO daily_discovery (content_date, article_title, article_content, knowledge_points, expires_at)
+            VALUES (?, ?, ?, ?, ?)
+            """, (date_str, article_title, article_content, knowledge_points_json, expires_at))
+            await db.commit()
+            logging.info(f"每日探索內容已創建: {date_str}")
+            return True
+        except aiosqlite.IntegrityError:
+            logging.warning(f"日期 {date_str} 的每日探索內容已存在")
+            return False
+
+async def cleanup_expired_daily_discovery(db_path):
+    """清理過期的每日探索內容"""
+    async with aiosqlite.connect(db_path) as db:
+        cursor = await db.execute("""
+        DELETE FROM daily_discovery
+        WHERE expires_at <= datetime('now')
+        """)
+        deleted_count = cursor.rowcount
+        await db.commit()
+        
+        if deleted_count > 0:
+            logging.info(f"清理了 {deleted_count} 條過期的每日探索內容")
+        
+        return deleted_count
