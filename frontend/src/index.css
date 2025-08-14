@@ -83,6 +83,11 @@ body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   background: hsl(var(--background));
   color: hsl(var(--foreground));
+  /* 支援動態島和瀏海海 - 為頂部添加安全區域內邊距 */
+  padding-top: env(safe-area-inset-top);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 /* 自定義 Tailwind 樣式 */
@@ -132,4 +137,20 @@ body {
 
 .backface-hidden {
   backface-visibility: hidden;
+}
+
+/* 動態島和瀏海海支援 */
+.safe-area-header {
+  padding-top: max(1rem, env(safe-area-inset-top));
+}
+
+.safe-area-content {
+  min-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+}
+
+/* 針對有動態島的設備的額外邊距 */
+@supports (padding-top: env(safe-area-inset-top)) {
+  .ios-safe-header {
+    padding-top: calc(env(safe-area-inset-top) + 1rem);
+  }
 }

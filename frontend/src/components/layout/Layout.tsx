@@ -74,7 +74,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   };
 
   return (
-    <div className={`min-h-screen ${isMobile ? 'pb-20' : ''}`}>
+    <div className={`safe-area-content ${isMobile ? 'pb-20' : ''}`}>
       <BackgroundScene />
       <div className="relative z-10" ref={constraintsRef}>
         <Header />

@@ -288,13 +288,13 @@ const WordDetailPage: React.FC = () => {
 
         {/* 單字標題和資訊 - 移到中下方並置中 */}
         <div className="text-center">
-          <div className="flex items-center justify-center space-x-3 mb-2">
-            <ThemeTitle level={1} className="text-2xl md:text-3xl">{word.word}</ThemeTitle>
+          <div className="relative inline-block mb-2">
+            <ThemeTitle level={1} className="text-2xl md:text-3xl text-center">{word.word}</ThemeTitle>
             <ThemeButton
               variant="ghost"
               size="sm"
               onClick={handlePronunciation}
-              className="p-2"
+              className="absolute -right-8 top-1/2 -translate-y-1/2 p-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-full"
             >
               <Volume2 className="w-4 h-4 md:w-5 md:h-5 text-blue-600 dark:text-blue-400" />
             </ThemeButton>

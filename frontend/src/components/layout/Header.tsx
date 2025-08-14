@@ -127,7 +127,7 @@ const Header: React.FC = () => {
       </AnimatePresence>
 
       <motion.div 
-        className="container mx-auto p-4 max-w-5xl"
+        className="container mx-auto p-4 max-w-5xl safe-area-header"
         initial={{ y: -50, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.3 }}
