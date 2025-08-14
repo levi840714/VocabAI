@@ -3,7 +3,7 @@
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
-  name: vocab-ai-backend
+  name: memwhiz-backend
 spec:
   template:
     metadata:
@@ -34,7 +34,7 @@ spec:
 
             # database
             - name: DATABASE_DB_PATH
-              value: 'vocabot.db'
+              value: 'memwhiz.db'
 
             # access_control (TELEGRAM_USER_IDS 現在從 Secret Manager 讀取)
             - name: ACCESS_CONTROL_ENABLE_WHITELIST
@@ -146,4 +146,4 @@ spec:
                   name: telegram_user_ids
                   key: latest
             - name: DATABASE_GCS_BUCKET
-              value: 'vocabot-db'
+              value: 'memwhiz-db'

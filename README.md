@@ -1,11 +1,11 @@
-# VocabAI & Vocabot 專案
+# MemWhiz 專案
 
-**VocabAI** 是一個智能英語單字學習平台，結合 **Vocabot** Telegram Bot 和 **VocabAI** Web Mini App，提供完整的單字學習體驗。
+**MemWhiz(記憶天才)** 是一個智能英語單字學習平台，結合 Telegram Bot 和 Web Mini App，提供完整的單字學習體驗。
 
 ## 🎯 專案概述
 
-- 🤖 **Vocabot**：Telegram 聊天機器人，提供即時單字查詢和學習
-- 📱 **VocabAI**：React Mini App，提供豐富的視覺化學習介面
+- 🤖 **MemWhiz Bot**：Telegram 聊天機器人，提供即時單字查詢和學習
+- 📱 **MemWhiz Mini App**：React Mini App，提供豐富的視覺化學習介面
 - 🧠 **AI 智能解釋**：使用 Google Gemini API 提供結構化單字解釋
 - 📊 **間隔重複學習**：科學的記憶曲線算法
 - 💾 **完整數據追蹤**：學習進度和成效分析
@@ -14,7 +14,7 @@
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Vocabot       │    │   FastAPI       │    │   VocabAI       │
+│   MemWhiz Bot   │    │   FastAPI       │    │   MemWhiz       │
 │   (Telegram)    │    │   Backend       │    │   (Mini App)    │
 │   aiogram 3.x   │    │   (Cloud Run)   │    │   (Vercel)      │
 └─────────┬───────┘    └─────────┬───────┘    └─────────┬───────┘
@@ -37,8 +37,8 @@
 ## 📁 專案結構
 
 ```
-VocabAI/
-├── 📁 bot/                    # Vocabot Telegram Bot
+MemWhiz/
+├── 📁 bot/                    # MemWhiz Telegram Bot
 │   ├── handlers/              # 消息處理器
 │   ├── services/              # AI 服務整合
 │   ├── database/              # 資料庫操作
@@ -48,7 +48,7 @@ VocabAI/
 │   ├── main.py               # API 入口點
 │   ├── crud.py               # 資料庫操作
 │   └── schemas.py            # 資料模型
-├── 📁 frontend/              # VocabAI Mini App
+├── 📁 frontend/              # MemWhiz Mini App
 │   ├── src/components/       # React 組件
 │   ├── src/pages/           # 頁面組件
 │   └── src/lib/             # API 客戶端
@@ -64,7 +64,7 @@ VocabAI/
 ```bash
 # 1. 克隆專案
 git clone <repo-url>
-cd VocabAI
+cd MemWhiz
 
 # 2. 初始化環境
 make setup
@@ -79,7 +79,7 @@ cp configs/config.yaml.template configs/config.yaml
 推薦使用 3 個終端進行開發：
 
 ```bash
-# 終端 1: 啟動後端服務 (Vocabot + API)
+# 終端 1: 啟動後端服務 (MemWhiz Bot + API)
 make run-full         # http://localhost:8000
 
 # 終端 2: 啟動前端開發服務器
@@ -98,9 +98,9 @@ make logs           # 查看服務日誌
 
 ### 開發命令
 - `make run-full` - 啟動完整服務（Bot + API）
-- `make run-bot` - 只啟動 Vocabot
+- `make run-bot` - 只啟動 MemWhiz Bot
 - `make run-api` - 只啟動 API 服務
-- `make dev-frontend` - 啟動 VocabAI 前端開發
+- `make dev-frontend` - 啟動 MemWhiz 前端開發
 
 ### 管理命令
 - `make status` - 檢查所有服務狀態
@@ -164,12 +164,12 @@ gcloud secrets create frontend_url --data-file=<(echo -n "https://your-vercel-ap
 
 ```bash
 # 建構並推送 Docker 映像
-docker build -t gcr.io/YOUR_PROJECT_ID/vocab-ai-backend .
-docker push gcr.io/YOUR_PROJECT_ID/vocab-ai-backend
+docker build -t gcr.io/YOUR_PROJECT_ID/memwhiz-backend .
+docker push gcr.io/YOUR_PROJECT_ID/memwhiz-backend
 
 # 部署到 Cloud Run
-gcloud run deploy vocab-ai-backend \
-  --image gcr.io/YOUR_PROJECT_ID/vocab-ai-backend \
+gcloud run deploy memwhiz-backend \
+  --image gcr.io/YOUR_PROJECT_ID/memwhiz-backend \
   --platform managed \
   --region asia-east1 \
   --allow-unauthenticated \
@@ -181,7 +181,7 @@ gcloud run deploy vocab-ai-backend \
 
 ```bash
 # 取得 Cloud Run URL
-CLOUD_RUN_URL=$(gcloud run services describe vocab-ai-backend --region=asia-east1 --format='value(status.url)')
+CLOUD_RUN_URL=$(gcloud run services describe memwhiz-backend --region=asia-east1 --format='value(status.url)')
 
 # 設定 Webhook
 curl -X POST "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook" \
@@ -198,7 +198,7 @@ telegram:
   bot_token: "YOUR_BOT_TOKEN"
 
 database:
-  db_path: "vocabot.db"  # 本地開發路徑
+  db_path: "memwhiz.db"  # 本地開發路徑
 
 access_control:
   whitelist_users: [YOUR_USER_ID]
@@ -230,13 +230,13 @@ ai_services:
 
 ## 📊 主要功能
 
-### Vocabot (Telegram Bot)
+### MemWhiz Bot (Telegram Bot)
 - ✅ 智能單字解釋：AI 生成結構化回應
 - ✅ 詞彙管理：查看、搜尋個人單字庫
 - ✅ 複習提醒：智能推薦複習單字
 - ✅ 進度追蹤：學習數據統計
 
-### VocabAI (Mini App)
+### MemWhiz (Mini App)
 - ✅ 單字瀏覽：響應式單字列表
 - ✅ 學習報告：視覺化進度統計
 - 🚧 複習系統：卡片式複習介面 (開發中)
@@ -295,9 +295,9 @@ make dev-frontend
 
 如有問題或建議，請：
 1. 查看本 README 的故障排除章節
-2. 檢查 [Issues](https://github.com/your-username/VocabAI/issues)
+2. 檢查 [Issues](https://github.com/your-username/MemWhiz/issues)
 3. 創建新的 Issue 描述問題
 
 ---
 
-*由 VocabAI 團隊開發，使用 Claude AI 協助優化* 🤖✨
+*由 MemWhiz 團隊開發，使用 Claude AI 協助優化* 🤖✨

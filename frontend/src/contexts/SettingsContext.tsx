@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { 
-  vocabotAPI, 
+  memWhizAPI, 
   UserSettingsResponse, 
   LearningPreferences, 
   InterfaceSettings, 
@@ -78,7 +78,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   // 從本地儲存讀取設定
   const loadLocalSettings = () => {
     try {
-      const storedSettings = localStorage.getItem('vocabot_user_settings');
+      const storedSettings = localStorage.getItem('memwhiz_user_settings');
       if (storedSettings) {
         const parsed = JSON.parse(storedSettings);
         setLearningPreferences(parsed.learning_preferences || defaultLearningPreferences);
@@ -101,7 +101,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     study_settings: StudySettings;
   }) => {
     try {
-      localStorage.setItem('vocabot_user_settings', JSON.stringify(settings));
+      localStorage.setItem('memwhiz_user_settings', JSON.stringify(settings));
     } catch (err) {
       console.error('保存本地設定失敗:', err);
     }
@@ -117,7 +117,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       const hasLocalSettings = loadLocalSettings();
       
       // 嘗試從 API 載入設定
-      const userSettings = await vocabotAPI.getUserSettings();
+      const userSettings = await memWhizAPI.getUserSettings();
       
       setLearningPreferences(userSettings.learning_preferences);
       setInterfaceSettings(userSettings.interface_settings);
@@ -151,7 +151,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     try {
       const newPreferences = { ...learningPreferences, ...updates };
       
-      await vocabotAPI.updateSettings({
+      await memWhizAPI.updateSettings({
         learning_preferences: newPreferences
       });
       
@@ -190,7 +190,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       });
       
       // 然後嘗試同步到後端
-      await vocabotAPI.updateSettings({
+      await memWhizAPI.updateSettings({
         interface_settings: newSettings
       });
       
@@ -206,7 +206,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     try {
       const newSettings = { ...aiSettings, ...updates };
       
-      await vocabotAPI.updateSettings({
+      await memWhizAPI.updateSettings({
         ai_settings: newSettings
       });
       
@@ -230,7 +230,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     try {
       const newSettings = { ...studySettings, ...updates };
       
-      await vocabotAPI.updateSettings({
+      await memWhizAPI.updateSettings({
         study_settings: newSettings
       });
       
@@ -298,7 +298,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   // 初始載入
   useEffect(() => {
     // 在 API 載入前先嘗試應用本地設定的主題
-    const localSettings = localStorage.getItem('vocabot_user_settings');
+    const localSettings = localStorage.getItem('memwhiz_user_settings');
     if (localSettings) {
       try {
         const parsed = JSON.parse(localSettings);

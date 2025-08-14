@@ -68,13 +68,13 @@ export default function AddWordForm() {
           <Bot className="w-6 h-6 text-blue-600 dark:text-blue-400" />
           <CardTitle>新增單字</CardTitle>
         </div>
-        <div className="space-y-2">
-          <CardDescription>添加新單字到您的學習列表</CardDescription>
+        <CardDescription className="space-y-2">
+          <p>添加新單字到您的學習列表</p>
           <div className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 px-3 py-2 rounded-lg">
             <Sparkles className="w-4 h-4" />
             <span>系統將自動使用 AI 為您生成詳細的單字解釋、發音、例句和記憶技巧</span>
           </div>
-        </div>
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>

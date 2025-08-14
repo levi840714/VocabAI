@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect } from 'react';
 import { useTelegram } from '../hooks/use-telegram';
-import { vocabotAPI } from '@/lib/api';
+import { memWhizAPI } from '@/lib/api';
 
 interface TelegramContextType {
   isReady: boolean;
@@ -28,7 +28,7 @@ export function TelegramProvider({ children }: { children: React.ReactNode }) {
   // 當 Telegram 驗證數據變化時，更新 API 客戶端
   useEffect(() => {
     if (telegram.isReady) {
-      vocabotAPI.setTelegramAuth(telegram.authData);
+      memWhizAPI.setTelegramAuth(telegram.authData);
       
       console.log('Telegram context initialized:', {
         isTelegramWebApp: telegram.isTelegramWebApp,

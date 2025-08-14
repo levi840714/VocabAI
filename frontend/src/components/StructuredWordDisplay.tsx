@@ -83,7 +83,7 @@ const StructuredWordDisplay: React.FC<StructuredWordDisplayProps> = ({ data, onA
             </div>
           )}
         
-          {shouldShowPronunciation && data.pronunciations.length > 0 && (
+          {shouldShowPronunciation && data.pronunciations && data.pronunciations.length > 0 && (
             <div className="mt-2">
               {data.pronunciations.map((pronunciation, index) => (
                 <span key={index} className="text-lg text-slate-600 dark:text-slate-300 mr-4">
@@ -119,7 +119,7 @@ const StructuredWordDisplay: React.FC<StructuredWordDisplayProps> = ({ data, onA
 
       {/* Definitions by Part of Speech - 豐富視覺設計 */}
       <div className="space-y-6">
-        {data.definitions.map((definition, defIndex) => (
+        {data.definitions && data.definitions.map((definition, defIndex) => (
           <Card key={defIndex} className="relative p-6 lg:p-8 bg-gradient-to-br from-blue-50/90 via-indigo-50/70 to-purple-50/90 dark:from-slate-800/95 dark:via-slate-700/80 dark:to-slate-600/95 backdrop-blur-sm border-2 border-blue-200/60 dark:border-slate-600/60 shadow-xl hover:shadow-2xl transition-all duration-300 rounded-2xl overflow-hidden">
             {/* 多層背景裝飾 */}
             <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-bl from-blue-200/50 to-indigo-200/50 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-full -translate-y-10 translate-x-10 blur-xl"></div>
@@ -159,7 +159,7 @@ const StructuredWordDisplay: React.FC<StructuredWordDisplayProps> = ({ data, onA
       </div>
 
       {/* Examples - 極致視覺優化 */}
-      {data.examples.length > 0 && (
+      {data.examples && data.examples.length > 0 && (
         <Card className="relative overflow-hidden p-8 lg:p-10 bg-gradient-to-br from-white via-blue-50/30 to-indigo-50/30 dark:from-slate-800 dark:via-slate-700/50 dark:to-slate-600/50 border-2 border-blue-200/50 dark:border-slate-600/50 shadow-xl hover:shadow-2xl transition-all duration-300 rounded-2xl">
           {/* 背景裝飾 */}
           <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-blue-200/40 to-indigo-200/40 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-full -translate-y-12 translate-x-12 blur-xl"></div>
@@ -176,7 +176,7 @@ const StructuredWordDisplay: React.FC<StructuredWordDisplayProps> = ({ data, onA
           </h3>
           
           <div className="relative space-y-6">
-            {data.examples.map((example, index) => (
+            {data.examples && data.examples.map((example, index) => (
               <div key={index} className="group relative bg-gradient-to-r from-white/90 via-blue-50/60 to-white/90 dark:from-slate-700/90 dark:via-slate-600/60 dark:to-slate-700/90 backdrop-blur-sm p-6 lg:p-8 rounded-xl border-2 border-blue-100/60 dark:border-slate-600/60 shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all duration-300">
                 {/* 例句編號裝飾 */}
                 <div className="absolute -top-2 -left-2 w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center shadow-lg">
@@ -215,7 +215,7 @@ const StructuredWordDisplay: React.FC<StructuredWordDisplayProps> = ({ data, onA
 
       {/* Synonyms and Antonyms - 極致視覺優化 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {data.synonyms.length > 0 && (
+        {data.synonyms && data.synonyms.length > 0 && (
           <Card className="relative overflow-hidden p-8 lg:p-10 bg-gradient-to-br from-emerald-50/80 via-green-50/60 to-teal-50/80 dark:from-emerald-900/20 dark:via-slate-800/60 dark:to-teal-900/20 border-2 border-emerald-200/50 dark:border-slate-600/50 shadow-xl hover:shadow-2xl transition-all duration-300 rounded-2xl">
             {/* 背景裝飾 */}
             <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-bl from-emerald-200/40 to-green-200/40 dark:from-emerald-900/20 dark:to-green-900/20 rounded-full -translate-y-10 translate-x-10 blur-xl"></div>
@@ -231,7 +231,7 @@ const StructuredWordDisplay: React.FC<StructuredWordDisplayProps> = ({ data, onA
             </h3>
             
             <div className="relative flex flex-wrap gap-4">
-              {data.synonyms.map((synonym, index) => (
+              {data.synonyms && data.synonyms.map((synonym, index) => (
                 <ClickableTextWrapper 
                   key={index}
                   onAIAnalysisClick={onAIAnalysisClick}
@@ -250,7 +250,7 @@ const StructuredWordDisplay: React.FC<StructuredWordDisplayProps> = ({ data, onA
           </Card>
         )}
 
-        {data.antonyms.length > 0 && (
+        {data.antonyms && data.antonyms.length > 0 && (
           <Card className="relative overflow-hidden p-8 lg:p-10 bg-gradient-to-br from-rose-50/80 via-red-50/60 to-pink-50/80 dark:from-rose-900/20 dark:via-slate-800/60 dark:to-pink-900/20 border-2 border-rose-200/50 dark:border-slate-600/50 shadow-xl hover:shadow-2xl transition-all duration-300 rounded-2xl">
             {/* 背景裝飾 */}
             <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-bl from-rose-200/40 to-red-200/40 dark:from-rose-900/20 dark:to-red-900/20 rounded-full -translate-y-10 translate-x-10 blur-xl"></div>
@@ -266,7 +266,7 @@ const StructuredWordDisplay: React.FC<StructuredWordDisplayProps> = ({ data, onA
             </h3>
             
             <div className="relative flex flex-wrap gap-4">
-              {data.antonyms.map((antonym, index) => (
+              {data.antonyms && data.antonyms.map((antonym, index) => (
                 <ClickableTextWrapper 
                   key={index}
                   onAIAnalysisClick={onAIAnalysisClick}

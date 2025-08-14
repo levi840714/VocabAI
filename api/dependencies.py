@@ -15,7 +15,7 @@ from config_loader import load_config
 def get_database_path() -> str:
     """Get the database path from settings (already resolved to absolute path)."""
     config = load_config()
-    return config.get('database', {}).get('db_path', 'vocabot.db')
+    return config.get('database', {}).get('db_path', 'memwhiz.db')
 
 def get_ai_service() -> AIService:
     """Get AI service instance."""

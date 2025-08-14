@@ -2,7 +2,7 @@ import { createTheme } from '@mui/material/styles';
 
 /**
  * Material-UI 主題配置
- * 整合 Vocabot 的深色主題系統
+ * 整合 MemWhiz 的深色主題系統
  */
 
 // 從 CSS 變量獲取顏色值的輔助函數
@@ -12,7 +12,7 @@ const getCSSVariable = (variable: string) => {
 };
 
 // 創建動態主題
-export const createVocabotMuiTheme = (isDark: boolean) => {
+export const createMemWhizMuiTheme = (isDark: boolean) => {
   return createTheme({
     palette: {
       mode: isDark ? 'dark' : 'light',
@@ -177,7 +177,7 @@ export const createVocabotMuiTheme = (isDark: boolean) => {
 };
 
 // 預設淺色主題
-export const lightTheme = createVocabotMuiTheme(false);
+export const lightTheme = createMemWhizMuiTheme(false);
 
 // 預設深色主題
-export const darkTheme = createVocabotMuiTheme(true);
+export const darkTheme = createMemWhizMuiTheme(true);

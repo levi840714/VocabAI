@@ -73,10 +73,9 @@ const FeatureCard: React.FC<FeatureCardProps> = ({
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const { stats, isLoading } = useVocabulary();
-  const { dailyTarget, learningPreferences } = useSettings();
+  const { dailyTarget, learningPreferences, isDarkMode } = useSettings();
   const animation = useAnimation();
 
-  // 核心功能 (仿照幣安主要功能區)
   const coreFeatures = [
     {
       icon: <BookOpen className="w-6 h-6 text-white" />,

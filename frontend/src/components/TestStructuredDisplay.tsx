@@ -3,7 +3,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Card } from './ui/card';
 import DeepLearningWordDisplay from './DeepLearningWordDisplay';
-import { vocabotAPI, AIExplanationResponse } from '@/lib/api';
+import { memWhizAPI, AIExplanationResponse } from '@/lib/api';
 import { DeepLearningAIResponse } from '../lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { useVocabulary } from '@/hooks/use-vocabulary';
@@ -52,7 +52,7 @@ const TestStructuredDisplay: React.FC<TestStructuredDisplayProps> = ({ initialWo
     setLastProcessedWord(targetWord.trim());
 
     try {
-      const response: AIExplanationResponse = await vocabotAPI.getAIExplanation(targetWord.trim(), 'deep');
+      const response: AIExplanationResponse = await memWhizAPI.getAIExplanation(targetWord.trim(), 'deep');
       
       if (response.structured_data && response.explanation_type === 'deep') {
         setResult(response.structured_data as DeepLearningAIResponse);

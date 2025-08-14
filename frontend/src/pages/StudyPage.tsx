@@ -2,26 +2,46 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useAnimation } from '@/hooks/useAnimation';
+import { useToast } from '@/hooks/use-toast';
 import { ThemeCard, ThemeTitle } from '@/components/ui/ThemeComponents';
 import StudyMode from '@/components/study-mode';
+import PullToRefresh from '@/components/PullToRefresh';
 import { Brain, Target, Zap } from 'lucide-react';
 
 const StudyPage: React.FC = () => {
   const navigate = useNavigate();
   const animation = useAnimation();
+  const { toast } = useToast();
 
   const handleAIAnalysis = (word: string) => {
     navigate(`/ai-analysis?word=${encodeURIComponent(word)}`);
   };
 
+  const handleRefresh = async () => {
+    // StudyPage 的刷新邏輯可以是重新載入當前複習單字或更新統計
+    toast({
+      title: "已刷新",
+      description: "複習數據已更新",
+    });
+    
+    // 重新載入頁面或觸發 StudyMode 內部的刷新邏輯
+    window.location.reload();
+  };
+
   return (
-    <motion.div
-      initial={animation.pageTransition.initial}
-      animate={animation.pageTransition.animate}
-      exit={animation.pageTransition.exit}
-      transition={animation.pageTransition.transition}
-      className="space-y-3 md:space-y-6"
+    <PullToRefresh
+      onRefresh={handleRefresh}
+      enabled={true}
+      threshold={80}
+      className="min-h-screen"
     >
+      <motion.div
+        initial={animation.pageTransition.initial}
+        animate={animation.pageTransition.animate}
+        exit={animation.pageTransition.exit}
+        transition={animation.pageTransition.transition}
+        className="space-y-3 md:space-y-6"
+      >
       {/* 頁面標題 - 精簡設計 */}
       <ThemeCard 
         variant="default" 
@@ -55,7 +75,8 @@ const StudyPage: React.FC = () => {
       <ThemeCard variant="default" className="overflow-hidden">
         <StudyMode onAIAnalysisClick={handleAIAnalysis} />
       </ThemeCard>
-    </motion.div>
+      </motion.div>
+    </PullToRefresh>
   );
 };
 

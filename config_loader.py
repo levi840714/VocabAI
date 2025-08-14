@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     telegram_bot_token: str = Field(default="", description="Telegram Bot Token")
     
     # === 資料庫設定 ===
-    database_db_path: str = Field(default="vocabot.db", description="SQLite 資料庫路徑")
+    database_db_path: str = Field(default="memwhiz.db", description="SQLite 資料庫路徑")
     database_gcs_bucket: Optional[str] = Field(default=None, description="GCS 儲存桶名稱 (Cloud Run 環境)")
     
     # === 存取控制設定 ===
@@ -155,7 +155,7 @@ def resolve_project_path(relative_path: str) -> str:
     將相對路徑解析為相對於專案根目錄的絕對路徑
     
     Args:
-        relative_path: 相對路徑（如 'vocabot.db'）
+        relative_path: 相對路徑（如 'memwhiz.db'）
         
     Returns:
         str: 解析後的絕對路徑

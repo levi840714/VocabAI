@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Vocab.ai 海洋主題樣式 */
+/* MemWhiz 海洋主題樣式 */
 :root {
   --background: 0 0% 100%;
   --foreground: 240 10% 3.9%;
@@ -119,4 +119,17 @@ body {
 
 .animate-pulse-slow {
   animation: pulse-slow 4s ease-in-out infinite;
+}
+
+/* 3D 翻轉卡片樣式 */
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
 }

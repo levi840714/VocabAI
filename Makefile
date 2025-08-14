@@ -1,4 +1,4 @@
-# Vocabot Makefile
+# MemWhiz Makefile
 # 提供便捷的開發和部署命令
 
 # 設定變數
@@ -22,7 +22,7 @@ NC := \033[0m # No Color
 
 ## 📚 顯示幫助信息
 help:
-	@echo "$(BLUE)Vocabot 專案管理工具$(NC)"
+	@echo "$(BLUE)MemWhiz 專案管理工具$(NC)"
 	@echo ""
 	@echo "$(GREEN)可用命令:$(NC)"
 	@echo "  $(YELLOW)setup$(NC)        - 初始化專案環境（創建虛擬環境並安裝依賴）"
@@ -46,7 +46,7 @@ help:
 
 ## 🚀 初始化專案環境
 setup:
-	@echo "$(BLUE)🚀 初始化 Vocabot 專案環境...$(NC)"
+	@echo "$(BLUE)🚀 初始化 MemWhiz 專案環境...$(NC)"
 	@if [ ! -d "$(VENV)" ]; then \
 		echo "$(YELLOW)📦 創建虛擬環境...$(NC)"; \
 		$(PYTHON) -m venv $(VENV); \
@@ -153,7 +153,7 @@ status:
 	@lsof -i :5173 || echo "$(GREEN)端口 5173 空閒$(NC)"
 	@echo ""
 	@echo "$(YELLOW)檢查資料庫:$(NC)"
-	@if [ -f "vocabot.db" ]; then \
+	@if [ -f "memwhiz.db" ]; then \
 		echo "$(GREEN)✅ 資料庫文件存在$(NC)"; \
 	else \
 		echo "$(RED)❌ 資料庫文件不存在$(NC)"; \
@@ -161,7 +161,7 @@ status:
 
 ## 🛑 停止所有背景服務
 stop-all:
-	@echo "$(BLUE)🛑 停止所有 Vocabot 相關服務...$(NC)"
+	@echo "$(BLUE)🛑 停止所有 MemWhiz 相關服務...$(NC)"
 	@echo "$(YELLOW)停止 Python/Uvicorn 進程...$(NC)"
 	@pkill -f "python.*main.py" 2>/dev/null || true
 	@pkill -f "uvicorn.*main:app" 2>/dev/null || true

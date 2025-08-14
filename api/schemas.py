@@ -35,6 +35,7 @@ class WordDetailResponse(BaseModel):
     interval: int
     difficulty: int
     created_at: str
+    learned: Optional[bool] = False
 
 class WordsListResponse(BaseModel):
     words: List[WordSimpleResponse]

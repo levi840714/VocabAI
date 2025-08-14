@@ -24,7 +24,7 @@ interface BackgroundProviderProps {
 export const BackgroundProvider: React.FC<BackgroundProviderProps> = ({ children }) => {
   const [currentTheme, setCurrentTheme] = useState<BackgroundThemeType>(() => {
     // 從 localStorage 讀取保存的主題，默認為 modern（適合新首頁）
-    const saved = localStorage.getItem('vocabot-background-theme');
+    const saved = localStorage.getItem('memwhiz-background-theme');
     return (saved as BackgroundThemeType) || 'modern';
   });
 
@@ -58,7 +58,7 @@ export const BackgroundProvider: React.FC<BackgroundProviderProps> = ({ children
 
   const setTheme = (theme: BackgroundThemeType) => {
     setCurrentTheme(theme);
-    localStorage.setItem('vocabot-background-theme', theme);
+    localStorage.setItem('memwhiz-background-theme', theme);
   };
 
   useEffect(() => {

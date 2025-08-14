@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react"
-import { vocabotAPI, Word as APIWord, WordsResponse, StatsResponse } from "@/lib/api"
+import { memWhizAPI, Word as APIWord, WordsResponse, StatsResponse } from "@/lib/api"
 import { parseStructuredResponse, cleanStructuredResponse } from "@/lib/parseStructuredResponse"
 
 // Convert API Word to frontend Word format
@@ -66,12 +66,12 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
     try {
       setLoading(true)
       setError(null)
-      const response: WordsResponse = await vocabotAPI.getWords()
+      const response: WordsResponse = await memWhizAPI.getWords()
       const convertedWords = response.words.map(convertAPIWordToWord)
       setWords(convertedWords)
       
       // Also fetch stats
-      const statsResponse = await vocabotAPI.getStats()
+      const statsResponse = await memWhizAPI.getStats()
       setStats(statsResponse)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch words')
@@ -84,12 +84,12 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
   const silentRefreshWords = async () => {
     try {
       setError(null)
-      const response: WordsResponse = await vocabotAPI.getWords()
+      const response: WordsResponse = await memWhizAPI.getWords()
       const convertedWords = response.words.map(convertAPIWordToWord)
       setWords(convertedWords)
       
       // Also fetch stats
-      const statsResponse = await vocabotAPI.getStats()
+      const statsResponse = await memWhizAPI.getStats()
       setStats(statsResponse)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch words')
@@ -102,8 +102,8 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
     
     try {
       setError(null)
-      console.log('Calling vocabotAPI.addWord...')
-      const result = await vocabotAPI.addWord(word, userNotes)
+      console.log('Calling memWhizAPI.addWord...')
+      const result = await memWhizAPI.addWord(word, userNotes)
       console.log('API addWord result:', result)
       
       console.log('Refreshing words...')
@@ -119,7 +119,7 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
   const deleteWord = async (id: string) => {
     try {
       setError(null)
-      await vocabotAPI.deleteWord(parseInt(id))
+      await memWhizAPI.deleteWord(parseInt(id))
       // Remove from local state immediately for better UX
       setWords(prev => prev.filter(word => word.id !== id))
     } catch (err) {
@@ -132,7 +132,7 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
   const toggleLearned = async (id: string) => {
     try {
       setError(null)
-      const response = await vocabotAPI.toggleWordLearned(parseInt(id))
+      const response = await memWhizAPI.toggleWordLearned(parseInt(id))
       // Update local state based on server response
       setWords(prev => 
         prev.map(word => 
@@ -148,7 +148,7 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
 
   const getAIExplanation = async (word: string, type: 'simple' | 'deep' = 'simple'): Promise<string> => {
     try {
-      const response = await vocabotAPI.getAIExplanation(word, type)
+      const response = await memWhizAPI.getAIExplanation(word, type)
       
       // Try to parse structured data and return a clean summary
       const structuredData = parseStructuredResponse(response.explanation)

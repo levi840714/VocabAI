@@ -68,8 +68,8 @@ def get_current_user(
 
 # FastAPI app instance
 app = FastAPI(
-    title="Vocab.ai API",
-    description="API for the Vocab.ai vocabulary learning application",
+    title="MemWhiz API",
+    description="API for the MemWhiz vocabulary learning application",
     version="1.0.0",
     # 添加生產環境支援
     docs_url="/docs" if os.getenv("ENVIRONMENT", "development") == "development" else None,
@@ -162,7 +162,7 @@ async def health_check():
     """Health check endpoint."""
     return HealthResponse(
         status="healthy",
-        message="Vocab.ai API is running",
+        message="MemWhiz API is running",
         timestamp=datetime.now()
     )
 
@@ -231,8 +231,9 @@ async def add_word(word_data: WordCreate, user_id: int = Depends(get_current_use
         raise HTTPException(status_code=500, detail="Failed to add word")
 
 @app.get("/api/v1/words/{word_id}", response_model=WordDetailResponse)
-async def get_word_by_id(word_id: int):
+async def get_word_by_id(word_id: int, user_id: int = Depends(get_current_user)):
     """Get a specific word by ID."""
+    logger.info(f"GET /words/{word_id} called - user_id: {user_id}")
     db_path = get_database_path()
     
     try:
@@ -240,7 +241,17 @@ async def get_word_by_id(word_id: int):
         if not word_data:
             raise HTTPException(status_code=404, detail="Word not found")
         
-        return WordDetailResponse(**dict(word_data))
+        # 檢查用戶權限
+        word_dict = dict(word_data)
+        if word_dict['user_id'] != user_id:
+            raise HTTPException(status_code=403, detail="Access denied - word belongs to different user")
+        
+        # 添加 learned 狀態計算
+        learned_status = is_word_learned(word_dict)
+        word_dict['learned'] = learned_status
+        
+        logger.info(f"Successfully retrieved word {word_id} for user {user_id}, learned: {learned_status}")
+        return WordDetailResponse(**word_dict)
     except HTTPException:
         raise
     except Exception as e:
@@ -582,4 +593,4 @@ async def update_settings(
 @app.get("/api/v1/hello")
 async def read_root():
     """Legacy hello endpoint."""
-    return {"message": "Hello from Vocab.ai API!", "version": "1.0.0"}
+    return {"message": "Hello from MemWhiz API!", "version": "1.0.0"}

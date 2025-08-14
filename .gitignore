@@ -136,7 +136,7 @@ cython_debug/
 configs/config.yaml
 
 # Database
-vocabot.db
+memwhiz.db
 *.db
 *.sqlite
 *.sqlite3

@@ -20,6 +20,6 @@ async def command_start_handler(message: Message) -> None:
     ]
     keyboard = ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
 
-    await message.answer(f"Hello, {message.from_user.full_name}! I'm Vocabot. What would you like to do?", reply_markup=keyboard)
+    await message.answer(f"Hello, {message.from_user.full_name}! 我是 MemWhiz(記憶天才)，您的智能英語學習夥伴！🧠✨\n\n請使用 Mini App 體驗完整功能，或使用以下命令：", reply_markup=keyboard)
 
 

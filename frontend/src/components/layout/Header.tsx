@@ -135,11 +135,26 @@ const Header: React.FC = () => {
         {/* 用戶狀態指示器和導航 */}
         <div className={`rounded-lg backdrop-blur-sm p-3 shadow-sm ring-1 ${isDarkMode ? 'bg-slate-800/60 ring-slate-600/30' : 'bg-white/60 ring-blue-200/30'}`}>
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-2 sm:space-x-3">
+              {/* MemWhiz Logo */}
+              <div className="flex items-center space-x-1.5 sm:space-x-2">
+                <img 
+                  src="/logo/logo.png" 
+                  alt="MemWhiz Logo" 
+                  className="w-7 h-7 sm:w-8 sm:h-8 rounded-full shadow-sm"
+                />
+                <span className={`text-xs sm:text-sm font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                  MemWhiz
+                </span>
+              </div>
+
+              {/* 分隔線 - 只在較大螢幕顯示 */}
+              <div className={`w-px h-6 ${isDarkMode ? 'bg-slate-600' : 'bg-gray-300'} hidden sm:block`}></div>
+
               {!isHomePage && (
                 <motion.button
                   onClick={handleBack}
-                  className={`p-2 rounded-lg transition-colors ${isDarkMode ? 'bg-slate-700/50 hover:bg-slate-700' : 'bg-blue-100/50 hover:bg-blue-100'}`}
+                  className={`p-1.5 sm:p-2 rounded-lg transition-colors ${isDarkMode ? 'bg-slate-700/50 hover:bg-slate-700' : 'bg-blue-100/50 hover:bg-blue-100'}`}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
@@ -149,22 +164,22 @@ const Header: React.FC = () => {
               
               {isLocalTestMode ? (
                 <>
-                  <Smartphone className="w-5 h-5 text-orange-500" />
-                  <span className={`text-sm font-medium ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>
-                    本地測試模式 - {user?.first_name}
+                  <Smartphone className="w-4 h-4 sm:w-5 sm:h-5 text-orange-500" />
+                  <span className={`text-xs sm:text-sm font-medium ${isDarkMode ? 'text-slate-200' : 'text-slate-700'} truncate max-w-32 sm:max-w-none`}>
+                    {isMobile ? '本地測試' : `本地測試模式 - ${user?.first_name}`}
                   </span>
                 </>
               ) : (
                 <>
-                  <Bot className="w-5 h-5 text-blue-500" />
-                  <span className={`text-sm font-medium ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>
-                    Telegram 用戶 - {user?.first_name}
+                  <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500" />
+                  <span className={`text-xs sm:text-sm font-medium ${isDarkMode ? 'text-slate-200' : 'text-slate-700'} truncate max-w-32 sm:max-w-none`}>
+                    {isMobile ? 'Telegram' : `Telegram 用戶 - ${user?.first_name}`}
                   </span>
                 </>
               )}
             </div>
 
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2 sm:space-x-4">
               {/* 桌面版導航連結 */}
               {!isMobile && (
                 <div className="hidden lg:flex items-center space-x-2">
@@ -201,9 +216,9 @@ const Header: React.FC = () => {
               )}
 
               {/* 連接狀態 */}
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-1 sm:space-x-2">
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>已連接</span>
+                <span className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-slate-500'} hidden sm:inline`}>已連接</span>
               </div>
             </div>
           </div>

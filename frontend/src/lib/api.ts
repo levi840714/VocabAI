@@ -2,7 +2,7 @@ import { StructuredAIResponse, DeepLearningAIResponse } from './types';
 import { createTelegramAuthHeader, isLocalDevelopment } from '../hooks/use-telegram';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
-  (import.meta.env.DEV ? 'http://localhost:8000/api' : 'https://vocab-ai-backend-909144458673.asia-east1.run.app/api');
+  (import.meta.env.DEV ? 'http://localhost:8000/api' : 'https://memwhiz-backend-909144458673.asia-east1.run.app/api');
 
 export interface Word {
   id: number;
@@ -100,13 +100,13 @@ export interface UserSettingsUpdate {
   study_settings?: StudySettings;
 }
 
-class VocabotAPI {
+class MemWhizAPI {
   private baseUrl: string;
   private telegramAuthData: string | null = null;
 
   constructor(baseUrl: string = API_BASE_URL) {
     this.baseUrl = baseUrl;
-    console.log('VocabotAPI initialized with baseUrl:', this.baseUrl);
+    console.log('MemWhizAPI initialized with baseUrl:', this.baseUrl);
     console.log('Environment variables:', {
       VITE_API_BASE_URL: import.meta.env.VITE_API_BASE_URL,
       DEV: import.meta.env.DEV,
@@ -200,7 +200,14 @@ class VocabotAPI {
   }
 
   async getWordById(wordId: number): Promise<WordDetail> {
-    return this.request(`/v1/words/${wordId}`);
+    let endpoint = `/v1/words/${wordId}`;
+    
+    // 本地測試模式下添加 user_id 參數
+    if (isLocalDevelopment() && !this.telegramAuthData) {
+      endpoint += '?user_id=613170570';
+    }
+    
+    return this.request(endpoint);
   }
 
   // Review endpoints
@@ -328,4 +335,4 @@ class VocabotAPI {
   }
 }
 
-export const vocabotAPI = new VocabotAPI();
+export const memWhizAPI = new MemWhizAPI();

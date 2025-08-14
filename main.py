@@ -136,7 +136,7 @@ async def setup_api_routes(app):
             
             # Get config for db_path
             config = load_config()
-            db_path = config.get('database', {}).get('db_path', 'vocabot.db')
+            db_path = config.get('database', {}).get('db_path', 'memwhiz.db')
             
             # Get words (returns tuple of words list and total count)
             words, total_count = await get_user_words(db_path, user_id)
@@ -168,7 +168,7 @@ async def setup_api_routes(app):
             
             # Get config for db_path
             config = load_config()
-            db_path = config.get('database', {}).get('db_path', 'vocabot.db')
+            db_path = config.get('database', {}).get('db_path', 'memwhiz.db')
             
             # Get stats
             stats = await get_user_stats(db_path, user_id)
@@ -179,7 +179,7 @@ async def setup_api_routes(app):
             return web.json_response({'error': str(e)}, status=400)
     
     async def health_handler(request):
-        return web.json_response({'status': 'healthy', 'service': 'vocabot-api'})
+        return web.json_response({'status': 'healthy', 'service': 'memwhiz-api'})
     
     # 全域 GCS 同步管理器 (在 main 函數中設定)
     global gcs_sync_manager

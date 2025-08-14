@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react"
-import { RefreshCw, Check, Clock, RotateCcw } from "lucide-react"
+import { RefreshCw, Check, Clock, RotateCcw, Volume2, RotateCcwSquare } from "lucide-react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
-import { vocabotAPI, type WordDetail } from "@/lib/api"
+import { memWhizAPI, type WordDetail } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
-import StructuredWordDetailsDialog from "./StructuredWordDetailsDialog"
 import { parseStructuredResponse } from "@/lib/parseStructuredResponse"
+import { motion } from "framer-motion"
 
 interface StudyModeProps {
   onAIAnalysisClick?: (word: string) => void;
@@ -15,10 +15,11 @@ interface StudyModeProps {
 
 export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
   const [currentWord, setCurrentWord] = useState<WordDetail | null>(null)
-  const [showDefinitionDialog, setShowDefinitionDialog] = useState(false)
+  const [isFlipped, setIsFlipped] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [reviewCount, setReviewCount] = useState(0)
   const [stats, setStats] = useState({ total_words: 0, due_today: 0, reviewed_today: 0 })
+  const [isTransitioning, setIsTransitioning] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -28,7 +29,7 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
 
   const loadStats = async () => {
     try {
-      const statsData = await vocabotAPI.getStats()
+      const statsData = await memWhizAPI.getStats()
       setStats(statsData)
     } catch (error) {
       console.error('載入統計失敗:', error)
@@ -38,7 +39,7 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
   const loadNextReview = async () => {
     setIsLoading(true)
     try {
-      const result = await vocabotAPI.getNextReview()
+      const result = await memWhizAPI.getNextReview()
       
       if ('message' in result) {
         setCurrentWord(null)
@@ -48,7 +49,7 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
         })
       } else {
         setCurrentWord(result)
-        setShowDefinitionDialog(false)
+        setIsFlipped(false) // 重置翻牌狀態
       }
     } catch (error) {
       console.error('載入複習單字失敗:', error)
@@ -66,8 +67,10 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
     if (!currentWord) return
     
     setIsLoading(true)
+    setIsTransitioning(true)
+    
     try {
-      const result = await vocabotAPI.submitReview(currentWord.id, response)
+      const result = await memWhizAPI.submitReview(currentWord.id, response)
       
       toast({
         title: "複習完成",
@@ -78,7 +81,12 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
       
       setReviewCount(prev => prev + 1)
       await loadStats()
-      await loadNextReview()
+      
+      // 等待退場動畫完成後再載入下一個單字
+      setTimeout(async () => {
+        await loadNextReview()
+        setIsTransitioning(false)
+      }, 400)
       
     } catch (error) {
       console.error('提交複習結果失敗:', error)
@@ -87,12 +95,26 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
         description: "無法提交複習結果",
         variant: "destructive"
       })
+      setIsTransitioning(false)
     } finally {
       setIsLoading(false)
     }
   }
 
-  const handleToggleDefinition = () => setShowDefinitionDialog(true)
+  const handleFlipCard = () => setIsFlipped(!isFlipped)
+
+  const handlePronunciation = (text: string) => {
+    if ('speechSynthesis' in window) {
+      const utterance = new SpeechSynthesisUtterance(text)
+      utterance.lang = 'en-US'
+      utterance.rate = 0.8
+      speechSynthesis.speak(utterance)
+    } else {
+      // Fallback to Google Translate TTS
+      const audio = new Audio(`https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=en&client=tw-ob`)
+      audio.play().catch(console.error)
+    }
+  }
 
   const getDifficultyColor = (difficulty: number) => {
     if (difficulty <= 1.5) return "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200"
@@ -116,6 +138,11 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
     }
     
     return null
+  }
+
+  const getStructuredData = (word: WordDetail) => {
+    if (!word.initial_ai_explanation) return null
+    return parseStructuredResponse(word.initial_ai_explanation)
   }
 
   if (isLoading && !currentWord) {
@@ -157,16 +184,14 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
 
   return (
     <div className="max-w-2xl mx-auto p-4">
-      {/* 統計資訊 - 修復間距問題 */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3">
-        <div className="flex flex-wrap gap-2 md:gap-4 text-sm text-sky-800/80 dark:text-sky-200">
-          <span className="bg-sky-50 dark:bg-sky-900/30 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm">已複習: {reviewCount}</span>
-          <span className="bg-orange-50 dark:bg-orange-900/30 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm">待複習: {stats.due_today}</span>
-          <span className="bg-purple-50 dark:bg-purple-900/30 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm">總詞庫: {stats.total_words}</span>
-        </div>
-        <Badge className={`${getDifficultyColor(currentWord.difficulty)} px-3 py-1`}>
+      {/* 統計資訊 - 四個標籤並排 */}
+      <div className="flex flex-wrap justify-center gap-2 mb-6">
+        <span className="bg-sky-50 dark:bg-sky-900/30 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm text-sky-800 dark:text-sky-200">已複習: {reviewCount}</span>
+        <span className="bg-orange-50 dark:bg-orange-900/30 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm text-orange-800 dark:text-orange-200">待複習: {stats.due_today}</span>
+        <span className="bg-purple-50 dark:bg-purple-900/30 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm text-purple-800 dark:text-purple-200">總詞庫: {stats.total_words}</span>
+        <span className={`${getDifficultyColor(currentWord.difficulty)} px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm`}>
           難度: {getDifficultyText(currentWord.difficulty)}
-        </Badge>
+        </span>
       </div>
 
       {/* 複習進度 - 美化設計 */}
@@ -184,58 +209,209 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
         </div>
       </div>
 
-      {/* 單字卡片 - 美化設計 */}
-      <Card className="w-full min-h-[380px] sm:h-[420px] flex flex-col ring-1 ring-slate-200/50 dark:ring-slate-700/50 bg-gradient-to-br from-white to-slate-50/30 dark:from-slate-800 dark:to-slate-800/70 backdrop-blur-sm shadow-lg">
-        <CardHeader className="text-center pb-2 px-4 sm:px-6">
-          <div className="flex justify-between items-start mb-4">
-            <Badge variant="outline" className="text-xs bg-sky-50 dark:bg-sky-900/30 border-sky-200 dark:border-sky-700">
-              <Clock className="h-3 w-3 mr-1" />
-              {new Date(currentWord.next_review).toLocaleDateString()}
-            </Badge>
-            <Badge variant="outline" className="text-xs bg-slate-50 dark:bg-slate-700 border-slate-200 dark:border-slate-600">
-              #{currentWord.id}
-            </Badge>
-          </div>
-          <div className="mt-6 mb-4">
-            <CardTitle className="text-2xl sm:text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-2">
-              {currentWord.word}
-            </CardTitle>
-            <div className="w-16 h-1 bg-gradient-to-r from-sky-400 to-blue-500 rounded-full mx-auto"></div>
-          </div>
-          {(() => {
-            const exampleSentence = getExampleSentence(currentWord)
-            return exampleSentence ? (
-              <CardDescription className="text-sm mt-4 text-slate-600 dark:text-slate-300 italic line-clamp-2 px-2">
-                <div className="bg-slate-50 dark:bg-slate-700 rounded-lg p-3 border-l-4 border-sky-300 dark:border-sky-600">
-                  "{exampleSentence}"
+      {/* 翻轉卡片容器 */}
+      <div className="relative w-full h-[320px] sm:h-[350px] perspective-1000">
+        <motion.div
+          className="relative w-full h-full preserve-3d cursor-pointer"
+          animate={{ 
+            rotateY: isFlipped ? 180 : 0,
+            scale: isTransitioning ? 0.95 : 1,
+            opacity: isTransitioning ? 0.7 : 1
+          }}
+          transition={{ 
+            rotateY: { duration: 0.6, ease: "easeInOut" },
+            scale: { duration: 0.4, ease: "easeInOut" },
+            opacity: { duration: 0.4, ease: "easeInOut" }
+          }}
+          onClick={handleFlipCard}
+          style={{ transformStyle: 'preserve-3d' }}
+        >
+          {/* 正面 - 單字卡片 */}
+          <Card className="absolute inset-0 w-full h-full flex flex-col ring-1 ring-slate-200/50 dark:ring-slate-700/50 bg-gradient-to-br from-white to-slate-50/30 dark:from-slate-800 dark:to-slate-800/70 backdrop-blur-sm shadow-lg"
+                style={{ backfaceVisibility: 'hidden' }}>
+            <CardHeader className="text-center pb-1 px-4 sm:px-6">
+              <div className="flex justify-between items-start mb-2">
+                <Badge variant="outline" className="text-xs bg-sky-50 dark:bg-sky-900/30 border-sky-200 dark:border-sky-700">
+                  <Clock className="h-3 w-3 mr-1" />
+                  {new Date(currentWord.next_review).toLocaleDateString()}
+                </Badge>
+                <Badge variant="outline" className="text-xs bg-slate-50 dark:bg-slate-700 border-slate-200 dark:border-slate-600">
+                  #{currentWord.id}
+                </Badge>
+              </div>
+              <div className="mt-3 mb-3">
+                <div className="relative mb-2">
+                  {/* 單字標題 - 完全置中 */}
+                  <CardTitle className="text-2xl sm:text-3xl md:text-4xl font-bold text-slate-900 dark:text-white text-center">
+                    {currentWord.word}
+                  </CardTitle>
+                  {/* 喇叭按鈕 - 絕對定位於右側 */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handlePronunciation(currentWord.word)
+                    }}
+                    className="absolute right-0 top-1/2 transform -translate-y-1/2 p-2 h-auto text-sky-600 dark:text-sky-400 hover:text-sky-700 dark:hover:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-900/30"
+                  >
+                    <Volume2 className="h-5 w-5" />
+                  </Button>
                 </div>
-              </CardDescription>
-            ) : null
-          })()}
-        </CardHeader>
+                <div className="w-16 h-1 bg-gradient-to-r from-sky-400 to-blue-500 rounded-full mx-auto"></div>
+              </div>
+              {(() => {
+                const exampleSentence = getExampleSentence(currentWord)
+                return exampleSentence ? (
+                  <div className="text-sm mt-2 text-slate-600 dark:text-slate-300 italic line-clamp-2 px-2">
+                    <div className="bg-slate-50 dark:bg-slate-700 rounded-lg p-2 border-l-4 border-sky-300 dark:border-sky-600">
+                      "{exampleSentence}"
+                    </div>
+                  </div>
+                ) : null
+              })()}
+            </CardHeader>
 
-        <CardContent className="flex-grow flex items-center justify-center px-4 sm:px-6">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleToggleDefinition}
-            className="w-16 h-16 p-0 rounded-xl bg-white/80 dark:bg-slate-700/80 border-2 border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600 hover:border-slate-300 dark:hover:border-slate-500 transition-all duration-200 shadow-md text-xs font-medium"
-            disabled={isLoading}
+            <CardContent className="flex items-center justify-center px-4 sm:px-6 py-4">
+              <div className="text-center opacity-60">
+                <RotateCcwSquare className="h-5 w-5 mx-auto mb-1 text-slate-400 dark:text-slate-500" />
+                <p className="text-xs text-slate-500 dark:text-slate-400">點擊查看解釋</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 背面 - 解釋內容 */}
+          <Card 
+            className="absolute inset-0 w-full h-full flex flex-col ring-1 ring-slate-200/50 dark:ring-slate-700/50 bg-gradient-to-br from-emerald-50 to-teal-50/30 dark:from-emerald-900/20 dark:to-teal-900/20 backdrop-blur-sm shadow-lg"
+            style={{ transform: 'rotateY(180deg)', backfaceVisibility: 'hidden' }}
           >
-            <div className="flex flex-col items-center justify-center leading-tight">
-              {isLoading ? (
-                <span>載入中</span>
-              ) : (
-                <>
-                  <span>顯示</span>
-                  <span>解釋</span>
-                </>
-              )}
-            </div>
-          </Button>
-        </CardContent>
+            <CardHeader className="text-center pb-1 px-4 sm:px-6">
+              <div className="flex justify-between items-start mb-2">
+                <Badge variant="outline" className="text-xs bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-700">
+                  解釋
+                </Badge>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleFlipCard()
+                  }}
+                  className="text-xs text-slate-600 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                >
+                  <RotateCcwSquare className="h-4 w-4 mr-1" />
+                  返回
+                </Button>
+              </div>
+              <CardTitle className="text-xl font-bold text-slate-900 dark:text-white mb-2">
+                {currentWord.word}
+              </CardTitle>
+            </CardHeader>
 
-        <CardFooter className="pt-4 pb-4 sm:pt-6 sm:pb-6 border-t bg-gradient-to-r from-sky-50/60 to-blue-50/40 dark:from-sky-900/20 dark:to-blue-900/20 px-3 sm:px-6">
+            <CardContent className="flex-grow overflow-y-auto px-4 sm:px-6">
+              {(() => {
+                const structuredData = getStructuredData(currentWord)
+                if (structuredData) {
+                  return (
+                    <div className="space-y-3 text-sm leading-relaxed">
+                      {/* 音標 */}
+                      {structuredData.phonetic && (
+                        <div className="text-center">
+                          <span className="text-xl text-slate-600 dark:text-slate-300 font-mono tracking-wide">
+                            {structuredData.phonetic}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* 定義 */}
+                      {structuredData.definitions && structuredData.definitions.length > 0 && (
+                        <div>
+                          <h4 className="font-bold text-slate-900 dark:text-white mb-2 text-base">定義：</h4>
+                          <ul className="space-y-2">
+                            {structuredData.definitions.slice(0, 3).map((def, index) => (
+                              <li key={index} className="text-slate-800 dark:text-slate-200">
+                                <span className="font-semibold text-emerald-600 dark:text-emerald-400 text-sm">
+                                  {def.part_of_speech}
+                                </span>
+                                <ul className="mt-1 ml-4 space-y-1">
+                                  {def.meanings.slice(0, 2).map((meaning, mIndex) => (
+                                    <li key={mIndex} className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+                                      • {meaning.definition}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* 例句 */}
+                      {structuredData.examples && structuredData.examples.length > 0 && (
+                        <div>
+                          <h4 className="font-bold text-slate-900 dark:text-white mb-2 text-base">例句：</h4>
+                          <div className="space-y-2">
+                            {structuredData.examples.slice(0, 2).map((example, index) => (
+                              <div key={index} className="bg-white/60 dark:bg-slate-700/60 rounded-lg p-3 italic text-slate-800 dark:text-slate-200 text-sm leading-relaxed">
+                                "{example}"
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handlePronunciation(example)
+                                  }}
+                                  className="ml-2 p-1 h-auto text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300"
+                                >
+                                  <Volume2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 同義詞 */}
+                      {structuredData.synonyms && structuredData.synonyms.length > 0 && (
+                        <div>
+                          <h4 className="font-bold text-slate-900 dark:text-white mb-2 text-base">同義詞：</h4>
+                          <div className="flex flex-wrap gap-2">
+                            {structuredData.synonyms.slice(0, 6).map((synonym, index) => (
+                              <Badge key={index} variant="outline" className="text-xs bg-emerald-50 dark:bg-emerald-900/30 font-medium">
+                                {synonym}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                } else {
+                  return (
+                    <div className="text-center text-slate-600 dark:text-slate-400">
+                      <p>解釋內容載入中...</p>
+                    </div>
+                  )
+                }
+              })()}
+            </CardContent>
+          </Card>
+        </motion.div>
+      </div>
+
+      {/* 複習評估按鈕 - 始終顯示 */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ 
+          opacity: isTransitioning ? 0.5 : 1, 
+          y: isTransitioning ? 10 : 0,
+          scale: isTransitioning ? 0.98 : 1
+        }}
+        exit={{ opacity: 0, y: 20 }}
+        transition={{ duration: 0.3, delay: 0.1 }}
+      >
+          <Card className="mt-6">
+            <CardFooter className="pt-4 pb-4 sm:pt-6 sm:pb-6 border-t bg-gradient-to-r from-emerald-50/60 to-teal-50/40 dark:from-emerald-900/20 dark:to-teal-900/20 px-3 sm:px-6">
           {/* Mobile layout - 美化手機版按鈕 */}
           <div className="w-full space-y-3 sm:hidden">
             <Button
@@ -328,20 +504,9 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
               </Button>
             </div>
           </div>
-        </CardFooter>
-      </Card>
-      
-      {/* Explanation Dialog */}
-      <StructuredWordDetailsDialog
-        open={showDefinitionDialog}
-        onClose={() => setShowDefinitionDialog(false)}
-        word={currentWord || undefined}
-        onNotesUpdate={() => {
-          // Refresh the current word data after notes update
-          loadNextReview()
-        }}
-        onAIAnalysisClick={onAIAnalysisClick}
-      />
+            </CardFooter>
+          </Card>
+      </motion.div>
     </div>
   )
 }

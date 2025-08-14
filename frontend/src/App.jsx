@@ -34,7 +34,7 @@ function App() {
       <AppBar position="static">
         <Toolbar>
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            Vocab.ai Mini App
+            MemWhiz Mini App
           </Typography>
         </Toolbar>
       </AppBar>

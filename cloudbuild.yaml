@@ -1,7 +1,7 @@
 substitutions:
   _REGION: asia-east1
-  _SERVICE_NAME: vocab-ai-backend
-  _REPO: gcr.io/${PROJECT_ID}/vocab-ai-backend
+  _SERVICE_NAME: memwhiz-backend
+  _REPO: gcr.io/${PROJECT_ID}/memwhiz-backend
 
 steps:
   # 1) Build & push image

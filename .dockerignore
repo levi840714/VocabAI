@@ -24,7 +24,7 @@ pip-delete-this-directory.txt
 
 # 本地配置和資料文件
 config.yaml
-vocabot.db
+memwhiz.db
 *.db
 *.sqlite
 *.sqlite3

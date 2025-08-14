@@ -3,7 +3,7 @@ import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography, 
 import { ExternalLink, Volume2, Edit, Save, X, Brain } from 'lucide-react';
 import StructuredWordDisplay from './StructuredWordDisplay';
 import { parseStructuredResponse, cleanStructuredResponse } from '../lib/parseStructuredResponse';
-import { vocabotAPI } from '@/lib/api';
+import { memWhizAPI } from '@/lib/api';
 import { useSettings } from '@/contexts/SettingsContext';
 
 interface WordDetailsDialogProps {
@@ -92,7 +92,7 @@ const StructuredWordDetailsDialog: React.FC<WordDetailsDialogProps> = ({ open, o
 
     setIsUpdating(true);
     try {
-      await vocabotAPI.updateWordNotes(word.id, notesValue);
+      await memWhizAPI.updateWordNotes(word.id, notesValue);
       setIsEditingNotes(false);
       if (onNotesUpdate) {
         onNotesUpdate(); // Refresh the word list data

@@ -7,7 +7,7 @@ import { TelegramProvider, useAuth } from "@/contexts/TelegramContext"
 import { SettingsProvider, useSettings } from "@/contexts/SettingsContext"
 import { ClickableTextProvider } from "@/contexts/ClickableTextContext"
 import { BackgroundProvider } from "@/contexts/BackgroundContext"
-import { createVocabotMuiTheme } from "@/theme/muiTheme"
+import { createMemWhizMuiTheme } from "@/theme/muiTheme"
 import BackgroundScene from "@/components/background-scene"
 import AppRouter from "@/router/AppRouter"
 import { User } from "lucide-react"
@@ -16,7 +16,7 @@ import { User } from "lucide-react"
 const applyEarlyTheme = () => {
   try {
     console.log('🚀 [Early Theme] 開始早期主題應用');
-    const localSettings = localStorage.getItem('vocabot_user_settings');
+    const localSettings = localStorage.getItem('memwhiz_user_settings');
     if (localSettings) {
       const parsed = JSON.parse(localSettings);
       const themeMode = parsed.interface_settings?.theme_mode || 'light';
@@ -58,7 +58,7 @@ function AppContent() {
   const { isDarkMode } = useSettings();
 
   // 創建 MUI 主題
-  const muiTheme = createVocabotMuiTheme(isDarkMode);
+  const muiTheme = createMemWhizMuiTheme(isDarkMode);
 
   if (!isAuthenticated) {
     return (

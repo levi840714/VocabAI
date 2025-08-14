@@ -2,7 +2,7 @@ telegram:
   bot_token: "YOUR_TELEGRAM_BOT_TOKEN"
 
 database:
-  db_path: "vocabot.db"
+  db_path: "memwhiz.db"
 
 # 用戶存取控制
 access_control:
