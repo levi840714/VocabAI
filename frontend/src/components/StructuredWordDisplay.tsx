@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { StructuredAIResponse } from '../lib/types';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
-import { Volume2 } from 'lucide-react';
+import { Volume2, MessageSquare } from 'lucide-react';
 import ClickableTextWrapper from './ClickableTextWrapper';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useVoice } from '@/hooks/useVoice';
@@ -12,11 +12,13 @@ interface StructuredWordDisplayProps {
   onAIAnalysisClick?: (word: string) => void;
   onWordAdded?: (word: string) => void;
   showFullDetails?: boolean;
+  onSentenceAnalysis?: (sentence: string) => void;
 }
 
-const StructuredWordDisplay: React.FC<StructuredWordDisplayProps> = ({ data, onAIAnalysisClick, onWordAdded, showFullDetails = false }) => {
+const StructuredWordDisplay: React.FC<StructuredWordDisplayProps> = ({ data, onAIAnalysisClick, onWordAdded, showFullDetails = false, onSentenceAnalysis }) => {
   const { shouldShowPronunciation } = useSettings();
   const { speakWord, speakSentence } = useVoice();
+  const [activeExampleMenu, setActiveExampleMenu] = useState<number | null>(null);
   
   // Handle pronunciation for text (word or sentence)
   const handlePronunciation = async (text: string) => {
@@ -187,7 +189,7 @@ const StructuredWordDisplay: React.FC<StructuredWordDisplayProps> = ({ data, onA
                 <div className="relative">
                   <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-blue-400 to-indigo-500 rounded-full"></div>
                   <ClickableTextWrapper 
-                    className="pl-6 text-slate-800 dark:text-slate-100 italic pr-16 text-sm md:text-base lg:text-lg leading-relaxed font-medium block"
+                    className="pl-6 text-slate-800 dark:text-slate-100 italic text-sm md:text-base lg:text-lg leading-relaxed font-medium block"
                     onAIAnalysisClick={onAIAnalysisClick}
                     onWordAdded={onWordAdded}
                   >
@@ -195,15 +197,56 @@ const StructuredWordDisplay: React.FC<StructuredWordDisplayProps> = ({ data, onA
                   </ClickableTextWrapper>
                 </div>
                 
-                {/* 發音按鈕 */}
-                <button
-                  onClick={() => handlePronunciation(example)}
-                  className="absolute top-4 right-4 p-3 rounded-xl bg-white/90 dark:bg-slate-600/90 backdrop-blur-sm shadow-lg border-2 border-blue-200/50 dark:border-slate-500/50 hover:bg-blue-50/90 dark:hover:bg-slate-500/90 hover:border-blue-400 dark:hover:border-blue-400 hover:shadow-xl hover:scale-110 opacity-0 group-hover:opacity-100 transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-blue-200/50"
-                  title="聆聽例句發音"
-                  aria-label="聆聽例句發音"
-                >
-                  <Volume2 size={18} className="text-blue-600 dark:text-blue-400" />
-                </button>
+                {/* 桌面版懸浮操作按鈕 */}
+                <div className="hidden md:block absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-all duration-300">
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handlePronunciation(example)}
+                      className="p-3 rounded-xl bg-white/90 dark:bg-slate-600/90 backdrop-blur-sm shadow-lg border-2 border-blue-200/50 dark:border-slate-500/50 hover:bg-blue-50/90 dark:hover:bg-slate-500/90 hover:border-blue-400 dark:hover:border-blue-400 hover:shadow-xl hover:scale-110 transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-blue-200/50"
+                      title="聆聽例句發音"
+                      aria-label="聆聽例句發音"
+                    >
+                      <Volume2 size={16} className="text-blue-600 dark:text-blue-400" />
+                    </button>
+                    {onSentenceAnalysis && (
+                      <button
+                        onClick={() => onSentenceAnalysis(example)}
+                        className="p-3 rounded-xl bg-white/90 dark:bg-slate-600/90 backdrop-blur-sm shadow-lg border-2 border-green-200/50 dark:border-slate-500/50 hover:bg-green-50/90 dark:hover:bg-slate-500/90 hover:border-green-400 dark:hover:border-green-400 hover:shadow-xl hover:scale-110 transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-green-200/50"
+                        title="句子語法分析"
+                        aria-label="句子語法分析"
+                      >
+                        <MessageSquare size={16} className="text-green-600 dark:text-green-400" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* 手機版操作區域 */}
+                <div className="md:hidden mt-4 pt-4 border-t-2 border-gradient-to-r from-blue-200/20 via-indigo-200/40 to-blue-200/20 dark:from-blue-900/10 dark:via-indigo-900/20 dark:to-blue-900/10">
+                  <div className="flex items-center justify-between pl-6">
+                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400 tracking-wide">例句操作</span>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handlePronunciation(example)}
+                        className="p-2.5 rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 text-blue-600 dark:text-blue-400 hover:from-blue-100 hover:to-indigo-100 dark:hover:from-blue-900/40 dark:hover:to-indigo-900/40 transition-all duration-200 shadow-sm border border-blue-200/30 dark:border-blue-700/30"
+                        title="聆聽例句發音"
+                        aria-label="聆聽例句發音"
+                      >
+                        <Volume2 size={15} />
+                      </button>
+                      {onSentenceAnalysis && (
+                        <button
+                          onClick={() => onSentenceAnalysis(example)}
+                          className="p-2.5 rounded-lg bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 text-green-600 dark:text-green-400 hover:from-green-100 hover:to-emerald-100 dark:hover:from-green-900/40 dark:hover:to-emerald-900/40 transition-all duration-200 shadow-sm border border-green-200/30 dark:border-green-700/30"
+                          title="句子語法分析"
+                          aria-label="句子語法分析"
+                        >
+                          <MessageSquare size={15} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
                 
                 {/* 底部裝飾線 */}
                 <div className="absolute bottom-0 left-6 right-6 h-0.5 bg-gradient-to-r from-transparent via-blue-200 to-transparent dark:from-transparent dark:via-blue-600/30 dark:to-transparent"></div>

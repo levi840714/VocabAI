@@ -52,8 +52,8 @@ class ReviewResponse(BaseModel):
     next_review_date: Optional[str] = None
 
 class AIExplanationRequest(BaseModel):
-    word: str = Field(..., min_length=1, max_length=100)
-    explanation_type: str = Field(..., pattern=r"^(simple|deep)$", description="Type of explanation: simple or deep")
+    text: str = Field(..., min_length=1, max_length=500, description="English word or sentence to analyze")
+    explanation_type: str = Field(..., pattern=r"^(simple|deep|sentence)$", description="Type of explanation: simple, deep, or sentence")
 
 # Structured AI Response Models
 class WordMeaning(BaseModel):
@@ -147,11 +147,121 @@ class DeepLearningAIResponse(BaseModel):
                         obj['collocations'][key] = [item for item in obj['collocations'][key] if item is not None]
         return super().model_validate(obj)
 
+
+class StatsResponse(BaseModel):
+    total_words: int
+    due_today: int
+    reviewed_today: int
+    difficulty_distribution: Dict[int, int]
+
+class HealthResponse(BaseModel):
+    status: str
+    message: str
+    timestamp: datetime
+
+class ErrorResponse(BaseModel):
+    detail: str
+    error_code: Optional[str] = None
+
+class UpdateNotesRequest(BaseModel):
+    notes: Optional[str] = Field(None, description="User's personal notes for the word")
+
+# User Settings Models
+class LearningPreferences(BaseModel):
+    daily_review_target: int = Field(default=20, ge=1, le=100, description="每日複習目標數量")
+    difficulty_preference: str = Field(default="mixed", pattern=r"^(easy|normal|hard|mixed)$", description="難度偏好")
+    review_reminder_enabled: bool = Field(default=True, description="是否開啟複習提醒")
+    review_reminder_time: str = Field(default="09:00", pattern=r"^([01]?[0-9]|2[0-3]):[0-5][0-9]$", description="複習提醒時間")
+
+class InterfaceSettings(BaseModel):
+    voice_auto_play: bool = Field(default=False, description="語音自動播放")
+    theme_mode: str = Field(default="light", pattern=r"^(light|dark|auto)$", description="主題模式")
+    language: str = Field(default="zh-TW", description="介面語言")
+    animation_enabled: bool = Field(default=True, description="動畫效果")
+
+class AISettings(BaseModel):
+    default_explanation_type: str = Field(default="simple", pattern=r"^(simple|deep)$", description="預設AI解釋類型")
+    ai_provider_preference: str = Field(default="google", description="AI服務提供商偏好")
+    explanation_detail_level: str = Field(default="standard", pattern=r"^(concise|standard|detailed)$", description="解釋詳細程度")
+
+class StudySettings(BaseModel):
+    spaced_repetition_algorithm: str = Field(default="sm2", description="間隔重複算法")
+    show_pronunciation: bool = Field(default=True, description="顯示音標")
+    show_etymology: bool = Field(default=True, description="顯示詞源")
+    auto_mark_learned_threshold: int = Field(default=5, ge=3, le=10, description="自動標記為已學會的閾值")
+
+class UserSettings(BaseModel):
+    user_id: int
+    learning_preferences: LearningPreferences
+    interface_settings: InterfaceSettings
+    ai_settings: AISettings
+    study_settings: StudySettings
+    created_at: datetime
+    updated_at: datetime
+
+class UserSettingsCreate(BaseModel):
+    learning_preferences: Optional[LearningPreferences] = Field(default_factory=LearningPreferences)
+    interface_settings: Optional[InterfaceSettings] = Field(default_factory=InterfaceSettings)
+    ai_settings: Optional[AISettings] = Field(default_factory=AISettings)
+    study_settings: Optional[StudySettings] = Field(default_factory=StudySettings)
+
+class UserSettingsUpdate(BaseModel):
+    learning_preferences: Optional[LearningPreferences] = None
+    interface_settings: Optional[InterfaceSettings] = None
+    ai_settings: Optional[AISettings] = None
+    study_settings: Optional[StudySettings] = None
+
+class UserSettingsResponse(BaseModel):
+    user_id: int
+    learning_preferences: LearningPreferences
+    interface_settings: InterfaceSettings
+    ai_settings: AISettings
+    study_settings: StudySettings
+    created_at: datetime
+    updated_at: datetime
+
+# Sentence Analysis Models
+class GrammarComponent(BaseModel):
+    component: str = Field(..., description="語法成分（主語、謂語、賓語等）")
+    text: str = Field(..., description="對應的文字內容")
+    explanation: str = Field(..., description="中文解釋")
+
+class TenseAnalysis(BaseModel):
+    tense_name: str = Field(..., description="時態名稱")
+    tense_form: str = Field(..., description="時態形式")
+    usage_explanation: str = Field(..., description="使用情況說明")
+
+class VocabularyBreakdown(BaseModel):
+    word: str = Field(..., description="單字")
+    part_of_speech: str = Field(..., description="詞性")
+    meaning: str = Field(..., description="在句子中的含義")
+    function: str = Field(..., description="在句子中的功能")
+
+class SentenceAnalysisResponse(BaseModel):
+    sentence: str = Field(..., description="分析的句子")
+    sentence_type: str = Field(..., description="句型類型")
+    grammar_structure: List[GrammarComponent] = Field(..., description="語法結構分析")
+    tense_analysis: TenseAnalysis = Field(..., description="時態分析")
+    key_grammar_points: List[str] = Field(default=[], description="重要語法點")
+    vocabulary_breakdown: List[VocabularyBreakdown] = Field(..., description="詞彙分解")
+    rewrite_suggestions: List[str] = Field(default=[], description="改寫建議")
+    learning_tips: str = Field(..., description="學習提示")
+    difficulty_level: str = Field(..., description="句子難度等級")
+    
+    @classmethod
+    def model_validate(cls, obj):
+        # Clean null values from lists before validation
+        if isinstance(obj, dict):
+            for key in ['key_grammar_points', 'rewrite_suggestions']:
+                if key in obj and isinstance(obj[key], list):
+                    obj[key] = [item for item in obj[key] if item is not None]
+        return super().model_validate(obj)
+
 class AIExplanationResponse(BaseModel):
-    word: str
+    text: str = Field(..., description="分析的文字（單字或句子）")
     explanation: str
     explanation_type: str
-    structured_data: Optional[StructuredAIResponse | DeepLearningAIResponse] = Field(None, description="結構化數據")
+    structured_data: Optional[StructuredAIResponse | DeepLearningAIResponse | SentenceAnalysisResponse] = Field(None, description="結構化數據")
 
 class StatsResponse(BaseModel):
     total_words: int

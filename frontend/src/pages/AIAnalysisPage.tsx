@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAnimation } from '@/hooks/useAnimation';
 import { ThemeCard, ThemeTitle, ThemeText } from '@/components/ui/ThemeComponents';
 import TestStructuredDisplay from '@/components/TestStructuredDisplay';
@@ -9,17 +9,71 @@ import { Sparkles, Zap, Brain } from 'lucide-react';
 
 const AIAnalysisPage: React.FC = () => {
   const [searchParams] = useSearchParams();
+  const location = useLocation();
   const [initialWord, setInitialWord] = useState<string | null>(null);
+  const [initialSentence, setInitialSentence] = useState<string | null>(null);
+  const [cachedState, setCachedState] = useState<any>(null);
   const animation = useAnimation();
   const navigate = useNavigate();
   const { setCallbacks } = useClickableTextContext();
 
   useEffect(() => {
+    const state = location.state as any;
     const word = searchParams.get('word');
-    if (word) {
-      setInitialWord(word);
+    const sentence = searchParams.get('sentence');
+    
+    // 情況1：有緩存狀態但同時有 URL 參數（說明是從其他分析頁跳轉來的新分析）
+    if (state?.cachedAnalysis && (word || sentence)) {
+      console.log('🔄 保存舊狀態緩存，開始新分析:', { word, sentence });
+      setCachedState(state.cachedAnalysis);
+      
+      if (word) {
+        setInitialWord(word);
+        setInitialSentence(null);
+      } else if (sentence) {
+        setInitialSentence(sentence);
+        setInitialWord(null);
+      }
+      return;
     }
-  }, [searchParams]);
+    
+    // 情況2：只有緩存狀態，需要恢復之前的分析結果
+    if (state?.cachedAnalysis && !word && !sentence) {
+      console.log('🔄 恢復緩存的分析狀態:', state.cachedAnalysis);
+      setCachedState(state.cachedAnalysis);
+      
+      if (state.cachedAnalysis.mode === 'word') {
+        setInitialWord(state.cachedAnalysis.inputText);
+        setInitialSentence(null);
+      } else if (state.cachedAnalysis.mode === 'sentence') {
+        setInitialSentence(state.cachedAnalysis.inputText);
+        setInitialWord(null);
+      }
+      return;
+    }
+    
+    // 情況3：直接的句子分析請求（從詞彙詳情頁來）
+    if (state?.directSentenceAnalysis) {
+      console.log('🎯 直接句子分析請求:', state.directSentenceAnalysis);
+      setInitialSentence(state.directSentenceAnalysis);
+      setInitialWord(null);
+      setCachedState(null);
+      return;
+    }
+    
+    // 情況4：常規 URL 參數訪問
+    if (word) {
+      console.log('🔗 URL 參數單字分析:', word);
+      setInitialWord(word);
+      setInitialSentence(null);
+      setCachedState(null);
+    } else if (sentence) {
+      console.log('🔗 URL 參數句子分析:', sentence);
+      setInitialSentence(sentence);
+      setInitialWord(null);
+      setCachedState(null);
+    }
+  }, [searchParams, location.state]);
 
   // 設置全域智能點擊回調
   useEffect(() => {
@@ -42,10 +96,12 @@ const AIAnalysisPage: React.FC = () => {
 
   const handleAnalysisProcessed = () => {
     setInitialWord(null);
+    setInitialSentence(null);
   };
 
   const handleAIAnalysisClick = (word: string) => {
     setInitialWord(word);
+    setInitialSentence(null);
   };
 
   return (
@@ -96,6 +152,8 @@ const AIAnalysisPage: React.FC = () => {
       <ThemeCard variant="default" className="overflow-hidden">
         <TestStructuredDisplay
           initialWord={initialWord}
+          initialSentence={initialSentence}
+          cachedState={cachedState}
           onAnalysisProcessed={handleAnalysisProcessed}
           onAIAnalysisClick={handleAIAnalysisClick}
         />

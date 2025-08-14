@@ -1,4 +1,4 @@
-import { StructuredAIResponse, DeepLearningAIResponse } from './types';
+import { StructuredAIResponse, DeepLearningAIResponse, SentenceAnalysisResponse } from './types';
 import { createTelegramAuthHeader, isLocalDevelopment } from '../hooks/use-telegram';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
@@ -42,10 +42,10 @@ export interface ReviewResponse {
 }
 
 export interface AIExplanationResponse {
-  word: string;
+  text: string;
   explanation: string;
   explanation_type: string;
-  structured_data?: StructuredAIResponse | DeepLearningAIResponse;
+  structured_data?: StructuredAIResponse | DeepLearningAIResponse | SentenceAnalysisResponse;
 }
 
 // User Settings interfaces
@@ -234,13 +234,13 @@ class MemWhizAPI {
 
   // AI explanation
   async getAIExplanation(
-    word: string,
-    explanationType: 'simple' | 'deep' = 'deep'
+    text: string,
+    explanationType: 'simple' | 'deep' | 'sentence' = 'deep'
   ): Promise<AIExplanationResponse> {
     return this.request('/v1/ai/explain', {
       method: 'POST',
       body: JSON.stringify({
-        word,
+        text,
         explanation_type: explanationType,
       }),
     });

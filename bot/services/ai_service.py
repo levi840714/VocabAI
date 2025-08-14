@@ -115,7 +115,7 @@ class AIService:
             print(f"Deep learning error: {e}")
             return "An unexpected error occurred while contacting the AI service."
 
-    def parse_structured_response(self, raw_response: str, is_deep_learning: bool = False) -> dict:
+    def parse_structured_response(self, raw_response: str, is_deep_learning: bool = False, is_sentence_analysis: bool = False) -> dict:
         """Parse JSON response from AI service."""
         try:
             # First try to extract JSON from markdown code block
@@ -131,13 +131,13 @@ class AIService:
                 return json.loads(json_str)
             else:
                 # If no JSON found, return fallback structure
-                return self._create_fallback_structure(raw_response, is_deep_learning)
+                return self._create_fallback_structure(raw_response, is_deep_learning, is_sentence_analysis)
         except json.JSONDecodeError as e:
             print(f"JSON parsing error: {e}")
             # If JSON parsing fails, create fallback structure
-            return self._create_fallback_structure(raw_response, is_deep_learning)
+            return self._create_fallback_structure(raw_response, is_deep_learning, is_sentence_analysis)
 
-    def _create_fallback_structure(self, raw_response: str, is_deep_learning: bool = False) -> dict:
+    def _create_fallback_structure(self, raw_response: str, is_deep_learning: bool = False, is_sentence_analysis: bool = False) -> dict:
         """Create a fallback structured response when JSON parsing fails."""
         basic_structure = {
             "word": "unknown",
@@ -188,6 +188,32 @@ class AIService:
                 "context": "解析失敗"
             }]
             basic_structure["synonyms"] = []
+        elif is_sentence_analysis:
+            # Create sentence analysis fallback structure
+            basic_structure = {
+                "sentence": "unknown",
+                "sentence_type": "未知句型",
+                "grammar_structure": [{
+                    "component": "未知",
+                    "text": "分析失敗",
+                    "explanation": "無法解析句子結構"
+                }],
+                "tense_analysis": {
+                    "tense_name": "未知時態",
+                    "tense_form": "分析失敗",
+                    "usage_explanation": "無法分析時態用法"
+                },
+                "key_grammar_points": ["分析失敗"],
+                "vocabulary_breakdown": [{
+                    "word": "unknown",
+                    "part_of_speech": "未知",
+                    "meaning": "分析失敗",
+                    "function": "無法確定"
+                }],
+                "rewrite_suggestions": ["分析失敗，無法提供建議"],
+                "learning_tips": "抱歉，句子分析失敗，請稍後重試",
+                "difficulty_level": "未知"
+            }
         
         return basic_structure
 
@@ -198,3 +224,81 @@ class AIService:
         # Remove any remaining triple backticks
         cleaned = re.sub(r'```', '', cleaned)
         return cleaned.strip()
+
+    async def get_sentence_analysis(self, sentence: str) -> str:
+        """Gets a sentence structure analysis using the configured AI provider."""
+        if self.provider == "google":
+            return await self._get_google_sentence_analysis(sentence)
+        else:
+            raise ValueError(f"Unsupported AI provider: {self.provider}")
+
+    async def _get_google_sentence_analysis(self, sentence: str) -> str:
+        """Gets a sentence analysis from the Google Gemini API."""
+        api_key = self.config['ai_services']['google']['api_key']
+        
+        analysis_prompt = f"""請使用繁體中文深度分析以下英語句子的語法結構：
+
+"{sentence}"
+
+請回覆 JSON 格式：
+{{
+  "sentence": "{sentence}",
+  "sentence_type": "句型類型（如：簡單句、複合句、複雜句等）",
+  "grammar_structure": [
+    {{
+      "component": "語法成分（如：主語、謂語、賓語、定語、狀語等）",
+      "text": "對應的文字片段",
+      "explanation": "中文解釋這個成分的作用"
+    }}
+  ],
+  "tense_analysis": {{
+    "tense_name": "時態名稱（如：現在簡單式、過去完成式等）",
+    "tense_form": "時態形式說明",
+    "usage_explanation": "為什麼使用這個時態"
+  }},
+  "key_grammar_points": [
+    "重要語法點1",
+    "重要語法點2"
+  ],
+  "vocabulary_breakdown": [
+    {{
+      "word": "單字",
+      "part_of_speech": "詞性",
+      "meaning": "在此句子中的含義",
+      "function": "在句子中的語法功能"
+    }}
+  ],
+  "rewrite_suggestions": [
+    "改寫建議1（提供不同的表達方式）",
+    "改寫建議2"
+  ],
+  "learning_tips": "針對這個句子的學習建議和記憶要點",
+  "difficulty_level": "句子難度（初級/中級/高級）"
+}}
+
+請特別注意：
+1. 詳細分析每個語法成分的作用
+2. 解釋時態的使用原因
+3. 指出重要的語法結構和模式
+4. 提供實用的學習建議"""
+
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
+        headers = {"Content-Type": "application/json"}
+        data = {"contents": [{"parts": [{"text": analysis_prompt}]}]}
+
+        try:
+            response = await self.client.post(url, headers=headers, json=data)
+            response.raise_for_status()
+            
+            result = response.json()            
+            if 'candidates' in result and result['candidates']:
+                if 'content' in result['candidates'][0] and 'parts' in result['candidates'][0]['content']:
+                    raw_response = result['candidates'][0]['content']['parts'][0]['text'].strip()
+                    print(f"Got sentence analysis response length: {len(raw_response)}")
+                    return raw_response
+            
+            return "Sorry, I couldn't analyze the sentence structure."
+
+        except Exception as e:
+            print(f"Sentence analysis error: {e}")
+            return "An unexpected error occurred while analyzing the sentence."

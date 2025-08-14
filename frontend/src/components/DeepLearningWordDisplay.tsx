@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { DeepLearningAIResponse } from '../lib/types';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
-import { Volume2, Star } from 'lucide-react';
+import { Volume2, Star, MessageSquare, MoreHorizontal } from 'lucide-react';
 import ClickableTextWrapper from './ClickableTextWrapper';
 import { useSettings } from '@/contexts/SettingsContext';
 
@@ -16,6 +16,7 @@ interface DeepLearningWordDisplayProps {
   isAddingWord?: boolean;
   isRemovingWord?: boolean;
   isWordInVocabulary?: boolean;
+  onSentenceAnalysis?: (sentence: string) => void;
 }
 
 const DeepLearningWordDisplay: React.FC<DeepLearningWordDisplayProps> = ({ 
@@ -26,9 +27,11 @@ const DeepLearningWordDisplay: React.FC<DeepLearningWordDisplayProps> = ({
   onRemoveWordClick,
   isAddingWord, 
   isRemovingWord,
-  isWordInVocabulary 
+  isWordInVocabulary,
+  onSentenceAnalysis
 }) => {
   const { shouldShowPronunciation, shouldShowEtymology } = useSettings();
+  const [activeExampleMenu, setActiveExampleMenu] = useState<number | null>(null);
   // Handle pronunciation for text (word or sentence)
   const handlePronunciation = (text: string) => {
     // Use Web Speech API for pronunciation
@@ -352,7 +355,7 @@ const DeepLearningWordDisplay: React.FC<DeepLearningWordDisplayProps> = ({
             {data.examples.map((example, index) => (
               <div key={index} className="bg-slate-50 dark:bg-slate-700 p-4 rounded-lg relative group">
                 <ClickableTextWrapper 
-                  className="text-slate-700 dark:text-slate-200 italic font-medium mb-2 pr-8"
+                  className="text-slate-700 dark:text-slate-200 italic font-medium mb-2"
                   onAIAnalysisClick={onAIAnalysisClick}
                   onWordAdded={onWordAdded}
                   onDeepAnalysis={onAIAnalysisClick}
@@ -365,14 +368,57 @@ const DeepLearningWordDisplay: React.FC<DeepLearningWordDisplayProps> = ({
                 <p className="text-slate-500 dark:text-slate-400 text-xs">
                   情境：{example.context}
                 </p>
-                <button
-                  onClick={() => handlePronunciation(example.sentence)}
-                  className="absolute top-4 right-4 p-2 rounded-full bg-white dark:bg-slate-600 shadow-sm border border-slate-200 dark:border-slate-500 hover:bg-slate-100 dark:hover:bg-slate-500 opacity-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  title="聆聽例句發音"
-                  aria-label="聆聽例句發音"
-                >
-                  <Volume2 size={16} className="text-slate-600 dark:text-slate-200" />
-                </button>
+                
+                {/* 桌面版懸浮按鈕 */}
+                <div className="hidden md:block absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-all duration-200">
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => handlePronunciation(example.sentence)}
+                      className="p-2 rounded-full bg-white dark:bg-slate-600 shadow-sm border border-slate-200 dark:border-slate-500 hover:bg-slate-100 dark:hover:bg-slate-500 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      title="聆聽例句發音"
+                      aria-label="聆聽例句發音"
+                    >
+                      <Volume2 size={14} className="text-slate-600 dark:text-slate-200" />
+                    </button>
+                    {onSentenceAnalysis && (
+                      <button
+                        onClick={() => onSentenceAnalysis(example.sentence)}
+                        className="p-2 rounded-full bg-white dark:bg-slate-600 shadow-sm border border-slate-200 dark:border-slate-500 hover:bg-slate-100 dark:hover:bg-slate-500 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-500"
+                        title="句子語法分析"
+                        aria-label="句子語法分析"
+                      >
+                        <MessageSquare size={14} className="text-slate-600 dark:text-slate-200" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* 手機版操作區域 */}
+                <div className="md:hidden mt-3 pt-3 border-t border-slate-200 dark:border-slate-600">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-slate-500 dark:text-slate-400">例句操作</span>
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => handlePronunciation(example.sentence)}
+                        className="p-2 rounded-md bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-all duration-200"
+                        title="聆聽例句發音"
+                        aria-label="聆聽例句發音"
+                      >
+                        <Volume2 size={14} />
+                      </button>
+                      {onSentenceAnalysis && (
+                        <button
+                          onClick={() => onSentenceAnalysis(example.sentence)}
+                          className="p-2 rounded-md bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/40 transition-all duration-200"
+                          title="句子語法分析"
+                          aria-label="句子語法分析"
+                        >
+                          <MessageSquare size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
             ))}
           </div>

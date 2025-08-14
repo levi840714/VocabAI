@@ -19,7 +19,7 @@ sys.path.insert(0, api_dir)
 from schemas import (
     WordCreate, WordResponse, WordSimpleResponse, WordDetailResponse, WordsListResponse, 
     ReviewRequest, ReviewResponse, AIExplanationRequest, AIExplanationResponse, 
-    StructuredAIResponse, DeepLearningAIResponse, StatsResponse, HealthResponse, ErrorResponse, UpdateNotesRequest,
+    StructuredAIResponse, DeepLearningAIResponse, SentenceAnalysisResponse, StatsResponse, HealthResponse, ErrorResponse, UpdateNotesRequest,
     UserSettingsCreate, UserSettingsUpdate, UserSettingsResponse
 )
 from crud import (
@@ -292,15 +292,21 @@ async def get_ai_explanation(request: AIExplanationRequest):
         ai_service = get_ai_service()
         
         if request.explanation_type == "simple":
-            raw_explanation = await ai_service.get_simple_explanation(request.word)
-        else:  # "deep"
-            raw_explanation = await ai_service.get_deep_learning_explanation(request.word)
+            raw_explanation = await ai_service.get_simple_explanation(request.text)
+        elif request.explanation_type == "deep":
+            raw_explanation = await ai_service.get_deep_learning_explanation(request.text)
+        else:  # "sentence"
+            raw_explanation = await ai_service.get_sentence_analysis(request.text)
         
         structured_data = None
         try:
             is_deep = (request.explanation_type == "deep")
-            structured_dict = ai_service.parse_structured_response(raw_explanation, is_deep_learning=is_deep)
-            if is_deep:
+            is_sentence = (request.explanation_type == "sentence")
+            structured_dict = ai_service.parse_structured_response(raw_explanation, is_deep_learning=is_deep, is_sentence_analysis=is_sentence)
+            
+            if is_sentence:
+                structured_data = SentenceAnalysisResponse(**structured_dict)
+            elif is_deep:
                 structured_data = DeepLearningAIResponse(**structured_dict)
             else:
                 structured_data = StructuredAIResponse(**structured_dict)
@@ -308,7 +314,7 @@ async def get_ai_explanation(request: AIExplanationRequest):
             logger.warning(f"Failed to parse structured response: {parse_error}")
         
         return AIExplanationResponse(
-            word=request.word,
+            text=request.text,
             explanation=raw_explanation,
             explanation_type=request.explanation_type,
             structured_data=structured_data

@@ -211,6 +211,16 @@ const WordDetailPage: React.FC = () => {
     navigate(`/ai-analysis?word=${encodeURIComponent(word.word)}`);
   };
 
+  const handleSentenceAnalysis = (sentence: string) => {
+    console.log('💾 詞彙詳情頁：跳轉句子分析', sentence);
+    navigate('/ai-analysis', {
+      replace: false,
+      state: {
+        directSentenceAnalysis: sentence
+      }
+    });
+  };
+
   // 手動刷新功能
   const handleRefresh = async () => {
     if (wordId) {
@@ -352,6 +362,7 @@ const WordDetailPage: React.FC = () => {
                     // 可以在這裡添加刷新邏輯或其他處理
                   }}
                   showFullDetails={true}
+                  onSentenceAnalysis={handleSentenceAnalysis}
                 />
               );
             } catch (error) {

@@ -85,3 +85,35 @@ export interface DeepLearningAIResponse {
   difficulty_level: string
   frequency: string
 }
+
+// Sentence Analysis Types
+export interface GrammarComponent {
+  component: string
+  text: string
+  explanation: string
+}
+
+export interface TenseAnalysis {
+  tense_name: string
+  tense_form: string
+  usage_explanation: string
+}
+
+export interface VocabularyBreakdown {
+  word: string
+  part_of_speech: string
+  meaning: string
+  function: string
+}
+
+export interface SentenceAnalysisResponse {
+  sentence: string
+  sentence_type: string
+  grammar_structure: GrammarComponent[]
+  tense_analysis: TenseAnalysis
+  key_grammar_points: string[]
+  vocabulary_breakdown: VocabularyBreakdown[]
+  rewrite_suggestions: string[]
+  learning_tips: string
+  difficulty_level: string
+}
