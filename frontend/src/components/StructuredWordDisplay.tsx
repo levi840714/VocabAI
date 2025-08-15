@@ -189,7 +189,7 @@ const StructuredWordDisplay: React.FC<StructuredWordDisplayProps> = ({ data, onA
                 <div className="relative">
                   <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-blue-400 to-indigo-500 rounded-full"></div>
                   <ClickableTextWrapper 
-                    className="pl-6 text-slate-800 dark:text-slate-100 italic text-sm md:text-base lg:text-lg leading-relaxed font-medium block"
+                    className="pl-6 text-slate-800 dark:text-slate-100 italic text-sm md:text-base lg:text-lg font-medium block leading-relaxed"
                     onAIAnalysisClick={onAIAnalysisClick}
                     onWordAdded={onWordAdded}
                   >

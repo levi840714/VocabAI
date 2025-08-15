@@ -31,6 +31,7 @@ import {
 import { useSettings } from '@/contexts/SettingsContext';
 import { useBackground } from '@/contexts/BackgroundContext';
 import BackgroundThemePreview from '@/components/BackgroundThemePreview';
+import { voiceService } from '@/lib/voiceService';
 
 // 設定區塊組件
 interface SettingsSectionProps {
@@ -302,6 +303,81 @@ const SettingsPage: React.FC = () => {
             />
           </label>
         </SettingItem>
+
+        {/* 語音設定區塊 */}
+        <div className="border-t border-slate-200 dark:border-slate-700 pt-4 mt-4">
+          <div className="mb-4">
+            <ThemeText variant="body" className="font-medium mb-1 flex items-center">
+              <Volume2 className="w-4 h-4 mr-2 text-blue-500" />
+              語音播放設定
+            </ThemeText>
+            <ThemeText variant="caption">調整語音播放效果以獲得最佳體驗</ThemeText>
+          </div>
+          
+          {/* 語音測試區域 */}
+          <div className="bg-slate-50 dark:bg-slate-700/50 p-4 rounded-lg space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <ThemeText variant="body" className="font-medium">語音測試</ThemeText>
+                <ThemeText variant="caption">測試當前環境的語音效果</ThemeText>
+              </div>
+              <div className="flex gap-2">
+                <ThemeButton
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => voiceService.speak('Hello')}
+                >
+                  <Volume2 className="w-4 h-4" />
+                  <span>Hello</span>
+                </ThemeButton>
+                <ThemeButton
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => voiceService.speak('Beautiful')}
+                >
+                  <Volume2 className="w-4 h-4" />
+                  <span>Beautiful</span>
+                </ThemeButton>
+                <ThemeButton
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => voiceService.speak('The weather is wonderful today')}
+                >
+                  <Volume2 className="w-4 h-4" />
+                  <span>句子</span>
+                </ThemeButton>
+              </div>
+            </div>
+            
+            {/* 環境資訊顯示 */}
+            <div className="text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-600 p-3 rounded border">
+              <div className="font-medium mb-2">當前語音環境:</div>
+              <div className="space-y-1">
+                <div>🔊 語音支援: {voiceService.getEnvironmentInfo().supportsSpeechSynthesis ? '✅ 支援' : '❌ 不支援'}</div>
+                <div>📱 環境: {
+                  voiceService.getEnvironmentInfo().isTelegramMiniApp ? 'Telegram Mini App' :
+                  voiceService.getEnvironmentInfo().isMobile ? '手機瀏覽器' : '桌面瀏覽器'
+                }</div>
+                <div>🎵 語音引擎: {voiceService.getEnvironmentInfo().availableVoices} 種可用 | 最佳: {voiceService.getEnvironmentInfo().bestVoice}</div>
+                <div>⚙️ 參數: 語速 {voiceService.getEnvironmentInfo().currentSettings.rate} | 音調 {voiceService.getEnvironmentInfo().currentSettings.pitch}</div>
+                {voiceService.getEnvironmentInfo().availableVoiceNames.length > 0 && (
+                  <div>🗣️ 可用語音: {voiceService.getEnvironmentInfo().availableVoiceNames.join(', ')}</div>
+                )}
+              </div>
+            </div>
+            
+            {/* 語音效果說明 */}
+            <div className="text-sm text-slate-600 dark:text-slate-300 space-y-2">
+              <div className="font-medium">💡 語音效果優化建議:</div>
+              <ul className="space-y-1 text-xs">
+                <li>• <strong>網頁版 Chrome</strong>: 擁有最佳語音品質，已自動調整語速為 0.75</li>
+                <li>• <strong>Telegram Mini App</strong>: 根據 iOS/Android 自動優化語速和音調</li>
+                <li>• <strong>手機瀏覽器</strong>: 如發音效果不佳，請嘗試更新瀏覽器或開啟系統設定中的語音功能</li>
+                <li>• <strong>語音品質</strong>: 系統會自動選擇最佳可用的語音引擎</li>
+              </ul>
+            </div>
+          </div>
+        </div>
       </SettingsSection>
 
       {/* AI 設定 */}

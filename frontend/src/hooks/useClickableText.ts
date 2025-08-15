@@ -137,7 +137,21 @@ export const useClickableText = () => {
 
   // 處理文本點擊事件
   const handleTextClick = useCallback(async (event: React.MouseEvent<HTMLElement>) => {
-    const target = event.target as HTMLElement;
+    let target = event.target as HTMLElement;
+    
+    // 特殊處理：如果點擊的是 dangerouslySetInnerHTML 生成的元素
+    // 需要找到包含實際文字內容的元素
+    if (!target.textContent || target.textContent.trim() === '') {
+      // 向上尋找包含文字的父元素
+      let parent = target.parentElement;
+      while (parent && (!parent.textContent || parent.textContent.trim() === '')) {
+        parent = parent.parentElement;
+      }
+      if (parent && parent.textContent && parent.textContent.trim()) {
+        target = parent;
+      }
+    }
+    
     const selection = window.getSelection();
     
     // 如果有選中文字，優先處理選中的內容
@@ -179,13 +193,53 @@ export const useClickableText = () => {
       // 現代瀏覽器支持的方法 - 添加型別檢查
       if ('caretPositionFromPoint' in document && document.caretPositionFromPoint) {
         const caretPos = document.caretPositionFromPoint(clickX, clickY);
-        if (caretPos && caretPos.offsetNode === target.firstChild) {
-          clickedCharIndex = caretPos.offset;
+        if (caretPos && caretPos.offsetNode) {
+          // 對於 dangerouslySetInnerHTML 生成的元素，offsetNode 可能是文本節點
+          if (caretPos.offsetNode.nodeType === Node.TEXT_NODE) {
+            // 計算該文本節點在整個元素中的相對位置
+            let textOffset = 0;
+            const walker = document.createTreeWalker(
+              target,
+              NodeFilter.SHOW_TEXT,
+              null
+            );
+            
+            let currentNode;
+            while ((currentNode = walker.nextNode())) {
+              if (currentNode === caretPos.offsetNode) {
+                clickedCharIndex = textOffset + caretPos.offset;
+                break;
+              }
+              textOffset += currentNode.textContent?.length || 0;
+            }
+          } else if (caretPos.offsetNode === target.firstChild) {
+            clickedCharIndex = caretPos.offset;
+          }
         }
       } else if ('caretRangeFromPoint' in document && document.caretRangeFromPoint) {
         const caretRange = document.caretRangeFromPoint(clickX, clickY);
-        if (caretRange && caretRange.startContainer === target.firstChild) {
-          clickedCharIndex = caretRange.startOffset;
+        if (caretRange && caretRange.startContainer) {
+          // 對於 dangerouslySetInnerHTML 生成的元素，startContainer 可能是文本節點
+          if (caretRange.startContainer.nodeType === Node.TEXT_NODE) {
+            // 計算該文本節點在整個元素中的相對位置
+            let textOffset = 0;
+            const walker = document.createTreeWalker(
+              target,
+              NodeFilter.SHOW_TEXT,
+              null
+            );
+            
+            let currentNode;
+            while ((currentNode = walker.nextNode())) {
+              if (currentNode === caretRange.startContainer) {
+                clickedCharIndex = textOffset + caretRange.startOffset;
+                break;
+              }
+              textOffset += currentNode.textContent?.length || 0;
+            }
+          } else if (caretRange.startContainer === target.firstChild) {
+            clickedCharIndex = caretRange.startOffset;
+          }
         }
       }
       
@@ -193,38 +247,17 @@ export const useClickableText = () => {
       if (clickedCharIndex === -1) {
         const rect = target.getBoundingClientRect();
         const relativeClickX = clickX - rect.left;
+        const relativeClickY = clickY - rect.top;
         
-        // 創建一個測試元素來測量文字寬度（對移動設備更友好）
-        const testElement = document.createElement('span');
-        testElement.style.font = window.getComputedStyle(target).font;
-        testElement.style.visibility = 'hidden';
-        testElement.style.position = 'absolute';
-        testElement.style.whiteSpace = 'nowrap';
-        document.body.appendChild(testElement);
+        // 檢查是否為多行文本（簡單判斷）
+        const hasLineBreaks = textContent.includes('\n') || target.scrollHeight > target.clientHeight;
         
-        try {
-          // 二分搜索找到最接近的字符位置
-          let left = 0;
-          let right = textContent.length;
-          
-          while (left < right) {
-            const mid = Math.floor((left + right) / 2);
-            testElement.textContent = textContent.substring(0, mid);
-            const width = testElement.offsetWidth;
-            
-            if (width < relativeClickX) {
-              left = mid + 1;
-            } else {
-              right = mid;
-            }
-          }
-          
-          clickedCharIndex = Math.max(0, left - 1);
-        } finally {
-          // 確保測試元素被清理
-          if (testElement.parentNode) {
-            document.body.removeChild(testElement);
-          }
+        if (hasLineBreaks) {
+          // 多行文本處理：使用 DOM Range API
+          clickedCharIndex = findCharIndexInMultilineText(target, relativeClickX, relativeClickY, textContent);
+        } else {
+          // 單行文本處理：使用原版算法
+          clickedCharIndex = findCharIndexInSingleLine(target, relativeClickX, textContent);
         }
       }
       
@@ -262,7 +295,9 @@ export const useClickableText = () => {
         const word = textContent.substring(wordStart, wordEnd + 1);
         
         if (word && word.length >= 2 && /^[A-Za-z]+$/.test(word)) {
-          console.log('🎯 智能點擊檢測到單字:', word);
+          console.log('🎯 智能點擊檢測到單字:', word, '在位置:', clickedCharIndex);
+          console.log('📍 目標元素類型:', target.tagName, '是否包含HTML:', target.innerHTML !== target.textContent);
+          console.log('📝 文本內容長度:', textContent.length, '前10字符:', textContent.substring(0, 10));
           const position = {
             x: event.clientX,
             y: event.clientY
@@ -287,11 +322,141 @@ export const useClickableText = () => {
     }
   }, [getQuickTranslation]);
 
+  // 單行文本字符位置檢測（原版算法）
+  const findCharIndexInSingleLine = useCallback((target: HTMLElement, relativeClickX: number, textContent: string): number => {
+    const testElement = document.createElement('span');
+    const computedStyle = window.getComputedStyle(target);
+    testElement.style.font = computedStyle.font;
+    testElement.style.fontSize = computedStyle.fontSize;
+    testElement.style.fontFamily = computedStyle.fontFamily;
+    testElement.style.fontWeight = computedStyle.fontWeight;
+    testElement.style.letterSpacing = computedStyle.letterSpacing;
+    testElement.style.wordSpacing = computedStyle.wordSpacing;
+    testElement.style.visibility = 'hidden';
+    testElement.style.position = 'absolute';
+    testElement.style.whiteSpace = 'nowrap';
+    testElement.style.top = '-9999px';
+    document.body.appendChild(testElement);
+    
+    try {
+      let left = 0;
+      let right = textContent.length;
+      
+      while (left < right) {
+        const mid = Math.floor((left + right) / 2);
+        testElement.textContent = textContent.substring(0, mid);
+        const width = testElement.offsetWidth;
+        
+        if (width < relativeClickX) {
+          left = mid + 1;
+        } else {
+          right = mid;
+        }
+      }
+      
+      return Math.max(0, left - 1);
+    } finally {
+      if (testElement.parentNode) {
+        document.body.removeChild(testElement);
+      }
+    }
+  }, []);
+
+  // 多行文本字符位置檢測（改進版）
+  const findCharIndexInMultilineText = useCallback((target: HTMLElement, relativeClickX: number, relativeClickY: number, textContent: string): number => {
+    // 使用 DOM Range API 逐行檢測
+    const range = document.createRange();
+    
+    // 對於 dangerouslySetInnerHTML 生成的元素，可能有多個文本節點
+    const walker = document.createTreeWalker(
+      target,
+      NodeFilter.SHOW_TEXT,
+      null
+    );
+    
+    const textNodes: Text[] = [];
+    let textNode;
+    while ((textNode = walker.nextNode())) {
+      textNodes.push(textNode as Text);
+    }
+    
+    if (textNodes.length === 0) {
+      return 0;
+    }
+    
+    try {
+      // 簡化版本：直接使用二分搜索在整個文本中找最接近的位置
+      let bestIndex = 0;
+      let minDistance = Infinity;
+      
+      // 遍歷所有文本節點，找到最接近點擊位置的字符
+      let globalOffset = 0;
+      
+      for (const node of textNodes) {
+        const nodeLength = node.textContent?.length || 0;
+        
+        // 測試當前節點中的字符位置（每 3 個字符取樣）
+        for (let i = 0; i < nodeLength; i += 3) {
+          range.setStart(node, i);
+          range.setEnd(node, i);
+          
+          const rect = range.getBoundingClientRect();
+          const distance = Math.sqrt(
+            Math.pow(rect.left - (target.getBoundingClientRect().left + relativeClickX), 2) +
+            Math.pow(rect.top - (target.getBoundingClientRect().top + relativeClickY), 2)
+          );
+          
+          if (distance < minDistance) {
+            minDistance = distance;
+            bestIndex = globalOffset + i;
+          }
+        }
+        
+        globalOffset += nodeLength;
+      }
+      
+      // 在最佳位置附近精細搜索
+      const searchStart = Math.max(0, bestIndex - 5);
+      const searchEnd = Math.min(textContent.length, bestIndex + 5);
+      
+      // 找到包含 bestIndex 位置的文本節點
+      globalOffset = 0;
+      for (const node of textNodes) {
+        const nodeLength = node.textContent?.length || 0;
+        
+        for (let i = Math.max(0, searchStart - globalOffset); i < Math.min(nodeLength, searchEnd - globalOffset); i++) {
+          if (globalOffset + i >= searchStart && globalOffset + i < searchEnd) {
+            range.setStart(node, i);
+            range.setEnd(node, i);
+            
+            const rect = range.getBoundingClientRect();
+            const distance = Math.sqrt(
+              Math.pow(rect.left - (target.getBoundingClientRect().left + relativeClickX), 2) +
+              Math.pow(rect.top - (target.getBoundingClientRect().top + relativeClickY), 2)
+            );
+            
+            if (distance < minDistance) {
+              minDistance = distance;
+              bestIndex = globalOffset + i;
+            }
+          }
+        }
+        
+        globalOffset += nodeLength;
+      }
+      
+      return bestIndex;
+    } catch (error) {
+      console.warn('多行文本檢測失敗，使用單行備選:', error);
+      return findCharIndexInSingleLine(target, relativeClickX, textContent);
+    }
+  }, [findCharIndexInSingleLine]);
+
 
   // 處理文本內容，使其可點擊（無視覺變化）
-  const makeTextClickable = useCallback((children: React.ReactNode, elementType: 'div' | 'span' = 'div') => {
+  const makeTextClickable = useCallback((children: React.ReactNode) => {
     return React.createElement(
-      elementType,
+      'div',
       {
         ref: containerRef,
         onClick: handleTextClick,

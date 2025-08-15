@@ -176,7 +176,10 @@ export default function DailyDiscoveryPage() {
       });
     });
 
-    return <span dangerouslySetInnerHTML={{ __html: formatArticleContent(highlightedContent) }} />;
+    const formattedContent = formatArticleContent(highlightedContent);
+    // 確保內容用 p 標籤包裹
+    const wrappedContent = formattedContent.startsWith('<p') ? formattedContent : `<p class="mb-6">${formattedContent}</p>`;
+    return <div dangerouslySetInnerHTML={{ __html: wrappedContent }} />;
   };
 
   // 檢查是否為常見詞（避免標示過多無意義的詞）
@@ -197,8 +200,10 @@ export default function DailyDiscoveryPage() {
     return content
       // 在句號後添加適當的段落間距
       .replace(/\.\s+/g, '. ')
-      // 在段落之間添加更多間距
-      .replace(/\n\n+/g, '\n\n')
+      // 在段落之間添加更多間距，使用 HTML 分段
+      .replace(/\n\n+/g, '</p><p class="mb-6">')
+      // 在單個換行處增加間距
+      .replace(/\n/g, '<br class="mb-2">')
       // 在長句子中的逗號後增加微小間距
       .replace(/,\s+/g, ', ')
       // 確保引號前後有適當間距
@@ -282,7 +287,7 @@ export default function DailyDiscoveryPage() {
         >
           <div className="flex items-center justify-between mb-6">
             {makeTextClickable(
-              <ThemeTitle level={2}>{discoveryData.article.title}</ThemeTitle>
+              <ThemeTitle level={2} className="clickable-title-content">{discoveryData.article.title}</ThemeTitle>
             )}
             <motion.button
               onClick={() => handlePronunciation(discoveryData.article.content)}
@@ -312,7 +317,7 @@ export default function DailyDiscoveryPage() {
           
           <div className="prose prose-lg dark:prose-invert max-w-none">
             {makeTextClickable(
-              <ThemeText className="leading-loose text-lg sm:text-xl whitespace-pre-line text-slate-700 dark:text-slate-200 tracking-wide">
+              <ThemeText className="clickable-article-content text-lg sm:text-xl whitespace-pre-line text-slate-700 dark:text-slate-200 tracking-wide">
                 {highlightKnowledgePoints(discoveryData.article.content, discoveryData.knowledge_points)}
               </ThemeText>
             )}
@@ -338,7 +343,7 @@ export default function DailyDiscoveryPage() {
                     {index + 1}
                   </span>
                   {makeTextClickable(
-                    <ThemeText variant="body" className="flex-1 text-lg sm:text-base leading-loose">
+                    <ThemeText variant="body" className="flex-1 text-lg sm:text-base clickable-text-content">
                       {objective}
                     </ThemeText>
                   )}
@@ -436,7 +441,7 @@ export default function DailyDiscoveryPage() {
               {discoveryData.discussion_questions.map((question, index) => (
                 <div key={index} className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-5 sm:p-6 border border-slate-200 dark:border-slate-600">
                   {makeTextClickable(
-                    <ThemeText variant="body" className="font-medium text-lg sm:text-base leading-loose">
+                    <ThemeText variant="body" className="font-medium text-lg sm:text-base clickable-question-content">
                       Q{index + 1}: {question}
                     </ThemeText>
                   )}

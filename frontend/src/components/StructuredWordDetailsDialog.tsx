@@ -5,6 +5,7 @@ import StructuredWordDisplay from './StructuredWordDisplay';
 import { parseStructuredResponse, cleanStructuredResponse } from '../lib/parseStructuredResponse';
 import { memWhizAPI } from '@/lib/api';
 import { useSettings } from '@/contexts/SettingsContext';
+import { voiceService } from '@/lib/voiceService';
 
 interface WordDetailsDialogProps {
   open: boolean;
@@ -68,19 +69,12 @@ const StructuredWordDetailsDialog: React.FC<WordDetailsDialogProps> = ({ open, o
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
-  const handlePronunciation = () => {
-    // Use Web Speech API for pronunciation
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(word.word);
-      utterance.lang = 'en-US';
-      utterance.rate = 0.8;
-      speechSynthesis.speak(utterance);
-    } else {
-      // Fallback: try Google Translate TTS
-      const audio = new Audio(`https://translate.google.com/translate_tts?ie=UTF-8&tl=en&client=tw-ob&q=${encodeURIComponent(word.word)}`);
-      audio.play().catch(() => {
-        alert('發音功能暫時不可用，請檢查瀏覽器設定或網路連線');
-      });
+  const handlePronunciation = async () => {
+    try {
+      await voiceService.speak(word.word);
+    } catch (error) {
+      console.error('發音播放失敗:', error);
+      alert('發音功能暫時不可用，請檢查瀏覽器設定或網路連線');
     }
   };
 

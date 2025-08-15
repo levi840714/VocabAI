@@ -6,6 +6,7 @@ import { Button } from './ui/button';
 import { Volume2, Star, Brain, MoreHorizontal } from 'lucide-react';
 import ClickableTextWrapper from './ClickableTextWrapper';
 import { useSettings } from '@/contexts/SettingsContext';
+import { voiceService } from '@/lib/voiceService';
 
 interface DeepLearningWordDisplayProps {
   data: DeepLearningAIResponse;
@@ -33,19 +34,12 @@ const DeepLearningWordDisplay: React.FC<DeepLearningWordDisplayProps> = ({
   const { shouldShowPronunciation, shouldShowEtymology } = useSettings();
   const [activeExampleMenu, setActiveExampleMenu] = useState<number | null>(null);
   // Handle pronunciation for text (word or sentence)
-  const handlePronunciation = (text: string) => {
-    // Use Web Speech API for pronunciation
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'en-US';
-      utterance.rate = 0.8;
-      speechSynthesis.speak(utterance);
-    } else {
-      // Fallback: try Google Translate TTS
-      const audio = new Audio(`https://translate.google.com/translate_tts?ie=UTF-8&tl=en&client=tw-ob&q=${encodeURIComponent(text)}`);
-      audio.play().catch(() => {
-        alert('發音功能暫時不可用，請檢查瀏覽器設定或網路連線');
-      });
+  const handlePronunciation = async (text: string) => {
+    try {
+      await voiceService.speak(text);
+    } catch (error) {
+      console.error('發音播放失敗:', error);
+      alert('發音功能暫時不可用，請檢查瀏覽器設定或網路連線');
     }
   };
 

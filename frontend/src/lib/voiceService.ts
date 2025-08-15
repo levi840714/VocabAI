@@ -46,6 +46,96 @@ class VoiceService {
   }
 
   /**
+   * 檢測運行環境
+   */
+  private isTelegramMiniApp(): boolean {
+    return (window as any).Telegram?.WebApp?.platform !== undefined;
+  }
+
+  private isIOS(): boolean {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent);
+  }
+
+  /**
+   * 根據環境獲取最佳語音參數
+   */
+  private getOptimalVoiceSettings(customSettings: VoiceSettings = {}): VoiceSettings {
+    const isTgMiniApp = this.isTelegramMiniApp();
+    const isMobile = this.isMobileDevice();
+    const isIOSDevice = this.isIOS();
+
+    let defaultSettings: VoiceSettings;
+
+    // Telegram Mini App 環境 - 根據實際測試優化
+    if (isTgMiniApp) {
+      defaultSettings = {
+        language: 'en-US',
+        rate: isIOSDevice ? 0.9 : 0.85,  // iOS 稍快，Android 略慢
+        pitch: 1.1,  // 稍微提高音調增加自然感
+        volume: 0.9
+      };
+    }
+    // 一般手機瀏覽器
+    else if (isMobile) {
+      defaultSettings = {
+        language: 'en-US',
+        rate: isIOSDevice ? 0.85 : 0.8,
+        pitch: 1.0,
+        volume: 0.9
+      };
+    }
+    // 桌面瀏覽器（Chrome 等）- 降低語速以改善體驗
+    else {
+      defaultSettings = {
+        language: 'en-US',
+        rate: 0.75,  // 調慢一點，解決語速偏快問題
+        pitch: 1.0,
+        volume: 0.9
+      };
+    }
+
+    // 合併自定義設定
+    return {
+      ...defaultSettings,
+      ...customSettings
+    };
+  }
+
+  /**
+   * 獲取最佳語音引擎
+   */
+  private getBestVoice(): SpeechSynthesisVoice | null {
+    if (!this.isSupported()) return null;
+    
+    const voices = speechSynthesis.getVoices();
+    if (voices.length === 0) return null;
+    
+    // 優先選擇的語音引擎順序
+    const preferredVoices = [
+      'Google US English',           // Chrome 優質語音
+      'Samantha',                   // macOS 高品質語音
+      'Alex',                       // macOS 備選語音
+      'Microsoft David Desktop',    // Windows 語音
+      'Microsoft Zira Desktop',     // Windows 女性語音
+    ];
+    
+    // 嘗試找到優先語音
+    for (const voiceName of preferredVoices) {
+      const voice = voices.find(v => v.name.includes(voiceName));
+      if (voice) return voice;
+    }
+    
+    // 找英語語音作為備選
+    const englishVoice = voices.find(v => 
+      v.lang.startsWith('en-') && v.name.toLowerCase().includes('english')
+    );
+    if (englishVoice) return englishVoice;
+    
+    // 最後備選：任何英語語音
+    return voices.find(v => v.lang.startsWith('en-')) || voices[0];
+  }
+
+  /**
    * 播放語音
    */
   public async speak(text: string, settings: VoiceSettings = {}): Promise<void> {
@@ -65,11 +155,24 @@ class VoiceService {
         const utterance = new SpeechSynthesisUtterance(text);
         this.currentUtterance = utterance;
 
+        // 獲取針對當前環境優化的語音參數
+        const optimalSettings = this.getOptimalVoiceSettings(settings);
+        
         // 設定語音參數
-        utterance.lang = settings.language || 'en-US';
-        utterance.rate = settings.rate || 0.8;
-        utterance.pitch = settings.pitch || 1;
-        utterance.volume = settings.volume || 1;
+        utterance.lang = optimalSettings.language || 'en-US';
+        utterance.rate = optimalSettings.rate || 0.8;
+        utterance.pitch = optimalSettings.pitch || 1;
+        utterance.volume = optimalSettings.volume || 1;
+
+        // 嘗試設定最佳語音引擎
+        const bestVoice = this.getBestVoice();
+        if (bestVoice) {
+          utterance.voice = bestVoice;
+          console.log(`🎵 使用語音引擎: ${bestVoice.name} (環境: ${
+            this.isTelegramMiniApp() ? 'Telegram Mini App' :
+            this.isMobileDevice() ? '手機瀏覽器' : '桌面瀏覽器'
+          })`);
+        }
 
         // 事件監聽器
         utterance.onstart = () => {
@@ -205,6 +308,24 @@ class VoiceService {
   public setPreferredVoice(voiceURI: string): void {
     // 這個方法可以用來設定用戶偏好的語音
     // 實際實現可能需要與設定系統整合
+  }
+
+  /**
+   * 獲取環境資訊（用於調試和設定頁面）
+   */
+  public getEnvironmentInfo() {
+    return {
+      isTelegramMiniApp: this.isTelegramMiniApp(),
+      isMobile: this.isMobileDevice(),
+      isIOS: this.isIOS(),
+      supportsSpeechSynthesis: this.isSupported(),
+      availableVoices: this.isSupported() ? speechSynthesis.getVoices().length : 0,
+      currentSettings: this.getOptimalVoiceSettings(),
+      bestVoice: this.getBestVoice()?.name || 'Default',
+      availableVoiceNames: this.isSupported() 
+        ? speechSynthesis.getVoices().map(v => v.name).slice(0, 5)
+        : []
+    };
   }
 }
 

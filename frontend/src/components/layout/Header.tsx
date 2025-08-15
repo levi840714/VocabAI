@@ -136,6 +136,23 @@ const Header: React.FC = () => {
         <div className={`rounded-lg backdrop-blur-sm p-3 shadow-sm ring-1 ${isDarkMode ? 'bg-slate-800/60 ring-slate-600/30' : 'bg-white/60 ring-blue-200/30'}`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2 sm:space-x-3">
+              {/* 返回按鈕 - 移到最左邊 */}
+              {!isHomePage && (
+                <motion.button
+                  onClick={handleBack}
+                  className={`p-1.5 sm:p-2 rounded-lg transition-colors ${isDarkMode ? 'bg-slate-700/50 hover:bg-slate-700' : 'bg-blue-100/50 hover:bg-blue-100'}`}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <ArrowLeft className={`w-4 h-4 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`} />
+                </motion.button>
+              )}
+
+              {/* 分隔線 - 只在有返回按鈕時顯示 */}
+              {!isHomePage && (
+                <div className={`w-px h-6 ${isDarkMode ? 'bg-slate-600' : 'bg-gray-300'}`}></div>
+              )}
+
               {/* MemWhiz Logo */}
               <div className="flex items-center space-x-1.5 sm:space-x-2">
                 <img 
@@ -150,17 +167,6 @@ const Header: React.FC = () => {
 
               {/* 分隔線 - 只在較大螢幕顯示 */}
               <div className={`w-px h-6 ${isDarkMode ? 'bg-slate-600' : 'bg-gray-300'} hidden sm:block`}></div>
-
-              {!isHomePage && (
-                <motion.button
-                  onClick={handleBack}
-                  className={`p-1.5 sm:p-2 rounded-lg transition-colors ${isDarkMode ? 'bg-slate-700/50 hover:bg-slate-700' : 'bg-blue-100/50 hover:bg-blue-100'}`}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  <ArrowLeft className={`w-4 h-4 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`} />
-                </motion.button>
-              )}
               
               {isLocalTestMode ? (
                 <>

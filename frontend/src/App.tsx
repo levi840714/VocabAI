@@ -1,6 +1,7 @@
 import React, { useEffect } from "react"
 import { ThemeProvider } from '@mui/material/styles'
 import { CssBaseline } from '@mui/material'
+import '@/styles/clickable-text.css'
 import { VocabularyProvider } from "@/hooks/use-vocabulary"
 import { Toaster } from "@/components/ui/toaster"
 import { TelegramProvider, useAuth } from "@/contexts/TelegramContext"
