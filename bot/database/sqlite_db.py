@@ -61,6 +61,72 @@ async def init_db(db_path):
         )
         """)
         
+        # Daily Discovery 收藏功能相關表格 - 完整存儲內容
+        await db.execute("""
+        CREATE TABLE IF NOT EXISTS daily_discovery_bookmarks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            discovery_id INTEGER NOT NULL,
+            bookmark_type TEXT NOT NULL DEFAULT 'full',
+            knowledge_point_id TEXT NULL,
+            personal_notes TEXT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(user_id, discovery_id, bookmark_type, knowledge_point_id)
+        )
+        """)
+        
+        # 添加新欄位以支援完整內容存儲（資料庫遷移）
+        try:
+            await db.execute("ALTER TABLE daily_discovery_bookmarks ADD COLUMN content_date DATE")
+        except aiosqlite.OperationalError:
+            pass  # 欄位已存在
+            
+        try:
+            await db.execute("ALTER TABLE daily_discovery_bookmarks ADD COLUMN article_title TEXT")
+        except aiosqlite.OperationalError:
+            pass
+            
+        try:
+            await db.execute("ALTER TABLE daily_discovery_bookmarks ADD COLUMN article_content TEXT")
+        except aiosqlite.OperationalError:
+            pass
+            
+        try:
+            await db.execute("ALTER TABLE daily_discovery_bookmarks ADD COLUMN knowledge_points TEXT")
+        except aiosqlite.OperationalError:
+            pass
+            
+        try:
+            await db.execute("ALTER TABLE daily_discovery_bookmarks ADD COLUMN learning_objectives TEXT")
+        except aiosqlite.OperationalError:
+            pass
+            
+        try:
+            await db.execute("ALTER TABLE daily_discovery_bookmarks ADD COLUMN discussion_questions TEXT")
+        except aiosqlite.OperationalError:
+            pass
+        
+        await db.execute("""
+        CREATE TABLE IF NOT EXISTS bookmark_tags (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            tag_name TEXT NOT NULL,
+            tag_color TEXT DEFAULT '#3B82F6',
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(user_id, tag_name)
+        )
+        """)
+        
+        await db.execute("""
+        CREATE TABLE IF NOT EXISTS bookmark_tag_relations (
+            bookmark_id INTEGER NOT NULL,
+            tag_id INTEGER NOT NULL,
+            FOREIGN KEY (bookmark_id) REFERENCES daily_discovery_bookmarks (id) ON DELETE CASCADE,
+            FOREIGN KEY (tag_id) REFERENCES bookmark_tags (id) ON DELETE CASCADE,
+            PRIMARY KEY (bookmark_id, tag_id)
+        )
+        """)
+        
         await db.commit()
     logging.info("Database initialized.")
 
@@ -565,3 +631,403 @@ async def cleanup_expired_daily_discovery(db_path):
             logging.info(f"清理了 {deleted_count} 條過期的每日探索內容")
         
         return deleted_count
+
+# Daily Discovery 收藏功能 CRUD 操作
+async def add_bookmark(db_path, user_id, discovery_id, bookmark_type='full', knowledge_point_id=None, personal_notes=None):
+    """添加收藏 - 完整存儲探索內容"""
+    import json
+    async with aiosqlite.connect(db_path) as db:
+        try:
+            # 獲取完整的原始探索內容
+            cursor = await db.execute("""
+            SELECT content_date, article_title, article_content, knowledge_points, created_at, expires_at
+            FROM daily_discovery
+            WHERE id = ?
+            """, (discovery_id,))
+            discovery_row = await cursor.fetchone()
+            
+            if not discovery_row:
+                logging.error(f"找不到探索內容 ID: {discovery_id}")
+                return False
+            
+            content_date, article_title, article_content, knowledge_points_json, created_at, expires_at = discovery_row
+            
+            # 解析完整的知識點JSON（包含文章詳情、學習目標、討論問題等）
+            try:
+                parsed_data = json.loads(knowledge_points_json) if knowledge_points_json else {}
+            except (json.JSONDecodeError, TypeError):
+                parsed_data = {}
+                logging.warning(f"無法解析探索內容 {discovery_id} 的知識點數據")
+            
+            # 提取學習目標和討論問題
+            learning_objectives = json.dumps(parsed_data.get('learning_objectives', []), ensure_ascii=False)
+            discussion_questions = json.dumps(parsed_data.get('discussion_questions', []), ensure_ascii=False)
+            
+            # 插入收藏並完整存儲所有內容
+            await db.execute("""
+            INSERT INTO daily_discovery_bookmarks (
+                user_id, discovery_id, bookmark_type, knowledge_point_id, personal_notes,
+                content_date, article_title, article_content, knowledge_points,
+                learning_objectives, discussion_questions
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                user_id, discovery_id, bookmark_type, knowledge_point_id, personal_notes,
+                content_date, article_title, article_content, knowledge_points_json,
+                learning_objectives, discussion_questions
+            ))
+            await db.commit()
+            logging.info(f"用戶 {user_id} 收藏了探索內容 {discovery_id} (類型: {bookmark_type}) - 完整內容已保存")
+            return True
+        except aiosqlite.IntegrityError:
+            logging.warning(f"用戶 {user_id} 已經收藏過此內容")
+            return False
+
+async def remove_bookmark(db_path, user_id, discovery_id, bookmark_type='full', knowledge_point_id=None):
+    """移除收藏"""
+    async with aiosqlite.connect(db_path) as db:
+        await db.execute("""
+        DELETE FROM daily_discovery_bookmarks 
+        WHERE user_id = ? AND discovery_id = ? AND bookmark_type = ? 
+        AND (knowledge_point_id = ? OR (knowledge_point_id IS NULL AND ? IS NULL))
+        """, (user_id, discovery_id, bookmark_type, knowledge_point_id, knowledge_point_id))
+        await db.commit()
+        logging.info(f"用戶 {user_id} 移除了探索內容 {discovery_id} 的收藏")
+
+async def get_user_bookmarks(db_path, user_id, bookmark_type=None, page=0, page_size=20):
+    """獲取用戶的收藏列表 - 直接從收藏表讀取完整內容"""
+    offset = page * page_size
+    async with aiosqlite.connect(db_path) as db:
+        if bookmark_type:
+            cursor = await db.execute("""
+            SELECT id, discovery_id, bookmark_type, knowledge_point_id, personal_notes, created_at,
+                   content_date, article_title, article_content, knowledge_points,
+                   learning_objectives, discussion_questions
+            FROM daily_discovery_bookmarks
+            WHERE user_id = ? AND bookmark_type = ?
+            ORDER BY created_at DESC
+            LIMIT ? OFFSET ?
+            """, (user_id, bookmark_type, page_size, offset))
+        else:
+            cursor = await db.execute("""
+            SELECT id, discovery_id, bookmark_type, knowledge_point_id, personal_notes, created_at,
+                   content_date, article_title, article_content, knowledge_points,
+                   learning_objectives, discussion_questions
+            FROM daily_discovery_bookmarks
+            WHERE user_id = ?
+            ORDER BY created_at DESC
+            LIMIT ? OFFSET ?
+            """, (user_id, page_size, offset))
+        
+        rows = await cursor.fetchall()
+        bookmarks = []
+        
+        for row in rows:
+            # 處理新舊數據兼容性：檢查是否有完整的收藏表內容
+            has_complete_data = (len(row) >= 12 and 
+                               row[6] is not None and 
+                               row[7] is not None and 
+                               row[8] is not None)
+            
+            if has_complete_data:
+                # 新格式：直接從收藏表讀取完整內容
+                bookmark = {
+                    'id': row[0],
+                    'discovery_id': row[1],
+                    'bookmark_type': row[2],
+                    'knowledge_point_id': row[3],
+                    'personal_notes': row[4],
+                    'created_at': row[5],
+                    'discovery': {
+                        'content_date': row[6],
+                        'article_title': row[7],
+                        'article_content': row[8],
+                        'knowledge_points': row[9] or '[]',
+                        'learning_objectives': row[10] or '[]',
+                        'discussion_questions': row[11] or '[]'
+                    }
+                }
+            else:
+                # 舊格式：需要從原始表獲取內容（向後兼容）
+                discovery_cursor = await db.execute("""
+                SELECT content_date, article_title, article_content, knowledge_points
+                FROM daily_discovery
+                WHERE id = ?
+                """, (row[1],))  # discovery_id
+                discovery_row = await discovery_cursor.fetchone()
+                
+                if discovery_row:
+                    bookmark = {
+                        'id': row[0],
+                        'discovery_id': row[1],
+                        'bookmark_type': row[2],
+                        'knowledge_point_id': row[3],
+                        'personal_notes': row[4],
+                        'created_at': row[5],
+                        'discovery': {
+                            'content_date': discovery_row[0],
+                            'article_title': discovery_row[1],
+                            'article_content': discovery_row[2],
+                            'knowledge_points': discovery_row[3],
+                            'learning_objectives': '[]',
+                            'discussion_questions': '[]'
+                        }
+                    }
+                else:
+                    # 原始內容已過期，但我們還是記錄這個收藏（可能需要特殊處理）
+                    bookmark = {
+                        'id': row[0],
+                        'discovery_id': row[1],
+                        'bookmark_type': row[2],
+                        'knowledge_point_id': row[3],
+                        'personal_notes': row[4],
+                        'created_at': row[5],
+                        'discovery': {
+                            'content_date': '2025-01-01',  # 默認日期
+                            'article_title': '內容已過期',
+                            'article_content': '此收藏的原始內容已過期或不可用。',
+                            'knowledge_points': '[]',
+                            'learning_objectives': '[]',
+                            'discussion_questions': '[]'
+                        }
+                    }
+            
+            # 解析知識點 JSON
+            try:
+                import json
+                bookmark['discovery']['knowledge_points'] = json.loads(bookmark['discovery']['knowledge_points'])
+            except (json.JSONDecodeError, TypeError):
+                bookmark['discovery']['knowledge_points'] = []
+                
+            bookmarks.append(bookmark)
+        
+        # 獲取總數
+        if bookmark_type:
+            count_cursor = await db.execute("""
+            SELECT COUNT(*) FROM daily_discovery_bookmarks 
+            WHERE user_id = ? AND bookmark_type = ?
+            """, (user_id, bookmark_type))
+        else:
+            count_cursor = await db.execute("""
+            SELECT COUNT(*) FROM daily_discovery_bookmarks 
+            WHERE user_id = ?
+            """, (user_id,))
+        
+        total_count = (await count_cursor.fetchone())[0]
+        
+        return bookmarks, total_count
+
+async def get_user_bookmarks_summary(db_path, user_id, bookmark_type=None, page=0, page_size=20):
+    """獲取用戶收藏列表的簡化版本 - 只返回基本資訊，不包含完整內容"""
+    offset = page * page_size
+    async with aiosqlite.connect(db_path) as db:
+        if bookmark_type:
+            cursor = await db.execute("""
+            SELECT id, discovery_id, bookmark_type, knowledge_point_id, personal_notes, created_at,
+                   content_date, article_title
+            FROM daily_discovery_bookmarks
+            WHERE user_id = ? AND bookmark_type = ?
+            ORDER BY created_at DESC
+            LIMIT ? OFFSET ?
+            """, (user_id, bookmark_type, page_size, offset))
+        else:
+            cursor = await db.execute("""
+            SELECT id, discovery_id, bookmark_type, knowledge_point_id, personal_notes, created_at,
+                   content_date, article_title
+            FROM daily_discovery_bookmarks
+            WHERE user_id = ?
+            ORDER BY created_at DESC
+            LIMIT ? OFFSET ?
+            """, (user_id, page_size, offset))
+        
+        rows = await cursor.fetchall()
+        bookmarks = []
+        
+        for row in rows:
+            # 檢查是否有基本資訊
+            has_basic_data = (len(row) >= 8 and row[6] is not None and row[7] is not None)
+            
+            if has_basic_data:
+                # 從收藏表讀取基本資訊
+                bookmark = {
+                    'id': row[0],
+                    'discovery_id': row[1],
+                    'bookmark_type': row[2],
+                    'knowledge_point_id': row[3],
+                    'personal_notes': row[4],
+                    'created_at': row[5],
+                    'content_date': row[6],
+                    'article_title': row[7]
+                }
+            else:
+                # 向後兼容：從原始表獲取基本資訊
+                discovery_cursor = await db.execute("""
+                SELECT content_date, article_title
+                FROM daily_discovery
+                WHERE id = ?
+                """, (row[1],))  # discovery_id
+                discovery_row = await discovery_cursor.fetchone()
+                
+                if discovery_row:
+                    bookmark = {
+                        'id': row[0],
+                        'discovery_id': row[1],
+                        'bookmark_type': row[2],
+                        'knowledge_point_id': row[3],
+                        'personal_notes': row[4],
+                        'created_at': row[5],
+                        'content_date': discovery_row[0],
+                        'article_title': discovery_row[1]
+                    }
+                else:
+                    # 如果原始內容不存在，跳過這個收藏
+                    continue
+            
+            bookmarks.append(bookmark)
+        
+        # 獲取總數
+        if bookmark_type:
+            count_cursor = await db.execute("""
+            SELECT COUNT(*) FROM daily_discovery_bookmarks 
+            WHERE user_id = ? AND bookmark_type = ?
+            """, (user_id, bookmark_type))
+        else:
+            count_cursor = await db.execute("""
+            SELECT COUNT(*) FROM daily_discovery_bookmarks 
+            WHERE user_id = ?
+            """, (user_id,))
+        
+        total_count = (await count_cursor.fetchone())[0]
+        
+        return bookmarks, total_count
+
+async def get_bookmark_detail(db_path, bookmark_id, user_id):
+    """獲取特定收藏的完整詳細內容"""
+    async with aiosqlite.connect(db_path) as db:
+        cursor = await db.execute("""
+        SELECT id, discovery_id, bookmark_type, knowledge_point_id, personal_notes, created_at,
+               content_date, article_title, article_content, knowledge_points,
+               learning_objectives, discussion_questions
+        FROM daily_discovery_bookmarks
+        WHERE id = ? AND user_id = ?
+        """, (bookmark_id, user_id))
+        
+        row = await cursor.fetchone()
+        if not row:
+            return None
+            
+        # 檢查是否有完整資料
+        has_complete_data = (len(row) >= 12 and 
+                           row[6] is not None and 
+                           row[7] is not None and 
+                           row[8] is not None)
+        
+        if has_complete_data:
+            # 從收藏表讀取完整內容
+            bookmark = {
+                'id': row[0],
+                'discovery_id': row[1],
+                'bookmark_type': row[2],
+                'knowledge_point_id': row[3],
+                'personal_notes': row[4],
+                'created_at': row[5],
+                'discovery': {
+                    'content_date': row[6],
+                    'article_title': row[7],
+                    'article_content': row[8],
+                    'knowledge_points': row[9] or '[]',
+                    'learning_objectives': row[10] or '[]',
+                    'discussion_questions': row[11] or '[]'
+                }
+            }
+        else:
+            # 向後兼容：從原始表獲取內容
+            discovery_cursor = await db.execute("""
+            SELECT content_date, article_title, article_content, knowledge_points
+            FROM daily_discovery
+            WHERE id = ?
+            """, (row[1],))  # discovery_id
+            discovery_row = await discovery_cursor.fetchone()
+            
+            if discovery_row:
+                bookmark = {
+                    'id': row[0],
+                    'discovery_id': row[1],
+                    'bookmark_type': row[2],
+                    'knowledge_point_id': row[3],
+                    'personal_notes': row[4],
+                    'created_at': row[5],
+                    'discovery': {
+                        'content_date': discovery_row[0],
+                        'article_title': discovery_row[1],
+                        'article_content': discovery_row[2],
+                        'knowledge_points': discovery_row[3] or '[]',
+                        'learning_objectives': '[]',
+                        'discussion_questions': '[]'
+                    }
+                }
+            else:
+                return None
+                
+        return bookmark
+
+async def is_bookmarked(db_path, user_id, discovery_id, bookmark_type='full', knowledge_point_id=None):
+    """檢查是否已收藏"""
+    async with aiosqlite.connect(db_path) as db:
+        cursor = await db.execute("""
+        SELECT id FROM daily_discovery_bookmarks 
+        WHERE user_id = ? AND discovery_id = ? AND bookmark_type = ? 
+        AND (knowledge_point_id = ? OR (knowledge_point_id IS NULL AND ? IS NULL))
+        """, (user_id, discovery_id, bookmark_type, knowledge_point_id, knowledge_point_id))
+        row = await cursor.fetchone()
+        return row is not None
+
+async def update_bookmark_notes(db_path, bookmark_id, user_id, personal_notes):
+    """更新收藏筆記"""
+    async with aiosqlite.connect(db_path) as db:
+        await db.execute("""
+        UPDATE daily_discovery_bookmarks 
+        SET personal_notes = ? 
+        WHERE id = ? AND user_id = ?
+        """, (personal_notes, bookmark_id, user_id))
+        await db.commit()
+        
+# 標籤管理功能
+async def create_bookmark_tag(db_path, user_id, tag_name, tag_color='#3B82F6'):
+    """創建收藏標籤"""
+    async with aiosqlite.connect(db_path) as db:
+        try:
+            await db.execute("""
+            INSERT INTO bookmark_tags (user_id, tag_name, tag_color)
+            VALUES (?, ?, ?)
+            """, (user_id, tag_name, tag_color))
+            await db.commit()
+            return True
+        except aiosqlite.IntegrityError:
+            return False
+
+async def get_user_bookmark_tags(db_path, user_id):
+    """獲取用戶的標籤列表"""
+    async with aiosqlite.connect(db_path) as db:
+        cursor = await db.execute("""
+        SELECT id, tag_name, tag_color, created_at
+        FROM bookmark_tags
+        WHERE user_id = ?
+        ORDER BY created_at DESC
+        """, (user_id,))
+        rows = await cursor.fetchall()
+        
+        return [{'id': row[0], 'tag_name': row[1], 'tag_color': row[2], 'created_at': row[3]} for row in rows]
+
+async def add_bookmark_tag_relation(db_path, bookmark_id, tag_id):
+    """為收藏添加標籤"""
+    async with aiosqlite.connect(db_path) as db:
+        try:
+            await db.execute("""
+            INSERT INTO bookmark_tag_relations (bookmark_id, tag_id)
+            VALUES (?, ?)
+            """, (bookmark_id, tag_id))
+            await db.commit()
+            return True
+        except aiosqlite.IntegrityError:
+            return False

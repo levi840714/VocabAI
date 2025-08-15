@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from datetime import datetime
 import logging
-from typing import Optional
+from typing import Optional, List
 
 # Add the project root to the Python path to allow importing from 'app'
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -21,14 +21,18 @@ from schemas import (
     ReviewRequest, ReviewResponse, AIExplanationRequest, AIExplanationResponse, 
     StructuredAIResponse, DeepLearningAIResponse, SentenceAnalysisResponse, StatsResponse, HealthResponse, ErrorResponse, UpdateNotesRequest,
     UserSettingsCreate, UserSettingsUpdate, UserSettingsResponse,
-    DailyDiscoveryResponse, DailyDiscoveryArticle, KnowledgePoint
+    DailyDiscoveryResponse, DailyDiscoveryArticle, KnowledgePoint,
+    BookmarkRequest, BookmarkResponse, BookmarkListResponse, BookmarkTag, CreateTagRequest, UpdateBookmarkNotesRequest,
+    BookmarkSummary, BookmarkSummaryListResponse
 )
 from crud import (
     ensure_db_initialized, create_word, get_user_words, get_due_words, get_recent_words,
     get_next_review_word, update_review_result, get_user_stats, find_word_by_text, find_word_by_id,
     update_user_notes, delete_user_word, mark_user_word_as_learned, reset_user_word_learning_status, is_word_learned,
     get_user_settings_data, create_user_settings_data, update_user_settings_data, upsert_user_settings_data,
-    get_daily_discovery_data, create_daily_discovery_data, cleanup_expired_daily_discovery_data
+    get_daily_discovery_data, create_daily_discovery_data, cleanup_expired_daily_discovery_data,
+    create_bookmark, delete_bookmark, get_bookmarks, get_user_bookmarks_summary, get_bookmark_detail,
+    check_bookmark_exists, update_bookmark_personal_notes, create_tag, get_tags, add_tag_to_bookmark
 )
 from dependencies import get_database_path, get_ai_service, validate_user_access, get_whitelist_users, is_whitelist_enabled
 from telegram_auth import get_user_from_telegram_header
@@ -706,6 +710,10 @@ async def get_daily_discovery(
         expires_at = datetime.fromisoformat(discovery_data['expires_at'])
         content_date = datetime.strptime(discovery_data['content_date'], '%Y-%m-%d').date()
         
+        # 檢查用戶是否已收藏此內容
+        db_path = get_database_path()
+        is_bookmarked = await check_bookmark_exists(db_path, user_id, discovery_data['id'])
+        
         return DailyDiscoveryResponse(
             id=discovery_data['id'],
             content_date=content_date,
@@ -714,7 +722,9 @@ async def get_daily_discovery(
             learning_objectives=learning_objectives,
             discussion_questions=discussion_questions,
             created_at=created_at,
-            expires_at=expires_at
+            expires_at=expires_at,
+            is_bookmarked=is_bookmarked,
+            bookmark_stats={}
         )
         
     except HTTPException:
@@ -722,6 +732,308 @@ async def get_daily_discovery(
     except Exception as e:
         logger.error(f"Error getting daily discovery: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to retrieve daily discovery content")
+
+# Bookmark endpoints
+@app.post("/api/v1/bookmarks", response_model=dict)
+async def create_bookmark_endpoint(
+    bookmark_request: BookmarkRequest,
+    user_id: int = Depends(get_current_user)
+):
+    """Create a new bookmark."""
+    logger.info(f"POST /bookmarks called - user_id: {user_id}, discovery_id: {bookmark_request.discovery_id}")
+    
+    try:
+        db_path = get_database_path()
+        await ensure_db_initialized(db_path)
+        
+        # Check if bookmark already exists
+        exists = await check_bookmark_exists(
+            db_path, user_id, bookmark_request.discovery_id, 
+            bookmark_request.bookmark_type, bookmark_request.knowledge_point_id
+        )
+        
+        if exists:
+            raise HTTPException(status_code=409, detail="Bookmark already exists")
+        
+        success = await create_bookmark(
+            db_path, user_id, bookmark_request.discovery_id,
+            bookmark_request.bookmark_type, bookmark_request.knowledge_point_id,
+            bookmark_request.personal_notes
+        )
+        
+        if success:
+            return {"success": True, "message": "Bookmark created successfully"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to create bookmark")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating bookmark: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to create bookmark")
+
+@app.delete("/api/v1/bookmarks/{discovery_id}")
+async def delete_bookmark_endpoint(
+    discovery_id: int,
+    bookmark_type: str = Query(default="full", description="Bookmark type"),
+    knowledge_point_id: Optional[str] = Query(None, description="Knowledge point ID"),
+    user_id: int = Depends(get_current_user)
+):
+    """Delete a bookmark."""
+    logger.info(f"DELETE /bookmarks/{discovery_id} called - user_id: {user_id}")
+    
+    try:
+        db_path = get_database_path()
+        await ensure_db_initialized(db_path)
+        
+        await delete_bookmark(db_path, user_id, discovery_id, bookmark_type, knowledge_point_id)
+        return {"success": True, "message": "Bookmark deleted successfully"}
+        
+    except Exception as e:
+        logger.error(f"Error deleting bookmark: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to delete bookmark")
+
+@app.get("/api/v1/bookmarks", response_model=BookmarkSummaryListResponse)
+async def get_bookmarks_endpoint(
+    bookmark_type: Optional[str] = Query(None, description="Filter by bookmark type"),
+    page: int = Query(default=0, ge=0, description="Page number"),
+    page_size: int = Query(default=20, ge=1, le=100, description="Items per page"),
+    user_id: int = Depends(get_current_user)
+):
+    """Get user bookmarks summary (lightweight list)."""
+    logger.info(f"GET /bookmarks called - user_id: {user_id}, type: {bookmark_type}")
+    
+    try:
+        db_path = get_database_path()
+        await ensure_db_initialized(db_path)
+        
+        bookmarks_data, total_count = await get_user_bookmarks_summary(db_path, user_id, bookmark_type, page, page_size)
+        
+        # 轉換為簡化的響應格式
+        bookmarks = []
+        for bookmark_data in bookmarks_data:
+            # 解析時間
+            from datetime import datetime
+            bookmark_created_at = datetime.fromisoformat(bookmark_data['created_at'])
+            
+            bookmark = BookmarkSummary(
+                id=bookmark_data['id'],
+                discovery_id=bookmark_data['discovery_id'],
+                bookmark_type=bookmark_data['bookmark_type'],
+                knowledge_point_id=bookmark_data['knowledge_point_id'],
+                personal_notes=bookmark_data['personal_notes'],
+                created_at=bookmark_created_at,
+                content_date=bookmark_data['content_date'],
+                article_title=bookmark_data['article_title']
+            )
+            bookmarks.append(bookmark)
+        
+        return BookmarkSummaryListResponse(
+            bookmarks=bookmarks,
+            total_count=total_count,
+            page=page,
+            page_size=page_size
+        )
+        
+    except Exception as e:
+        logger.error(f"Error getting bookmarks: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve bookmarks")
+
+@app.get("/api/v1/bookmarks/{bookmark_id}", response_model=BookmarkResponse)
+async def get_bookmark_detail_endpoint(
+    bookmark_id: int,
+    user_id: int = Depends(get_current_user)
+):
+    """Get detailed bookmark content."""
+    logger.info(f"GET /bookmarks/{bookmark_id} called - user_id: {user_id}")
+    
+    try:
+        db_path = get_database_path()
+        await ensure_db_initialized(db_path)
+        
+        bookmark_data = await get_bookmark_detail(db_path, bookmark_id, user_id)
+        
+        if not bookmark_data:
+            raise HTTPException(status_code=404, detail="Bookmark not found")
+        
+        # 處理完整的discovery數據
+        discovery_info = bookmark_data['discovery']
+        
+        # 解析完整的知識點和內容結構
+        knowledge_points = []
+        learning_objectives = []
+        discussion_questions = []
+        article_obj = None
+        
+        kp_data_raw = discovery_info['knowledge_points']
+        
+        # 解析完整的JSON結構
+        import json
+        if isinstance(kp_data_raw, str):
+            try:
+                parsed_content = json.loads(kp_data_raw)
+            except (json.JSONDecodeError, TypeError):
+                parsed_content = {}
+        elif isinstance(kp_data_raw, dict):
+            parsed_content = kp_data_raw
+        else:
+            parsed_content = {}
+        
+        # 提取知識點
+        if 'knowledge_points' in parsed_content and isinstance(parsed_content['knowledge_points'], list):
+            for point in parsed_content['knowledge_points']:
+                if isinstance(point, dict):
+                    knowledge_points.append(KnowledgePoint(**point))
+        elif isinstance(parsed_content, list):
+            # 如果直接是知識點列表
+            for point in parsed_content:
+                if isinstance(point, dict):
+                    knowledge_points.append(KnowledgePoint(**point))
+        
+        # 提取文章詳細信息
+        if 'article' in parsed_content:
+            article_info = parsed_content['article']
+            article_obj = DailyDiscoveryArticle(**article_info)
+        
+        # 如果沒有解析到文章對象，使用基本信息
+        if not article_obj:
+            article_obj = DailyDiscoveryArticle(
+                title=discovery_info['article_title'],
+                content=discovery_info['article_content'],
+                word_count=len(discovery_info['article_content'].split()),
+                difficulty_level="中級",
+                topic_category="General"
+            )
+        
+        # 提取學習目標
+        if discovery_info.get('learning_objectives'):
+            try:
+                learning_objectives = json.loads(discovery_info['learning_objectives']) if isinstance(discovery_info['learning_objectives'], str) else discovery_info['learning_objectives']
+            except (json.JSONDecodeError, TypeError):
+                learning_objectives = []
+        else:
+            learning_objectives = parsed_content.get('learning_objectives', [])
+        
+        # 提取討論問題
+        if discovery_info.get('discussion_questions'):
+            try:
+                discussion_questions = json.loads(discovery_info['discussion_questions']) if isinstance(discovery_info['discussion_questions'], str) else discovery_info['discussion_questions']
+            except (json.JSONDecodeError, TypeError):
+                discussion_questions = []
+        else:
+            discussion_questions = parsed_content.get('discussion_questions', [])
+        
+        # 解析時間
+        from datetime import datetime
+        content_date = datetime.strptime(discovery_info['content_date'], '%Y-%m-%d').date()
+        bookmark_created_at = datetime.fromisoformat(bookmark_data['created_at'])
+        
+        discovery_obj = DailyDiscoveryResponse(
+            id=bookmark_data['discovery_id'],
+            content_date=content_date,
+            article=article_obj,
+            knowledge_points=knowledge_points,
+            learning_objectives=learning_objectives,
+            discussion_questions=discussion_questions,
+            created_at=bookmark_created_at,
+            expires_at=bookmark_created_at,
+            is_bookmarked=True,
+            bookmark_stats={}
+        )
+        
+        bookmark = BookmarkResponse(
+            id=bookmark_data['id'],
+            discovery_id=bookmark_data['discovery_id'],
+            bookmark_type=bookmark_data['bookmark_type'],
+            knowledge_point_id=bookmark_data['knowledge_point_id'],
+            personal_notes=bookmark_data['personal_notes'],
+            created_at=bookmark_created_at,
+            discovery=discovery_obj
+        )
+        
+        return bookmark
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting bookmark detail: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve bookmark detail")
+
+@app.put("/api/v1/bookmarks/{bookmark_id}/notes")
+async def update_bookmark_notes_endpoint(
+    bookmark_id: int,
+    notes_request: UpdateBookmarkNotesRequest,
+    user_id: int = Depends(get_current_user)
+):
+    """Update bookmark personal notes."""
+    logger.info(f"PUT /bookmarks/{bookmark_id}/notes called - user_id: {user_id}")
+    
+    try:
+        db_path = get_database_path()
+        await ensure_db_initialized(db_path)
+        
+        await update_bookmark_personal_notes(db_path, bookmark_id, user_id, notes_request.personal_notes)
+        return {"success": True, "message": "Bookmark notes updated successfully"}
+        
+    except Exception as e:
+        logger.error(f"Error updating bookmark notes: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to update bookmark notes")
+
+@app.get("/api/v1/bookmarks/tags", response_model=List[BookmarkTag])
+async def get_bookmark_tags_endpoint(
+    user_id: int = Depends(get_current_user)
+):
+    """Get user bookmark tags."""
+    logger.info(f"GET /bookmarks/tags called - user_id: {user_id}")
+    
+    try:
+        db_path = get_database_path()
+        await ensure_db_initialized(db_path)
+        
+        tags_data = await get_tags(db_path, user_id)
+        
+        tags = []
+        for tag_data in tags_data:
+            from datetime import datetime
+            created_at = datetime.fromisoformat(tag_data['created_at'])
+            tag = BookmarkTag(
+                id=tag_data['id'],
+                tag_name=tag_data['tag_name'],
+                tag_color=tag_data['tag_color'],
+                created_at=created_at
+            )
+            tags.append(tag)
+        
+        return tags
+        
+    except Exception as e:
+        logger.error(f"Error getting bookmark tags: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve bookmark tags")
+
+@app.post("/api/v1/bookmarks/tags", response_model=dict)
+async def create_bookmark_tag_endpoint(
+    tag_request: CreateTagRequest,
+    user_id: int = Depends(get_current_user)
+):
+    """Create a new bookmark tag."""
+    logger.info(f"POST /bookmarks/tags called - user_id: {user_id}, tag: {tag_request.tag_name}")
+    
+    try:
+        db_path = get_database_path()
+        await ensure_db_initialized(db_path)
+        
+        success = await create_tag(db_path, user_id, tag_request.tag_name, tag_request.tag_color)
+        
+        if success:
+            return {"success": True, "message": "Tag created successfully"}
+        else:
+            raise HTTPException(status_code=409, detail="Tag already exists")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating bookmark tag: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to create bookmark tag")
 
 # Legacy endpoints for backward compatibility
 @app.get("/api/v1/hello")

@@ -145,4 +145,73 @@ export interface DailyDiscoveryResponse {
   discussion_questions: string[]
   created_at: string
   expires_at: string
+  is_bookmarked?: boolean
+  bookmark_stats?: { [key: string]: number }
+}
+
+// Bookmark related types
+export enum BookmarkType {
+  FULL = 'full',
+  KNOWLEDGE_POINT = 'knowledge_point',
+  ARTICLE_SECTION = 'article_section',
+  DISCUSSION = 'discussion'
+}
+
+export interface BookmarkRequest {
+  discovery_id: number
+  bookmark_type?: string
+  knowledge_point_id?: string
+  personal_notes?: string
+}
+
+export interface BookmarkResponse {
+  id: number
+  discovery_id: number
+  bookmark_type: string
+  knowledge_point_id?: string
+  personal_notes?: string
+  created_at: string
+  discovery: DailyDiscoveryResponse
+}
+
+export interface BookmarkListResponse {
+  bookmarks: BookmarkResponse[]
+  total_count: number
+  page: number
+  page_size: number
+}
+
+export interface BookmarkTag {
+  id: number
+  tag_name: string
+  tag_color: string
+  created_at: string
+}
+
+export interface CreateTagRequest {
+  tag_name: string
+  tag_color?: string
+}
+
+export interface UpdateBookmarkNotesRequest {
+  personal_notes?: string
+}
+
+// 輕量級收藏摘要
+export interface BookmarkSummary {
+  id: number
+  discovery_id: number
+  bookmark_type: string
+  knowledge_point_id?: string
+  personal_notes?: string
+  created_at: string
+  content_date: string
+  article_title: string
+}
+
+export interface BookmarkSummaryListResponse {
+  bookmarks: BookmarkSummary[]
+  total_count: number
+  page: number
+  page_size: number
 }

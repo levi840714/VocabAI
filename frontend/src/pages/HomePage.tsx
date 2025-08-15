@@ -18,6 +18,7 @@ import {
   Zap, 
   Settings,
   Clock,
+  Bookmark,
   Target,
   Award,
   Calendar
@@ -97,18 +98,18 @@ const HomePage: React.FC = () => {
       gradient: 'from-purple-500 to-purple-600',
     },
     {
+      icon: <Bookmark className="w-5 h-5 text-white" />,
+      title: '我的收藏',
+      description: '收藏的學習內容',
+      onClick: () => navigate('/bookmarks'),
+      gradient: 'from-amber-500 to-amber-600',
+    },
+    {
       icon: <Zap className="w-5 h-5 text-white" />,
       title: 'AI 解析',
       description: '深度單字分析',
       onClick: () => navigate('/ai-analysis'),
       gradient: 'from-pink-500 to-pink-600',
-    },
-    {
-      icon: <TrendingUp className="w-5 h-5 text-white" />,
-      title: '學習報告',
-      description: '進度分析統計',
-      onClick: () => navigate('/progress'),
-      gradient: 'from-orange-500 to-orange-600',
     },
     {
       icon: <Settings className="w-5 h-5 text-white" />,

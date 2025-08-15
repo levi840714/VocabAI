@@ -245,6 +245,8 @@ class DailyDiscoveryResponse(BaseModel):
     discussion_questions: List[str] = Field(default=[], description="討論問題")
     created_at: datetime = Field(..., description="創建時間")
     expires_at: datetime = Field(..., description="過期時間")
+    is_bookmarked: Optional[bool] = Field(default=False, description="當前用戶是否已收藏")
+    bookmark_stats: Optional[Dict[str, int]] = Field(default={}, description="收藏統計信息")
 
 # Sentence Analysis Models
 class GrammarComponent(BaseModel):
@@ -289,100 +291,60 @@ class AIExplanationResponse(BaseModel):
     explanation_type: str
     structured_data: Optional[StructuredAIResponse | DeepLearningAIResponse | SentenceAnalysisResponse] = Field(None, description="結構化數據")
 
-class StatsResponse(BaseModel):
-    total_words: int
-    due_today: int
-    reviewed_today: int
-    difficulty_distribution: Dict[int, int]
+# Bookmark Models
+class BookmarkType:
+    FULL = 'full'
+    KNOWLEDGE_POINT = 'knowledge_point' 
+    ARTICLE_SECTION = 'article_section'
+    DISCUSSION = 'discussion'
 
-class HealthResponse(BaseModel):
-    status: str
-    message: str
-    timestamp: datetime
+class BookmarkRequest(BaseModel):
+    discovery_id: int = Field(..., description="每日探索內容ID")
+    bookmark_type: str = Field(default="full", description="收藏類型")
+    knowledge_point_id: Optional[str] = Field(None, description="知識點ID（如果收藏特定知識點）")
+    personal_notes: Optional[str] = Field(None, description="個人筆記")
 
-class ErrorResponse(BaseModel):
-    detail: str
-    error_code: Optional[str] = None
+class BookmarkResponse(BaseModel):
+    id: int = Field(..., description="收藏ID")
+    discovery_id: int = Field(..., description="每日探索內容ID")
+    bookmark_type: str = Field(..., description="收藏類型")
+    knowledge_point_id: Optional[str] = Field(None, description="知識點ID")
+    personal_notes: Optional[str] = Field(None, description="個人筆記")
+    created_at: datetime = Field(..., description="收藏時間")
+    discovery: DailyDiscoveryResponse = Field(..., description="關聯的每日探索內容")
 
-class UpdateNotesRequest(BaseModel):
-    notes: Optional[str] = Field(None, description="User's personal notes for the word")
+class BookmarkListResponse(BaseModel):
+    bookmarks: List[BookmarkResponse] = Field(..., description="收藏列表")
+    total_count: int = Field(..., description="總數量")
+    page: int = Field(..., description="當前頁")
+    page_size: int = Field(..., description="每頁大小")
 
-# User Settings Models
-class LearningPreferences(BaseModel):
-    daily_review_target: int = Field(default=20, ge=1, le=100, description="每日複習目標數量")
-    difficulty_preference: str = Field(default="mixed", pattern=r"^(easy|normal|hard|mixed)$", description="難度偏好")
-    review_reminder_enabled: bool = Field(default=True, description="是否開啟複習提醒")
-    review_reminder_time: str = Field(default="09:00", pattern=r"^([01]?[0-9]|2[0-3]):[0-5][0-9]$", description="複習提醒時間")
-
-class InterfaceSettings(BaseModel):
-    voice_auto_play: bool = Field(default=False, description="語音自動播放")
-    theme_mode: str = Field(default="light", pattern=r"^(light|dark|auto)$", description="主題模式")
-    language: str = Field(default="zh-TW", description="介面語言")
-    animation_enabled: bool = Field(default=True, description="動畫效果")
-
-class AISettings(BaseModel):
-    default_explanation_type: str = Field(default="simple", pattern=r"^(simple|deep)$", description="預設AI解釋類型")
-    ai_provider_preference: str = Field(default="google", description="AI服務提供商偏好")
-    explanation_detail_level: str = Field(default="standard", pattern=r"^(concise|standard|detailed)$", description="解釋詳細程度")
-
-class StudySettings(BaseModel):
-    spaced_repetition_algorithm: str = Field(default="sm2", description="間隔重複算法")
-    show_pronunciation: bool = Field(default=True, description="顯示音標")
-    show_etymology: bool = Field(default=True, description="顯示詞源")
-    auto_mark_learned_threshold: int = Field(default=5, ge=3, le=10, description="自動標記為已學會的閾值")
-
-class UserSettings(BaseModel):
-    user_id: int
-    learning_preferences: LearningPreferences
-    interface_settings: InterfaceSettings
-    ai_settings: AISettings
-    study_settings: StudySettings
-    created_at: datetime
-    updated_at: datetime
-
-class UserSettingsCreate(BaseModel):
-    learning_preferences: Optional[LearningPreferences] = Field(default_factory=LearningPreferences)
-    interface_settings: Optional[InterfaceSettings] = Field(default_factory=InterfaceSettings)
-    ai_settings: Optional[AISettings] = Field(default_factory=AISettings)
-    study_settings: Optional[StudySettings] = Field(default_factory=StudySettings)
-
-class UserSettingsUpdate(BaseModel):
-    learning_preferences: Optional[LearningPreferences] = None
-    interface_settings: Optional[InterfaceSettings] = None
-    ai_settings: Optional[AISettings] = None
-    study_settings: Optional[StudySettings] = None
-
-class UserSettingsResponse(BaseModel):
-    user_id: int
-    learning_preferences: LearningPreferences
-    interface_settings: InterfaceSettings
-    ai_settings: AISettings
-    study_settings: StudySettings
-    created_at: datetime
-    updated_at: datetime
-
-# Daily Discovery Models
-class KnowledgePoint(BaseModel):
-    id: str = Field(..., description="知識點ID")
-    type: str = Field(..., description="知識點類型 (vocabulary/grammar/cultural/expression)")
-    title: str = Field(..., description="知識點標題")
-    content: str = Field(..., description="知識點內容")
-    examples: List[str] = Field(default=[], description="例句或相關資訊")
-    difficulty: str = Field(default="中級", description="難度等級")
-
-class DailyDiscoveryArticle(BaseModel):
-    title: str = Field(..., description="文章標題")
-    content: str = Field(..., description="文章內容")
-    word_count: int = Field(..., description="文章字數")
-    difficulty_level: str = Field(default="中級", description="難度等級")
-    topic_category: str = Field(..., description="主題類別")
-
-class DailyDiscoveryResponse(BaseModel):
-    id: int = Field(..., description="內容ID")
-    content_date: date = Field(..., description="內容日期")
-    article: DailyDiscoveryArticle = Field(..., description="文章內容")
-    knowledge_points: List[KnowledgePoint] = Field(default=[], description="知識點列表")
-    learning_objectives: List[str] = Field(default=[], description="學習目標")
-    discussion_questions: List[str] = Field(default=[], description="討論問題")
+class BookmarkTag(BaseModel):
+    id: int = Field(..., description="標籤ID")
+    tag_name: str = Field(..., description="標籤名稱")
+    tag_color: str = Field(default="#3B82F6", description="標籤顏色")
     created_at: datetime = Field(..., description="創建時間")
-    expires_at: datetime = Field(..., description="過期時間")
+
+class CreateTagRequest(BaseModel):
+    tag_name: str = Field(..., min_length=1, max_length=20, description="標籤名稱")
+    tag_color: str = Field(default="#3B82F6", description="標籤顏色")
+
+class UpdateBookmarkNotesRequest(BaseModel):
+    personal_notes: Optional[str] = Field(None, description="個人筆記")
+
+# 輕量級收藏列表響應
+class BookmarkSummary(BaseModel):
+    id: int = Field(..., description="收藏ID")
+    discovery_id: int = Field(..., description="每日探索ID")
+    bookmark_type: str = Field(..., description="收藏類型")
+    knowledge_point_id: Optional[str] = Field(None, description="知識點ID")
+    personal_notes: Optional[str] = Field(None, description="個人筆記")
+    created_at: datetime = Field(..., description="收藏時間")
+    content_date: str = Field(..., description="內容日期")
+    article_title: str = Field(..., description="文章標題")
+
+class BookmarkSummaryListResponse(BaseModel):
+    bookmarks: List[BookmarkSummary] = Field(..., description="收藏摘要列表")
+    total_count: int = Field(..., description="總數量")
+    page: int = Field(..., description="當前頁碼")
+    page_size: int = Field(..., description="每頁大小")

@@ -30,7 +30,15 @@ from bot.database.sqlite_db import (
     upsert_user_settings,
     get_daily_discovery,
     create_daily_discovery,
-    cleanup_expired_daily_discovery
+    cleanup_expired_daily_discovery,
+    add_bookmark,
+    remove_bookmark,
+    get_user_bookmarks,
+    is_bookmarked,
+    update_bookmark_notes,
+    create_bookmark_tag,
+    get_user_bookmark_tags,
+    add_bookmark_tag_relation
 )
 from bot.core.spaced_repetition import calculate_next_review_date
 
@@ -157,3 +165,46 @@ async def create_daily_discovery_data(db_path: str, date_str: str, article_title
 async def cleanup_expired_daily_discovery_data(db_path: str) -> int:
     """Clean up expired daily discovery content."""
     return await cleanup_expired_daily_discovery(db_path)
+
+# Bookmark CRUD functions
+async def create_bookmark(db_path: str, user_id: int, discovery_id: int, bookmark_type: str = 'full', knowledge_point_id: str = None, personal_notes: str = None) -> bool:
+    """Create a bookmark."""
+    return await add_bookmark(db_path, user_id, discovery_id, bookmark_type, knowledge_point_id, personal_notes)
+
+async def delete_bookmark(db_path: str, user_id: int, discovery_id: int, bookmark_type: str = 'full', knowledge_point_id: str = None):
+    """Delete a bookmark."""
+    return await remove_bookmark(db_path, user_id, discovery_id, bookmark_type, knowledge_point_id)
+
+async def get_bookmarks(db_path: str, user_id: int, bookmark_type: str = None, page: int = 0, page_size: int = 20):
+    """Get user bookmarks."""
+    return await get_user_bookmarks(db_path, user_id, bookmark_type, page, page_size)
+
+async def check_bookmark_exists(db_path: str, user_id: int, discovery_id: int, bookmark_type: str = 'full', knowledge_point_id: str = None) -> bool:
+    """Check if bookmark exists."""
+    return await is_bookmarked(db_path, user_id, discovery_id, bookmark_type, knowledge_point_id)
+
+async def update_bookmark_personal_notes(db_path: str, bookmark_id: int, user_id: int, personal_notes: str):
+    """Update bookmark personal notes."""
+    return await update_bookmark_notes(db_path, bookmark_id, user_id, personal_notes)
+
+async def create_tag(db_path: str, user_id: int, tag_name: str, tag_color: str = '#3B82F6') -> bool:
+    """Create a bookmark tag."""
+    return await create_bookmark_tag(db_path, user_id, tag_name, tag_color)
+
+async def get_tags(db_path: str, user_id: int):
+    """Get user bookmark tags."""
+    return await get_user_bookmark_tags(db_path, user_id)
+
+async def get_user_bookmarks_summary(db_path: str, user_id: int, bookmark_type: str = None, page: int = 0, page_size: int = 20):
+    """Get user bookmarks summary (basic info only)."""
+    from bot.database.sqlite_db import get_user_bookmarks_summary as db_get_summary
+    return await db_get_summary(db_path, user_id, bookmark_type, page, page_size)
+
+async def get_bookmark_detail(db_path: str, bookmark_id: int, user_id: int):
+    """Get detailed bookmark content."""
+    from bot.database.sqlite_db import get_bookmark_detail as db_get_detail
+    return await db_get_detail(db_path, bookmark_id, user_id)
+
+async def add_tag_to_bookmark(db_path: str, bookmark_id: int, tag_id: int) -> bool:
+    """Add tag to bookmark."""
+    return await add_bookmark_tag_relation(db_path, bookmark_id, tag_id)

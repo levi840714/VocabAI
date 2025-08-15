@@ -1,4 +1,15 @@
-import { StructuredAIResponse, DeepLearningAIResponse, SentenceAnalysisResponse, DailyDiscoveryResponse } from './types';
+import { 
+  StructuredAIResponse, 
+  DeepLearningAIResponse, 
+  SentenceAnalysisResponse, 
+  DailyDiscoveryResponse,
+  BookmarkRequest,
+  BookmarkListResponse,
+  BookmarkResponse,
+  BookmarkSummaryListResponse,
+  BookmarkTag,
+  CreateTagRequest
+} from './types';
 import { createTelegramAuthHeader, isLocalDevelopment } from '../hooks/use-telegram';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
@@ -355,6 +366,126 @@ class MemWhizAPI {
     }
     
     return this.request(endpoint);
+  }
+
+  // Bookmark endpoints
+  async createBookmark(bookmarkRequest: BookmarkRequest): Promise<{ success: boolean; message: string }> {
+    let endpoint = '/v1/bookmarks';
+    
+    // 本地測試模式下添加 user_id 參數
+    if (isLocalDevelopment() && !this.telegramAuthData) {
+      endpoint += '?user_id=613170570';
+    }
+    
+    return this.request(endpoint, {
+      method: 'POST',
+      body: JSON.stringify(bookmarkRequest),
+    });
+  }
+
+  async deleteBookmark(
+    discoveryId: number, 
+    bookmarkType: string = 'full', 
+    knowledgePointId?: string
+  ): Promise<{ success: boolean; message: string }> {
+    let endpoint = `/v1/bookmarks/${discoveryId}`;
+    
+    const params = new URLSearchParams();
+    params.append('bookmark_type', bookmarkType);
+    
+    if (knowledgePointId) {
+      params.append('knowledge_point_id', knowledgePointId);
+    }
+    
+    // 本地測試模式下添加 user_id 參數
+    if (isLocalDevelopment() && !this.telegramAuthData) {
+      params.append('user_id', '613170570');
+    }
+    
+    endpoint += '?' + params.toString();
+    
+    return this.request(endpoint, {
+      method: 'DELETE',
+    });
+  }
+
+  async getBookmarks(
+    bookmarkType?: string,
+    page: number = 0,
+    pageSize: number = 20
+  ): Promise<BookmarkSummaryListResponse> {
+    let endpoint = '/v1/bookmarks';
+    
+    const params = new URLSearchParams();
+    
+    if (bookmarkType) {
+      params.append('bookmark_type', bookmarkType);
+    }
+    
+    params.append('page', page.toString());
+    params.append('page_size', pageSize.toString());
+    
+    // 本地測試模式下添加 user_id 參數
+    if (isLocalDevelopment() && !this.telegramAuthData) {
+      params.append('user_id', '613170570');
+    }
+    
+    endpoint += '?' + params.toString();
+    
+    return this.request(endpoint);
+  }
+
+  async getBookmarkDetail(bookmarkId: number): Promise<BookmarkResponse> {
+    let endpoint = `/v1/bookmarks/${bookmarkId}`;
+    
+    // 本地測試模式下添加 user_id 參數
+    if (isLocalDevelopment() && !this.telegramAuthData) {
+      endpoint += '?user_id=613170570';
+    }
+    
+    return this.request(endpoint);
+  }
+
+  async updateBookmarkNotes(
+    bookmarkId: number, 
+    personalNotes?: string
+  ): Promise<{ success: boolean; message: string }> {
+    let endpoint = `/v1/bookmarks/${bookmarkId}/notes`;
+    
+    // 本地測試模式下添加 user_id 參數
+    if (isLocalDevelopment() && !this.telegramAuthData) {
+      endpoint += '?user_id=613170570';
+    }
+    
+    return this.request(endpoint, {
+      method: 'PUT',
+      body: JSON.stringify({ personal_notes: personalNotes }),
+    });
+  }
+
+  async getBookmarkTags(): Promise<BookmarkTag[]> {
+    let endpoint = '/v1/bookmarks/tags';
+    
+    // 本地測試模式下添加 user_id 參數
+    if (isLocalDevelopment() && !this.telegramAuthData) {
+      endpoint += '?user_id=613170570';
+    }
+    
+    return this.request(endpoint);
+  }
+
+  async createBookmarkTag(tagRequest: CreateTagRequest): Promise<{ success: boolean; message: string }> {
+    let endpoint = '/v1/bookmarks/tags';
+    
+    // 本地測試模式下添加 user_id 參數
+    if (isLocalDevelopment() && !this.telegramAuthData) {
+      endpoint += '?user_id=613170570';
+    }
+    
+    return this.request(endpoint, {
+      method: 'POST',
+      body: JSON.stringify(tagRequest),
+    });
   }
 }
 

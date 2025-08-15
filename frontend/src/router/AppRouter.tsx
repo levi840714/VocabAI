@@ -13,6 +13,8 @@ import AIAnalysisPage from '@/pages/AIAnalysisPage';
 import WordDetailPage from '@/pages/WordDetailPage';
 import SettingsPage from '@/pages/SettingsPage';
 import DailyDiscoveryPage from '@/pages/DailyDiscoveryPage';
+import BookmarksPage from '@/pages/BookmarksPage';
+import BookmarkDetailPage from '@/pages/BookmarkDetailPage';
 import SettingsTestPage from '@/pages/SettingsTestPage';
 import DebugClickablePage from '@/pages/DebugClickablePage';
 import GlobalQuickWordPopup from '@/components/GlobalQuickWordPopup';
@@ -30,6 +32,8 @@ const AppRouter: React.FC = () => {
             <Route path="/study" element={<StudyPage />} />
             <Route path="/progress" element={<ProgressPage />} />
             <Route path="/daily-discovery" element={<DailyDiscoveryPage />} />
+            <Route path="/bookmarks" element={<BookmarksPage />} />
+            <Route path="/bookmarks/:bookmarkId" element={<BookmarkDetailPage />} />
             <Route path="/ai-analysis" element={<AIAnalysisPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/settings-test" element={<SettingsTestPage />} />
