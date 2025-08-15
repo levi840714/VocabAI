@@ -229,6 +229,7 @@ class KnowledgePoint(BaseModel):
     examples: List[str] = Field(default=[], description="例句或相關資訊")
     difficulty: str = Field(default="中級", description="難度等級")
 
+# Daily Discovery Content Models
 class DailyDiscoveryArticle(BaseModel):
     title: str = Field(..., description="文章標題")
     content: str = Field(..., description="文章內容")
@@ -236,10 +237,26 @@ class DailyDiscoveryArticle(BaseModel):
     difficulty_level: str = Field(default="中級", description="難度等級")
     topic_category: str = Field(..., description="主題類別")
 
+class ConversationTurn(BaseModel):
+    speaker: str = Field(..., description="說話者（如：A, B, Waiter, Customer等）")
+    text: str = Field(..., description="對話內容")
+    translation: str = Field(..., description="中文翻譯")
+    audio_notes: Optional[str] = Field(None, description="語音注意事項（如：語調、重音等）")
+
+class DailyConversation(BaseModel):
+    title: str = Field(..., description="對話標題")
+    scenario: str = Field(..., description="對話情境")
+    participants: List[str] = Field(..., description="對話參與者")
+    conversation: List[ConversationTurn] = Field(..., description="對話內容")
+    difficulty_level: str = Field(default="中級", description="難度等級")
+    scenario_category: str = Field(..., description="情境類別（如：餐廳、購物、商務等）")
+
 class DailyDiscoveryResponse(BaseModel):
     id: int = Field(..., description="內容ID")
     content_date: date = Field(..., description="內容日期")
-    article: DailyDiscoveryArticle = Field(..., description="文章內容")
+    content_type: str = Field(..., description="內容類型（article或conversation）")
+    article: Optional[DailyDiscoveryArticle] = Field(None, description="文章內容")
+    conversation: Optional[DailyConversation] = Field(None, description="對話內容")
     knowledge_points: List[KnowledgePoint] = Field(default=[], description="知識點列表")
     learning_objectives: List[str] = Field(default=[], description="學習目標")
     discussion_questions: List[str] = Field(default=[], description="討論問題")

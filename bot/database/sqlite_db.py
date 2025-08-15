@@ -856,7 +856,7 @@ async def get_user_bookmarks_summary(db_path, user_id, bookmark_type=None, page=
                     'knowledge_point_id': row[3],
                     'personal_notes': row[4],
                     'created_at': row[5],
-                    'content_date': row[6],
+                    'content_date': row[6].split('_')[0] if '_' in row[6] else row[6],
                     'article_title': row[7]
                 }
             else:
@@ -876,7 +876,7 @@ async def get_user_bookmarks_summary(db_path, user_id, bookmark_type=None, page=
                         'knowledge_point_id': row[3],
                         'personal_notes': row[4],
                         'created_at': row[5],
-                        'content_date': discovery_row[0],
+                        'content_date': discovery_row[0].split('_')[0] if '_' in discovery_row[0] else discovery_row[0],
                         'article_title': discovery_row[1]
                     }
                 else:
@@ -932,7 +932,7 @@ async def get_bookmark_detail(db_path, bookmark_id, user_id):
                 'personal_notes': row[4],
                 'created_at': row[5],
                 'discovery': {
-                    'content_date': row[6],
+                    'content_date': row[6].split('_')[0] if '_' in row[6] else row[6],
                     'article_title': row[7],
                     'article_content': row[8],
                     'knowledge_points': row[9] or '[]',
@@ -958,7 +958,7 @@ async def get_bookmark_detail(db_path, bookmark_id, user_id):
                     'personal_notes': row[4],
                     'created_at': row[5],
                     'discovery': {
-                        'content_date': discovery_row[0],
+                        'content_date': discovery_row[0].split('_')[0] if '_' in discovery_row[0] else discovery_row[0],
                         'article_title': discovery_row[1],
                         'article_content': discovery_row[2],
                         'knowledge_points': discovery_row[3] or '[]',

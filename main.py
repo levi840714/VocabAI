@@ -253,7 +253,8 @@ async def setup_api_routes(app):
                 elif request.path.endswith('/daily-discovery'):
                     # Handle daily-discovery endpoint
                     date_str = query_params.get('date_str')
-                    result = await fastapi_handler(date_str=date_str, user_id=user_id)
+                    content_type = query_params.get('content_type')
+                    result = await fastapi_handler(date_str=date_str, content_type=content_type, user_id=user_id)
                 elif 'words' in request.path:
                     # Handle words list endpoint
                     page = int(query_params.get('page', 0))

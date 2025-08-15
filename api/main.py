@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 from datetime import datetime
 import logging
 from typing import Optional, List
+import pytz
 
 # Add the project root to the Python path to allow importing from 'app'
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -39,6 +40,28 @@ from telegram_auth import get_user_from_telegram_header
 
 # Uvicorn will handle the logging configuration. We just get the logger instance for our custom logs.
 logger = logging.getLogger(__name__)
+
+# 時區工具函數
+def get_taipei_timezone():
+    """獲取台北時區"""
+    return pytz.timezone('Asia/Taipei')
+
+def get_taipei_now():
+    """獲取台北時區的當前時間"""
+    return datetime.now(get_taipei_timezone())
+
+def to_taipei_time(utc_datetime_str: str):
+    """將 UTC 時間字符串轉換為台北時區"""
+    utc_dt = datetime.fromisoformat(utc_datetime_str.replace('Z', '+00:00'))
+    if utc_dt.tzinfo is None:
+        utc_dt = pytz.UTC.localize(utc_dt)
+    return utc_dt.astimezone(get_taipei_timezone())
+
+def to_utc_time(taipei_datetime):
+    """將台北時區時間轉換為 UTC"""
+    if taipei_datetime.tzinfo is None:
+        taipei_datetime = get_taipei_timezone().localize(taipei_datetime)
+    return taipei_datetime.astimezone(pytz.UTC)
 
 # 用戶身份驗證依賴函數
 def get_current_user(
@@ -177,7 +200,7 @@ async def health_check():
     return HealthResponse(
         status="healthy",
         message="MemWhiz API is running",
-        timestamp=datetime.now()
+        timestamp=get_taipei_now()
     )
 
 @app.get("/api/v1/words", response_model=WordsListResponse)
@@ -453,8 +476,8 @@ async def get_user_settings(user_id: int = Depends(get_current_user)):
                 interface_settings=InterfaceSettings(),
                 ai_settings=AISettings(),
                 study_settings=StudySettings(),
-                created_at=datetime.now(),
-                updated_at=datetime.now()
+                created_at=get_taipei_now(),
+                updated_at=get_taipei_now()
             )
             return default_settings
             
@@ -613,6 +636,7 @@ async def update_settings(
 @app.get("/api/v1/daily-discovery", response_model=DailyDiscoveryResponse)
 async def get_daily_discovery(
     date_str: Optional[str] = Query(None, description="Date string in YYYY-MM-DD format, defaults to today"),
+    content_type: Optional[str] = Query(None, description="Content type: 'article' or 'conversation', defaults to random"),
     user_id: int = Depends(get_current_user)
 ):
     """Get daily discovery content for specific date (defaults to today)."""
@@ -631,32 +655,51 @@ async def get_daily_discovery(
         date_str = date.today().strftime('%Y-%m-%d')
     
     try:
-        # 檢查是否已有當天的內容
-        discovery_data = await get_daily_discovery_data(db_path, date_str)
+        # 如果沒有指定內容類型，隨機選擇
+        if not content_type:
+            import random
+            content_type = random.choice(['article', 'conversation'])
+        
+        # 檢查是否已有當天指定類型的內容（使用複合鍵）
+        discovery_data = await get_daily_discovery_data(db_path, f"{date_str}_{content_type}")
         
         if not discovery_data:
             # 沒有內容則生成新的
-            logger.info(f"生成 {date_str} 的每日探索內容")
+            logger.info(f"生成 {date_str} 的每日探索內容 ({content_type})")
             ai_service = get_ai_service()
-            raw_content = await ai_service.generate_daily_discovery()
+            
+            if content_type == 'conversation':
+                raw_content = await ai_service.generate_daily_conversation()
+            else:
+                raw_content = await ai_service.generate_daily_discovery()
             
             # 解析 AI 生成的內容
             try:
                 parsed_content = ai_service.parse_structured_response(raw_content)
-                article_data = parsed_content.get('article', {})
-                knowledge_points_data = parsed_content.get('knowledge_points', [])
                 
-                # 創建並保存新內容
+                if content_type == 'conversation':
+                    conversation_data = parsed_content.get('conversation', {})
+                    title = conversation_data.get('title', 'Daily Conversation')
+                    content = f"Scenario: {conversation_data.get('scenario', '')}"
+                else:
+                    article_data = parsed_content.get('article', {})
+                    title = article_data.get('title', 'Daily Discovery')
+                    content = article_data.get('content', 'Content generation failed')
+                
+                # 添加內容類型到解析內容中
+                parsed_content['content_type'] = content_type
+                
+                # 創建並保存新內容（使用複合鍵）
                 success = await create_daily_discovery_data(
-                    db_path, date_str, 
-                    article_data.get('title', 'Daily Discovery'),
-                    article_data.get('content', 'Content generation failed'),
+                    db_path, f"{date_str}_{content_type}", 
+                    title,
+                    content,
                     parsed_content
                 )
                 
                 if success:
                     # 重新獲取剛創建的內容
-                    discovery_data = await get_daily_discovery_data(db_path, date_str)
+                    discovery_data = await get_daily_discovery_data(db_path, f"{date_str}_{content_type}")
                 else:
                     raise HTTPException(status_code=500, detail="Failed to save generated content")
                     
@@ -670,6 +713,7 @@ async def get_daily_discovery(
         # 構建響應數據
         knowledge_points = []
         article_obj = None
+        conversation_obj = None
         learning_objectives = []
         discussion_questions = []
         
@@ -686,6 +730,23 @@ async def get_daily_discovery(
                     article_info = raw_points['article']
                     article_obj = DailyDiscoveryArticle(**article_info)
                 
+                if 'conversation' in raw_points:
+                    from schemas import DailyConversation, ConversationTurn
+                    conversation_info = raw_points['conversation']
+                    # 轉換對話資料
+                    conversation_turns = []
+                    for turn in conversation_info.get('conversation', []):
+                        conversation_turns.append(ConversationTurn(**turn))
+                    
+                    conversation_obj = DailyConversation(
+                        title=conversation_info.get('title', ''),
+                        scenario=conversation_info.get('scenario', ''),
+                        participants=conversation_info.get('participants', []),
+                        conversation=conversation_turns,
+                        difficulty_level=conversation_info.get('difficulty_level', '中級'),
+                        scenario_category=conversation_info.get('scenario_category', '')
+                    )
+                
                 if 'knowledge_points' in raw_points and isinstance(raw_points['knowledge_points'], list):
                     for point in raw_points['knowledge_points']:
                         if isinstance(point, dict):
@@ -694,8 +755,8 @@ async def get_daily_discovery(
                 learning_objectives = raw_points.get('learning_objectives', [])
                 discussion_questions = raw_points.get('discussion_questions', [])
         
-        # 如果沒有解析到文章物件，使用資料庫中的基本資訊
-        if not article_obj:
+        # 如果沒有解析到文章物件且內容類型是文章，使用資料庫中的基本資訊
+        if not article_obj and content_type == 'article':
             article_obj = DailyDiscoveryArticle(
                 title=discovery_data['article_title'],
                 content=discovery_data['article_content'],
@@ -706,9 +767,14 @@ async def get_daily_discovery(
         
         # 解析時間戳
         from datetime import datetime
-        created_at = datetime.fromisoformat(discovery_data['created_at'])
-        expires_at = datetime.fromisoformat(discovery_data['expires_at'])
-        content_date = datetime.strptime(discovery_data['content_date'], '%Y-%m-%d').date()
+        created_at = to_taipei_time(discovery_data['created_at'])
+        expires_at = to_taipei_time(discovery_data['expires_at'])
+        
+        # 從複合鍵中提取實際日期
+        actual_date_str = discovery_data['content_date']
+        if '_' in actual_date_str:
+            actual_date_str = actual_date_str.split('_')[0]
+        content_date = datetime.strptime(actual_date_str, '%Y-%m-%d').date()
         
         # 檢查用戶是否已收藏此內容
         db_path = get_database_path()
@@ -717,7 +783,9 @@ async def get_daily_discovery(
         return DailyDiscoveryResponse(
             id=discovery_data['id'],
             content_date=content_date,
+            content_type=content_type,
             article=article_obj,
+            conversation=conversation_obj,
             knowledge_points=knowledge_points,
             learning_objectives=learning_objectives,
             discussion_questions=discussion_questions,
@@ -814,7 +882,7 @@ async def get_bookmarks_endpoint(
         for bookmark_data in bookmarks_data:
             # 解析時間
             from datetime import datetime
-            bookmark_created_at = datetime.fromisoformat(bookmark_data['created_at'])
+            bookmark_created_at = to_taipei_time(bookmark_data['created_at'])
             
             bookmark = BookmarkSummary(
                 id=bookmark_data['id'],
@@ -923,15 +991,50 @@ async def get_bookmark_detail_endpoint(
         else:
             discussion_questions = parsed_content.get('discussion_questions', [])
         
-        # 解析時間
+        # 解析時間和內容類型
         from datetime import datetime
-        content_date = datetime.strptime(discovery_info['content_date'], '%Y-%m-%d').date()
-        bookmark_created_at = datetime.fromisoformat(bookmark_data['created_at'])
+        
+        # 從複合鍵中提取實際日期和內容類型
+        raw_date = discovery_info['content_date']
+        if '_' in raw_date:
+            actual_date_str, content_type = raw_date.split('_', 1)
+        else:
+            actual_date_str = raw_date
+            # 從解析內容中檢測內容類型，而不是預設為文章
+            if 'conversation' in parsed_content:
+                content_type = 'conversation'
+            else:
+                content_type = 'article'
+        
+        content_date = datetime.strptime(actual_date_str, '%Y-%m-%d').date()
+        bookmark_created_at = to_taipei_time(bookmark_data['created_at'])
+        
+        # 檢查是否為對話類型，並處理對話內容
+        conversation_obj = None
+        if content_type == 'conversation' and 'conversation' in parsed_content:
+            from schemas import DailyConversation, ConversationTurn
+            conversation_info = parsed_content['conversation']
+            conversation_turns = []
+            for turn in conversation_info.get('conversation', []):
+                conversation_turns.append(ConversationTurn(**turn))
+            
+            conversation_obj = DailyConversation(
+                title=conversation_info.get('title', ''),
+                scenario=conversation_info.get('scenario', ''),
+                participants=conversation_info.get('participants', []),
+                conversation=conversation_turns,
+                difficulty_level=conversation_info.get('difficulty_level', '中級'),
+                scenario_category=conversation_info.get('scenario_category', '')
+            )
+            # 對話模式下不需要文章物件
+            article_obj = None
         
         discovery_obj = DailyDiscoveryResponse(
             id=bookmark_data['discovery_id'],
             content_date=content_date,
+            content_type=content_type,
             article=article_obj,
+            conversation=conversation_obj,
             knowledge_points=knowledge_points,
             learning_objectives=learning_objectives,
             discussion_questions=discussion_questions,
@@ -995,7 +1098,7 @@ async def get_bookmark_tags_endpoint(
         tags = []
         for tag_data in tags_data:
             from datetime import datetime
-            created_at = datetime.fromisoformat(tag_data['created_at'])
+            created_at = to_taipei_time(tag_data['created_at'])
             tag = BookmarkTag(
                 id=tag_data['id'],
                 tag_name=tag_data['tag_name'],

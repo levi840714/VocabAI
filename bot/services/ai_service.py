@@ -310,6 +310,13 @@ class AIService:
         else:
             raise ValueError(f"Unsupported AI provider: {self.provider}")
 
+    async def generate_daily_conversation(self) -> str:
+        """生成每日對話例句（實用情境對話 + 知識點提取）"""
+        if self.provider == "google":
+            return await self._generate_google_daily_conversation()
+        else:
+            raise ValueError(f"Unsupported AI provider: {self.provider}")
+
     async def _generate_google_daily_discovery(self) -> str:
         """使用 Google Gemini API 生成每日探索內容"""
         api_key = self.config['ai_services']['google']['api_key']
@@ -402,3 +409,105 @@ class AIService:
         except Exception as e:
             print(f"Daily discovery generation error: {e}")
             return "An unexpected error occurred while generating daily discovery content."
+
+    async def _generate_google_daily_conversation(self) -> str:
+        """使用 Google Gemini API 生成每日對話例句"""
+        api_key = self.config['ai_services']['google']['api_key']
+        
+        conversation_prompt = """請生成一段實用的英語對話例句，並提供學習分析。
+
+要求：
+1. 對話長度：6-10 輪對話
+2. 情境：日常生活實用場景（餐廳、購物、工作、旅行、醫院、銀行等）
+3. 語言難度：中級程度，包含常用表達和片語
+4. 內容要實用且真實，適合日常應用
+
+請回覆 JSON 格式：
+{
+  "conversation": {
+    "title": "對話標題（中文）",
+    "scenario": "對話情境描述",
+    "participants": ["參與者1", "參與者2"],
+    "conversation": [
+      {
+        "speaker": "說話者角色",
+        "text": "英文對話內容",
+        "translation": "中文翻譯",
+        "audio_notes": "語音注意事項（語調、重音等）"
+      }
+    ],
+    "difficulty_level": "中級",
+    "scenario_category": "情境類別"
+  },
+  "knowledge_points": [
+    {
+      "id": "kp1",
+      "type": "expression",
+      "title": "實用表達",
+      "content": "常用片語或表達方式解釋",
+      "examples": ["例句1", "例句2"],
+      "difficulty": "中級"
+    },
+    {
+      "id": "kp2",
+      "type": "vocabulary",
+      "title": "關鍵詞彙",
+      "content": "重要詞彙解釋和用法",
+      "examples": ["例句1", "例句2"],
+      "difficulty": "中級"
+    },
+    {
+      "id": "kp3",
+      "type": "cultural",
+      "title": "文化背景",
+      "content": "相關文化禮節或背景知識",
+      "examples": ["相關資訊1", "相關資訊2"],
+      "difficulty": "中級"
+    },
+    {
+      "id": "kp4",
+      "type": "pronunciation",
+      "title": "發音重點",
+      "content": "重要的發音技巧或注意事項",
+      "examples": ["發音例子1", "發音例子2"],
+      "difficulty": "中級"
+    }
+  ],
+  "learning_objectives": [
+    "掌握特定情境的實用表達",
+    "學習自然的對話流程",
+    "練習語音語調"
+  ],
+  "discussion_questions": [
+    "你在類似情境中會如何表達？",
+    "這些表達方式在你的文化中有對應嗎？"
+  ]
+}
+
+請確保：
+- 對話內容自然流暢，符合真實情境
+- 包含實用的片語和表達方式
+- 提供準確的中文翻譯
+- 知識點涵蓋表達、詞彙、文化、發音等層面
+- 整體內容有實際應用價值"""
+
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
+        headers = {"Content-Type": "application/json"}
+        data = {"contents": [{"parts": [{"text": conversation_prompt}]}]}
+
+        try:
+            response = await self.client.post(url, headers=headers, json=data)
+            response.raise_for_status()
+            
+            result = response.json()            
+            if 'candidates' in result and result['candidates']:
+                if 'content' in result['candidates'][0] and 'parts' in result['candidates'][0]['content']:
+                    raw_response = result['candidates'][0]['content']['parts'][0]['text'].strip()
+                    print(f"Generated daily conversation content length: {len(raw_response)}")
+                    return raw_response
+            
+            return "Sorry, I couldn't generate daily conversation content."
+
+        except Exception as e:
+            print(f"Daily conversation generation error: {e}")
+            return "An unexpected error occurred while generating daily conversation content."

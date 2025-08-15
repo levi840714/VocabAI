@@ -346,7 +346,7 @@ class MemWhizAPI {
   }
 
   // Daily Discovery endpoints
-  async getDailyDiscovery(date?: string): Promise<DailyDiscoveryResponse> {
+  async getDailyDiscovery(date?: string, contentType?: 'article' | 'conversation'): Promise<DailyDiscoveryResponse> {
     let endpoint = '/v1/daily-discovery';
     
     const params = new URLSearchParams();
@@ -354,6 +354,11 @@ class MemWhizAPI {
     // 添加日期參數（如果提供）
     if (date) {
       params.append('date_str', date);
+    }
+    
+    // 添加內容類型參數（如果提供）
+    if (contentType) {
+      params.append('content_type', contentType);
     }
     
     // 本地測試模式下添加 user_id 參數

@@ -200,7 +200,7 @@ export default function DailyDiscoveryContent({
 
   return (
     <div className="space-y-6">
-      {/* Article Section */}
+      {/* Content Section - Article or Conversation */}
       <ThemeCard
         variant="solid"
         motionProps={{
@@ -210,7 +210,9 @@ export default function DailyDiscoveryContent({
       >
         <div className="flex items-center justify-between mb-6">
           {makeTextClickable(
-            <ThemeTitle level={2} className="clickable-title-content">{discoveryData.article.title}</ThemeTitle>
+            <ThemeTitle level={2} className="clickable-title-content">
+              {discoveryData.content_type === 'conversation' ? discoveryData.conversation?.title : discoveryData.article?.title}
+            </ThemeTitle>
           )}
           <div className="flex items-center gap-2">
             {showBookmarkButton && (
@@ -224,7 +226,7 @@ export default function DailyDiscoveryContent({
                 } transition-colors shadow-sm`}
                 whileHover={bookmarking ? {} : animation.hover}
                 whileTap={bookmarking ? {} : animation.tap}
-                title={discoveryData.is_bookmarked ? '取消收藏' : '收藏文章'}
+                title={discoveryData.is_bookmarked ? '取消收藏' : '收藏內容'}
               >
                 {bookmarking ? (
                   <div className="animate-spin rounded-full h-5 w-5 border-2 border-current border-t-transparent"></div>
@@ -236,7 +238,14 @@ export default function DailyDiscoveryContent({
               </motion.button>
             )}
             <motion.button
-              onClick={() => handlePronunciation(discoveryData.article.content)}
+              onClick={() => {
+                if (discoveryData.content_type === 'conversation') {
+                  const conversationText = discoveryData.conversation?.conversation.map(turn => turn.text).join(' ') || '';
+                  handlePronunciation(conversationText);
+                } else {
+                  handlePronunciation(discoveryData.article?.content || '');
+                }
+              }}
               disabled={readingArticle}
               className={`p-3 rounded-xl ${readingArticle 
                 ? 'bg-slate-400 dark:bg-slate-600' 
@@ -244,7 +253,7 @@ export default function DailyDiscoveryContent({
               } text-white transition-colors shadow-sm`}
               whileHover={readingArticle ? {} : animation.hover}
               whileTap={readingArticle ? {} : animation.tap}
-              title={readingArticle ? '正在播放...' : '播放文章'}
+              title={readingArticle ? '正在播放...' : '播放內容'}
             >
               <Volume2 className="h-5 w-5" />
             </motion.button>
@@ -253,23 +262,87 @@ export default function DailyDiscoveryContent({
         
         <div className="flex items-center gap-3 mb-6">
           <span className="px-3 py-1.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900 text-green-600 dark:text-green-400">
-            {discoveryData.article.difficulty_level}
+            {discoveryData.content_type === 'conversation' ? discoveryData.conversation?.difficulty_level : discoveryData.article?.difficulty_level}
           </span>
           <span className="px-3 py-1.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400">
-            {discoveryData.article.topic_category}
+            {discoveryData.content_type === 'conversation' ? discoveryData.conversation?.scenario_category : discoveryData.article?.topic_category}
           </span>
-          <ThemeText variant="caption" size="sm">
-            {discoveryData.article.word_count} 字
-          </ThemeText>
-        </div>
-        
-        <div className="prose prose-lg dark:prose-invert max-w-none">
-          {makeTextClickable(
-            <div className="clickable-article-content text-lg sm:text-xl text-slate-700 dark:text-slate-200 tracking-wide">
-              {highlightKnowledgePoints(discoveryData.article.content, discoveryData.knowledge_points)}
-            </div>
+          <span className="px-3 py-1.5 rounded-full text-xs font-medium bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-400">
+            {discoveryData.content_type === 'conversation' ? '對話' : '文章'}
+          </span>
+          {discoveryData.content_type === 'article' && (
+            <ThemeText variant="caption" size="sm">
+              {discoveryData.article?.word_count} 字
+            </ThemeText>
           )}
         </div>
+        
+        {/* Article Content */}
+        {discoveryData.content_type === 'article' && discoveryData.article && (
+          <div className="prose prose-lg dark:prose-invert max-w-none">
+            {makeTextClickable(
+              <div className="clickable-article-content text-lg sm:text-xl text-slate-700 dark:text-slate-200 tracking-wide">
+                {highlightKnowledgePoints(discoveryData.article.content, discoveryData.knowledge_points)}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Conversation Content */}
+        {discoveryData.content_type === 'conversation' && discoveryData.conversation && (
+          <div className="space-y-6">
+            {/* Scenario Description */}
+            <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4">
+              <ThemeText variant="body" className="text-base text-slate-600 dark:text-slate-400">
+                <strong>情境：</strong>{discoveryData.conversation.scenario}
+              </ThemeText>
+            </div>
+
+            {/* Conversation Turns */}
+            <div className="space-y-4">
+              {discoveryData.conversation.conversation.map((turn, index) => (
+                <motion.div
+                  key={index}
+                  className="flex flex-col gap-2"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-1 text-xs font-medium bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded">
+                      {turn.speaker}
+                    </span>
+                    <motion.button
+                      onClick={() => handlePronunciation(turn.text)}
+                      className="p-1 rounded text-slate-500 hover:text-blue-500 transition-colors"
+                      whileHover={animation.hover}
+                      whileTap={animation.tap}
+                      title="播放此句"
+                    >
+                      <Volume2 className="h-4 w-4" />
+                    </motion.button>
+                  </div>
+                  
+                  {makeTextClickable(
+                    <div className="clickable-conversation-content">
+                      <div className="text-lg text-slate-800 dark:text-slate-200 mb-2">
+                        {turn.text}
+                      </div>
+                      <div className="text-sm text-slate-600 dark:text-slate-400">
+                        {turn.translation}
+                      </div>
+                      {turn.audio_notes && (
+                        <div className="text-xs text-blue-600 dark:text-blue-400 mt-1 italic">
+                          💡 {turn.audio_notes}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        )}
       </ThemeCard>
 
       {/* Learning Objectives Section - 調整為第一個區塊 */}

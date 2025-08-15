@@ -136,10 +136,28 @@ export interface DailyDiscoveryArticle {
   topic_category: string
 }
 
+export interface ConversationTurn {
+  speaker: string
+  text: string
+  translation: string
+  audio_notes?: string
+}
+
+export interface DailyConversation {
+  title: string
+  scenario: string
+  participants: string[]
+  conversation: ConversationTurn[]
+  difficulty_level: string
+  scenario_category: string
+}
+
 export interface DailyDiscoveryResponse {
   id: number
   content_date: string
-  article: DailyDiscoveryArticle
+  content_type: 'article' | 'conversation'
+  article?: DailyDiscoveryArticle
+  conversation?: DailyConversation
   knowledge_points: KnowledgePoint[]
   learning_objectives: string[]
   discussion_questions: string[]

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, BookOpen, MessageCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { memWhizAPI } from '../lib/api';
 import { DailyDiscoveryResponse } from '../lib/types';
@@ -17,6 +17,7 @@ export default function DailyDiscoveryPage() {
   const [discoveryData, setDiscoveryData] = useState<DailyDiscoveryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [contentType, setContentType] = useState<'article' | 'conversation' | null>(null);
 
   // 處理深度分析
   const handleDeepAnalysis = useCallback((word: string) => {
@@ -38,13 +39,16 @@ export default function DailyDiscoveryPage() {
   }, [setCallbacks, handleDeepAnalysis]);
 
   // 獲取每日探索內容
-  const fetchDailyDiscovery = useCallback(async () => {
+  const fetchDailyDiscovery = useCallback(async (type?: 'article' | 'conversation') => {
     try {
       setLoading(true);
       setError(null);
       
-      const data = await memWhizAPI.getDailyDiscovery();
+      const data = await memWhizAPI.getDailyDiscovery(undefined, type);
       setDiscoveryData(data);
+      if (type) {
+        setContentType(type);
+      }
     } catch (err) {
       console.error('獲取每日探索失敗:', err);
       setError(err instanceof Error ? err.message : '獲取每日探索失敗');
@@ -52,6 +56,17 @@ export default function DailyDiscoveryPage() {
       setLoading(false);
     }
   }, []);
+
+  // 收藏更新回調 - 只更新收藏狀態，不重新載入頁面
+  const handleBookmarkUpdate = useCallback(() => {
+    if (discoveryData) {
+      // 直接切換收藏狀態，避免重新載入
+      setDiscoveryData(prev => prev ? {
+        ...prev,
+        is_bookmarked: !prev.is_bookmarked
+      } : null);
+    }
+  }, [discoveryData]);
 
   useEffect(() => {
     fetchDailyDiscovery();
@@ -98,24 +113,58 @@ export default function DailyDiscoveryPage() {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
       {/* Header */}
       <div className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 border-b sticky top-0 z-10">
-        <div className="flex items-center p-4">
-          <motion.button
-            onClick={() => navigate('/')}
-            className="mr-3 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors"
-            whileHover={animation.hover}
-            whileTap={animation.tap}
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </motion.button>
-          <div>
-            <ThemeTitle level={3}>每日探索</ThemeTitle>
-            <ThemeText variant="caption" size="sm">
-              {new Date(discoveryData.content_date).toLocaleDateString('zh-TW', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-              })}
-            </ThemeText>
+        <div className="flex items-center justify-between p-4">
+          <div className="flex items-center">
+            <motion.button
+              onClick={() => navigate('/')}
+              className="mr-3 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors"
+              whileHover={animation.hover}
+              whileTap={animation.tap}
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </motion.button>
+            <div>
+              <ThemeTitle level={3}>每日探索</ThemeTitle>
+              <ThemeText variant="caption" size="sm">
+                {new Date(discoveryData.content_date).toLocaleDateString('zh-TW', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric'
+                })}
+              </ThemeText>
+            </div>
+          </div>
+          
+          {/* Content Type Switcher */}
+          <div className="flex items-center gap-2">
+            <motion.button
+              onClick={() => fetchDailyDiscovery('article')}
+              disabled={loading}
+              className={`p-2 rounded-lg transition-colors ${
+                discoveryData.content_type === 'article'
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+              }`}
+              whileHover={!loading ? animation.hover : {}}
+              whileTap={!loading ? animation.tap : {}}
+              title="精選文章"
+            >
+              <BookOpen className="h-4 w-4" />
+            </motion.button>
+            <motion.button
+              onClick={() => fetchDailyDiscovery('conversation')}
+              disabled={loading}
+              className={`p-2 rounded-lg transition-colors ${
+                discoveryData.content_type === 'conversation'
+                  ? 'bg-green-500 text-white'
+                  : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+              }`}
+              whileHover={!loading ? animation.hover : {}}
+              whileTap={!loading ? animation.tap : {}}
+              title="實用對話"
+            >
+              <MessageCircle className="h-4 w-4" />
+            </motion.button>
           </div>
         </div>
       </div>
@@ -125,7 +174,7 @@ export default function DailyDiscoveryPage() {
         <DailyDiscoveryContent 
           discoveryData={discoveryData} 
           showBookmarkButton={true}
-          onBookmarkUpdate={fetchDailyDiscovery}
+          onBookmarkUpdate={handleBookmarkUpdate}
         />
       </div>
     </div>
