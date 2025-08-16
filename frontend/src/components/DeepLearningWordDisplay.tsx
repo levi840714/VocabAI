@@ -3,10 +3,10 @@ import { DeepLearningAIResponse } from '../lib/types';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
-import { Volume2, Star, Brain, MoreHorizontal } from 'lucide-react';
+import { Volume2, Star, Brain, MoreHorizontal, Square } from 'lucide-react';
 import ClickableTextWrapper from './ClickableTextWrapper';
 import { useSettings } from '@/contexts/SettingsContext';
-import { voiceService } from '@/lib/voiceService';
+import { useVoice } from '@/hooks/useVoice';
 
 interface DeepLearningWordDisplayProps {
   data: DeepLearningAIResponse;
@@ -32,14 +32,15 @@ const DeepLearningWordDisplay: React.FC<DeepLearningWordDisplayProps> = ({
   onSentenceAnalysis
 }) => {
   const { shouldShowPronunciation, shouldShowEtymology } = useSettings();
+  const { toggleSpeakWord, toggleSpeakSentence, isPlaying } = useVoice();
   const [activeExampleMenu, setActiveExampleMenu] = useState<number | null>(null);
   // Handle pronunciation for text (word or sentence)
   const handlePronunciation = async (text: string) => {
-    try {
-      await voiceService.speak(text);
-    } catch (error) {
-      console.error('發音播放失敗:', error);
-      alert('發音功能暫時不可用，請檢查瀏覽器設定或網路連線');
+    const isWord = text.split(' ').length === 1;
+    if (isWord) {
+      await toggleSpeakWord(text);
+    } else {
+      await toggleSpeakSentence(text);
     }
   };
 
@@ -104,7 +105,11 @@ const DeepLearningWordDisplay: React.FC<DeepLearningWordDisplayProps> = ({
               title="聆聽單字發音"
               aria-label="聆聽單字發音"
             >
-              <Volume2 size={18} className="text-slate-600 dark:text-slate-200" />
+              {isPlaying ? (
+                <Square size={18} className="text-slate-600 dark:text-slate-200" />
+              ) : (
+                <Volume2 size={18} className="text-slate-600 dark:text-slate-200" />
+              )}
             </button>
             
             {(onAddWordClick || onRemoveWordClick) && (

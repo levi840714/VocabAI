@@ -300,14 +300,15 @@ const WordDetailPage: React.FC = () => {
         <div className="text-center">
           <div className="relative inline-block mb-2">
             <ThemeTitle level={1} className="text-2xl md:text-3xl text-center">{word.word}</ThemeTitle>
-            <ThemeButton
-              variant="ghost"
-              size="sm"
+            <button
               onClick={handlePronunciation}
-              className="absolute -right-8 top-1/2 -translate-y-1/2 p-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-full"
+              className="absolute -right-8 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-transparent hover:bg-blue-50 dark:hover:bg-blue-900/20 border border-transparent"
+              aria-label="聆聽單字發音"
+              title="聆聽單字發音"
+              type="button"
             >
               <Volume2 className="w-4 h-4 md:w-5 md:h-5 text-blue-600 dark:text-blue-400" />
-            </ThemeButton>
+            </button>
           </div>
           
           <div className="flex items-center justify-center space-x-2 mb-3">

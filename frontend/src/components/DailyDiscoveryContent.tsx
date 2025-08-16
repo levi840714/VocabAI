@@ -1,7 +1,9 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Volume2, BookmarkPlus, BookmarkCheck, BookOpen, Lightbulb, MessageSquare } from 'lucide-react';
+import { Volume2, BookmarkPlus, BookmarkCheck, BookOpen, Lightbulb, MessageSquare, Pause, Play, Square, SkipBack, SkipForward } from 'lucide-react';
 import { DailyDiscoveryResponse, KnowledgePoint } from '../lib/types';
+import { useVoice } from '@/hooks/useVoice';
+import { useSettings } from '@/contexts/SettingsContext';
 import { ThemeCard, ThemeTitle, ThemeText, ThemeButton } from './ui/ThemeComponents';
 import { useAnimation } from '../hooks/useAnimation';
 import { useClickableText } from '../hooks/useClickableText';
@@ -57,33 +59,145 @@ export default function DailyDiscoveryContent({
   const animation = useAnimation();
   const { makeTextClickable } = useClickableText();
   const [readingArticle, setReadingArticle] = useState(false);
+  const { speakSentence } = useVoice();
+  const { interfaceSettings } = useSettings();
+  const [articleSentences, setArticleSentences] = useState<string[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const readingRef = useRef(false);
+  const pausedRef = useRef(false);
+  const sentencesRef = useRef<string[]>([]);
+  const playbackSessionId = useRef(0);
+  const articleContainerRef = useRef<HTMLDivElement | null>(null);
   const [bookmarking, setBookmarking] = useState(false);
+  // 節拍指示
+  const [beatTick, setBeatTick] = useState(false);
   
-  // 語音播放功能
-  const handlePronunciation = (text: string) => {
-    if (readingArticle) return;
-    
-    setReadingArticle(true);
-    
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel(); // 停止當前的語音
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'en-US';
-      utterance.rate = 0.8;
-      
-      utterance.onend = () => {
-        setReadingArticle(false);
-      };
-      
-      utterance.onerror = () => {
-        setReadingArticle(false);
-      };
-      
-      window.speechSynthesis.speak(utterance);
-    } else {
+  // 文章播放分句
+  const splitIntoSentences = (text: string) => {
+    return text
+      .split(/(?<=[.!?])\s+/)
+      .map(s => s.trim())
+      .filter(Boolean);
+  };
+
+  // 從指定句子開始播放（支援 stop/pause 控制）
+  const playFrom = async (sentences: string[], startIndex: number, sessionId: number) => {
+    for (let i = startIndex; i < sentences.length; i++) {
+      // 若已切換會話，停止舊循環
+      if (playbackSessionId.current !== sessionId) break;
+      setCurrentIndex(i);
+      // 句內高亮暫時停用，維持整句高亮
+      if (!readingRef.current) break;
+      await speakSentence(sentences[i]);
+      if (playbackSessionId.current !== sessionId) break;
+      if (!readingRef.current) break;
+      // 不因暫停而中斷循環，暫停會卡在當前 utterance，resume 後自然繼續
+    }
+    // 僅當仍為同一個播放會話且未處於暫停時才關閉控制列
+    if (playbackSessionId.current === sessionId && !pausedRef.current) {
+      readingRef.current = false;
       setReadingArticle(false);
     }
   };
+
+  // 語音播放功能
+  const handlePronunciation = async (text: string) => {
+    if (readingRef.current || readingArticle) {
+      window.speechSynthesis?.cancel();
+      readingRef.current = false;
+      pausedRef.current = false;
+      setReadingArticle(false);
+      setIsPaused(false);
+      return;
+    }
+    const sents = splitIntoSentences(text);
+    if (sents.length === 0) return;
+    setArticleSentences(sents);
+    sentencesRef.current = sents;
+    setCurrentIndex(0);
+    setIsPaused(false);
+    pausedRef.current = false;
+    readingRef.current = true;
+    setReadingArticle(true);
+    const session = ++playbackSessionId.current;
+    await playFrom(sents, 0, session);
+  };
+
+  const handlePauseResume = () => {
+    if (!readingRef.current) return;
+    if (isPaused) {
+      // Resume by starting a new session from currentIndex
+      setIsPaused(false);
+      pausedRef.current = false;
+      readingRef.current = true;
+      const list = sentencesRef.current.length ? sentencesRef.current : articleSentences;
+      const session = ++playbackSessionId.current;
+      void playFrom(list, currentIndex, session);
+    } else {
+      // Pause by cancelling current utterance and terminating current session
+      setIsPaused(true);
+      pausedRef.current = true;
+      playbackSessionId.current++;
+      window.speechSynthesis?.cancel();
+    }
+  };
+
+  const handleStop = () => {
+    window.speechSynthesis?.cancel();
+    readingRef.current = false;
+    pausedRef.current = false;
+    setReadingArticle(false);
+    setIsPaused(false);
+  };
+
+  const handleNext = async () => {
+    if (!readingRef.current) return;
+    window.speechSynthesis?.cancel();
+    setIsPaused(false);
+    pausedRef.current = false;
+    const list = sentencesRef.current.length ? sentencesRef.current : articleSentences;
+    const next = Math.min(currentIndex + 1, list.length - 1);
+    setCurrentIndex(next);
+    readingRef.current = true;
+    setReadingArticle(true);
+    const session = ++playbackSessionId.current;
+    await playFrom(list, next, session);
+  };
+
+  const handlePrev = async () => {
+    if (!readingRef.current) return;
+    window.speechSynthesis?.cancel();
+    setIsPaused(false);
+    pausedRef.current = false;
+    const list = sentencesRef.current.length ? sentencesRef.current : articleSentences;
+    const prev = Math.max(currentIndex - 1, 0);
+    setCurrentIndex(prev);
+    readingRef.current = true;
+    setReadingArticle(true);
+    const session = ++playbackSessionId.current;
+    await playFrom(list, prev, session);
+  };
+
+  // 自動捲動當前句置中（播放時）
+  useEffect(() => {
+    if (!readingArticle) return;
+    const container = articleContainerRef.current;
+    if (!container) return;
+    const el = container.querySelector(`[data-sent-idx="${currentIndex}"]`);
+    if (el && 'scrollIntoView' in el) {
+      (el as HTMLElement).scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [currentIndex, readingArticle]);
+
+  // 節拍：依語速頻率切換顏色
+  useEffect(() => {
+    if (!readingArticle) return;
+    const rate = interfaceSettings.voice_rate ?? 1.0;
+    const period = Math.max(300, 800 / Math.max(0.5, rate));
+    const t = setInterval(() => setBeatTick((b) => !b), period);
+    return () => clearInterval(t);
+  }, [readingArticle, interfaceSettings.voice_rate]);
 
   // 收藏功能 - 優化以避免頁面重新載入
   const handleBookmark = async (e: React.MouseEvent) => {
@@ -250,16 +364,15 @@ export default function DailyDiscoveryContent({
                   handlePronunciation(discoveryData.article?.content || '');
                 }
               }}
-              disabled={readingArticle}
               className={`p-3 rounded-xl ${readingArticle 
-                ? 'bg-slate-400 dark:bg-slate-600' 
+                ? 'bg-rose-500 hover:bg-rose-600 dark:bg-rose-600 dark:hover:bg-rose-700' 
                 : 'bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700'
               } text-white transition-colors shadow-sm`}
-              whileHover={readingArticle ? {} : animation.hover}
-              whileTap={readingArticle ? {} : animation.tap}
-              title={readingArticle ? '正在播放...' : '播放內容'}
+              whileHover={animation.hover}
+              whileTap={animation.tap}
+              title={readingArticle ? '停止播放' : '播放內容'}
             >
-              <Volume2 className="h-5 w-5" />
+              {readingArticle ? <Square className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
             </motion.button>
           </div>
         </div>
@@ -287,10 +400,64 @@ export default function DailyDiscoveryContent({
         
         {/* Article Content */}
         {discoveryData.content_type === 'article' && discoveryData.article && (
-          <div className="prose prose-lg dark:prose-invert max-w-none">
-            {makeTextClickable(
-              <div className="clickable-article-content text-lg sm:text-xl text-slate-700 dark:text-slate-200 tracking-wide">
-                {highlightKnowledgePoints(discoveryData.article.content, discoveryData.knowledge_points)}
+          <div className="prose prose-lg dark:prose-invert max-w-none" ref={articleContainerRef}>
+            {readingArticle && sentencesRef.current.length > 0 ? (
+              <div className="text-lg sm:text-xl text-slate-700 dark:text-slate-200 tracking-wide leading-8">
+                {sentencesRef.current.map((s, i) => (
+                  <span
+                    key={i}
+                    className={i === currentIndex ? 'bg-yellow-200/60 dark:bg-yellow-600/40 rounded px-1 transition-colors' : ''}
+                    data-sent-idx={i}
+                  >
+                    {s + ' '}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              makeTextClickable(
+                <div className="clickable-article-content text-lg sm:text-xl text-slate-700 dark:text-slate-200 tracking-wide">
+                  {highlightKnowledgePoints(discoveryData.article.content, discoveryData.knowledge_points)}
+                </div>
+              )
+            )}
+            {readingArticle && (
+              <div className="sticky bottom-4 mt-6 flex items-center gap-3 bg-white/90 dark:bg-slate-800/90 backdrop-blur rounded-xl px-4 py-2 shadow-lg border border-slate-200 dark:border-slate-600">
+                <button
+                  onClick={handlePrev}
+                  className="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600"
+                  title="上一句"
+                  aria-label="上一句"
+                >
+                  <SkipBack className="h-5 w-5" />
+                </button>
+                <button
+                  onClick={handlePauseResume}
+                  className="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600"
+                  title={isPaused ? '繼續' : '暫停'}
+                  aria-label={isPaused ? '繼續' : '暫停'}
+                >
+                  {isPaused ? <Play className="h-5 w-5" /> : <Pause className="h-5 w-5" />}
+                </button>
+                <button
+                  onClick={handleStop}
+                  className="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600"
+                  title="停止"
+                  aria-label="停止"
+                >
+                  <Square className="h-5 w-5" />
+                </button>
+                <button
+                  onClick={handleNext}
+                  className="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600"
+                  title="下一句"
+                  aria-label="下一句"
+                >
+                  <SkipForward className="h-5 w-5" />
+                </button>
+                <div className={`ml-2 h-2 w-6 rounded-full ${beatTick ? 'bg-blue-500' : 'bg-blue-300'} transition-colors`} aria-hidden="true"></div>
+                <div className="text-xs text-slate-600 dark:text-slate-300 ml-2">
+                  {currentIndex + 1} / {articleSentences.length}
+                </div>
               </div>
             )}
           </div>

@@ -2,8 +2,9 @@ import React from 'react';
 import { SentenceAnalysisResponse } from '../lib/types';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
-import { Volume2, BookOpen } from 'lucide-react';
+import { Volume2, BookOpen, Square } from 'lucide-react';
 import ClickableTextWrapper from './ClickableTextWrapper';
+import { useVoice } from '@/hooks/useVoice';
 
 interface SentenceAnalysisDisplayProps {
   data: SentenceAnalysisResponse;
@@ -16,21 +17,10 @@ const SentenceAnalysisDisplay: React.FC<SentenceAnalysisDisplayProps> = ({
   onAIAnalysisClick, 
   onWordAdded
 }) => {
-  // Handle pronunciation for text (sentence)
-  const handlePronunciation = (text: string) => {
-    // Use Web Speech API for pronunciation
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'en-US';
-      utterance.rate = 0.8;
-      speechSynthesis.speak(utterance);
-    } else {
-      // Fallback: try Google Translate TTS
-      const audio = new Audio(`https://translate.google.com/translate_tts?ie=UTF-8&tl=en&client=tw-ob&q=${encodeURIComponent(text)}`);
-      audio.play().catch(() => {
-        alert('發音功能暫時不可用，請檢查瀏覽器設定或網路連線');
-      });
-    }
+  // Handle pronunciation for text (sentence) - toggle to stop on second click
+  const { toggleSpeakSentence, isPlaying } = useVoice();
+  const handlePronunciation = async (text: string) => {
+    await toggleSpeakSentence(text);
   };
 
   return (
@@ -50,7 +40,11 @@ const SentenceAnalysisDisplay: React.FC<SentenceAnalysisDisplayProps> = ({
               title="聆聽句子發音"
               aria-label="聆聽句子發音"
             >
-              <Volume2 size={18} className="text-slate-600 dark:text-slate-200" />
+              {isPlaying ? (
+                <Square size={18} className="text-slate-600 dark:text-slate-200" />
+              ) : (
+                <Volume2 size={18} className="text-slate-600 dark:text-slate-200" />
+              )}
             </button>
           </div>
         </div>

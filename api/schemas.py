@@ -175,6 +175,12 @@ class LearningPreferences(BaseModel):
 
 class InterfaceSettings(BaseModel):
     voice_auto_play: bool = Field(default=False, description="語音自動播放")
+    # 新增：語音供應者與參數（可選）
+    voice_provider: Optional[str] = Field(default="webspeech", pattern=r"^(auto|webspeech|cloud)$", description="語音供應者")
+    voice_language: Optional[str] = Field(default="en-US", description="語音語言，如 en-US/en-GB")
+    voice_rate: Optional[float] = Field(default=0.95, ge=0.1, le=2.0, description="語速")
+    voice_pitch: Optional[float] = Field(default=1.1, ge=0.0, le=2.0, description="音調")
+    preferred_voice_name: Optional[str] = Field(default=None, description="偏好語音名稱，如 Google US English")
     theme_mode: str = Field(default="light", pattern=r"^(light|dark|auto)$", description="主題模式")
     language: str = Field(default="zh-TW", description="介面語言")
     animation_enabled: bool = Field(default=True, description="動畫效果")

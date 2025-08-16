@@ -69,6 +69,13 @@ export interface LearningPreferences {
 
 export interface InterfaceSettings {
   voice_auto_play: boolean;
+  // 新增：語音提供者（webspeech=瀏覽器, cloud=雲端, auto=自動）
+  voice_provider?: 'auto' | 'webspeech' | 'cloud';
+  // 新增：語音參數（使用者可調）
+  voice_language?: string; // e.g. 'en-US' | 'en-GB'
+  voice_rate?: number;     // 0.1 - 2.0
+  voice_pitch?: number;    // 0.0 - 2.0
+  preferred_voice_name?: string; // 例如 'Google US English'
   theme_mode: 'light' | 'dark' | 'auto';
   language: string;
   animation_enabled: boolean;

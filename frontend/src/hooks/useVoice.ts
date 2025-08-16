@@ -7,7 +7,7 @@ import { useSettings } from '@/contexts/SettingsContext';
  * 整合設定系統，提供一致的語音播放體驗
  */
 export function useVoice() {
-  const { isVoiceAutoPlay } = useSettings();
+  const { isVoiceAutoPlay, interfaceSettings } = useSettings();
   const [isPlaying, setIsPlaying] = useState(false);
   const [isSupported, setIsSupported] = useState(false);
 
@@ -23,11 +23,13 @@ export function useVoice() {
       setIsPlaying(true);
       
       const settings: VoiceSettings = {
-        language: 'en-US',
-        rate: 0.8,
-        pitch: 1,
+        language: interfaceSettings.voice_language || 'en-US',
+        rate: interfaceSettings.voice_rate ?? 0.9,
+        pitch: interfaceSettings.voice_pitch ?? 1.0,
         volume: 1,
-        ...customSettings
+        preferredVoiceName: interfaceSettings.preferred_voice_name,
+        provider: interfaceSettings.voice_provider || 'webspeech',
+        ...customSettings,
       };
       
       await voiceService.speak(text, settings);
@@ -37,7 +39,7 @@ export function useVoice() {
     } finally {
       setIsPlaying(false);
     }
-  }, []);
+  }, [interfaceSettings]);
 
   // 自動播放語音（如果設定啟用）
   const autoSpeak = useCallback(async (text: string, customSettings?: VoiceSettings) => {
@@ -52,25 +54,63 @@ export function useVoice() {
     setIsPlaying(false);
   }, []);
 
+  // 暫停與恢復
+  const pause = useCallback(() => {
+    voiceService.pause();
+  }, []);
+
+  const resume = useCallback(() => {
+    voiceService.resume();
+  }, []);
+
+  // 切換播放：若正在播放則停止，否則播放
+  const toggleSpeak = useCallback(async (text: string, customSettings?: VoiceSettings) => {
+    if (isPlaying) {
+      stop();
+      return;
+    }
+    await speak(text, customSettings);
+  }, [isPlaying, stop, speak]);
+
   // 播放單字（預設設定）
   const speakWord = useCallback(async (word: string) => {
     await speak(word, {
-      language: 'en-US',
-      rate: 0.8,
-      pitch: 1,
-      volume: 1
+      language: interfaceSettings.voice_language || 'en-US',
+      rate: (interfaceSettings.voice_rate ?? 0.9) * 0.95,
+      pitch: interfaceSettings.voice_pitch ?? 1.0,
+      volume: 1,
+      preferredVoiceName: interfaceSettings.preferred_voice_name,
+      provider: interfaceSettings.voice_provider || 'webspeech',
     });
-  }, [speak]);
+  }, [speak, interfaceSettings]);
+
+  const toggleSpeakWord = useCallback(async (word: string) => {
+    if (isPlaying) {
+      stop();
+      return;
+    }
+    await speakWord(word);
+  }, [isPlaying, stop, speakWord]);
 
   // 播放句子（稍快語速）
   const speakSentence = useCallback(async (sentence: string) => {
     await speak(sentence, {
-      language: 'en-US',
-      rate: 0.9,
-      pitch: 1,
-      volume: 1
+      language: interfaceSettings.voice_language || 'en-US',
+      rate: (interfaceSettings.voice_rate ?? 0.95) * 1.0,
+      pitch: (interfaceSettings.voice_pitch ?? 1.0),
+      volume: 1,
+      preferredVoiceName: interfaceSettings.preferred_voice_name,
+      provider: interfaceSettings.voice_provider || 'webspeech',
     });
-  }, [speak]);
+  }, [speak, interfaceSettings]);
+
+  const toggleSpeakSentence = useCallback(async (sentence: string) => {
+    if (isPlaying) {
+      stop();
+      return;
+    }
+    await speakSentence(sentence);
+  }, [isPlaying, stop, speakSentence]);
 
   // 自動播放單字
   const autoSpeakWord = useCallback(async (word: string) => {
@@ -91,15 +131,21 @@ export function useVoice() {
     isPlaying,
     isSupported,
     isAutoPlayEnabled: isVoiceAutoPlay,
+    isPaused: voiceService.getIsPaused(),
     
     // 基本功能
     speak,
+    toggleSpeak,
+    pause,
+    resume,
     stop,
     autoSpeak,
     
     // 專用功能
     speakWord,
     speakSentence,
+    toggleSpeakWord,
+    toggleSpeakSentence,
     autoSpeakWord,
     autoSpeakSentence,
     

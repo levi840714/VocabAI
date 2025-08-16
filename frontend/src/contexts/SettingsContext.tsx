@@ -18,6 +18,11 @@ const defaultLearningPreferences: LearningPreferences = {
 
 const defaultInterfaceSettings: InterfaceSettings = {
   voice_auto_play: false,
+  voice_provider: 'webspeech',
+  voice_language: 'en-US',
+  voice_rate: 0.95, // 手機上略提速
+  voice_pitch: 1.1, // 提升音調以減少單調感
+  preferred_voice_name: undefined,
   theme_mode: 'light',
   language: 'zh-TW',
   animation_enabled: true
@@ -351,6 +356,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     isDarkMode,
     isAnimationEnabled,
     isVoiceAutoPlay,
+    // 其餘介面語音參數可由組件直接從 interfaceSettings 讀取
     shouldShowPronunciation,
     shouldShowEtymology,
     dailyTarget,

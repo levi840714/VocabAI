@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { StructuredAIResponse } from '../lib/types';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
-import { Volume2, Brain } from 'lucide-react';
+import { Volume2, Brain, Square } from 'lucide-react';
 import ClickableTextWrapper from './ClickableTextWrapper';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useVoice } from '@/hooks/useVoice';
@@ -17,17 +17,16 @@ interface StructuredWordDisplayProps {
 
 const StructuredWordDisplay: React.FC<StructuredWordDisplayProps> = ({ data, onAIAnalysisClick, onWordAdded, showFullDetails = false, onSentenceAnalysis }) => {
   const { shouldShowPronunciation } = useSettings();
-  const { speakWord, speakSentence } = useVoice();
+  const { toggleSpeakWord, toggleSpeakSentence, isPlaying, stop } = useVoice();
   const [activeExampleMenu, setActiveExampleMenu] = useState<number | null>(null);
   
   // Handle pronunciation for text (word or sentence)
   const handlePronunciation = async (text: string) => {
-    // 判斷是單字還是句子
     const isWord = text.split(' ').length === 1;
     if (isWord) {
-      await speakWord(text);
+      await toggleSpeakWord(text);
     } else {
-      await speakSentence(text);
+      await toggleSpeakSentence(text);
     }
   };
 
@@ -206,7 +205,11 @@ const StructuredWordDisplay: React.FC<StructuredWordDisplayProps> = ({ data, onA
                       title="聆聽例句發音"
                       aria-label="聆聽例句發音"
                     >
-                      <Volume2 size={16} className="text-blue-600 dark:text-blue-400" />
+                      {isPlaying ? (
+                        <Square size={16} className="text-blue-600 dark:text-blue-400" />
+                      ) : (
+                        <Volume2 size={16} className="text-blue-600 dark:text-blue-400" />
+                      )}
                     </button>
                     {onSentenceAnalysis && (
                       <button
@@ -232,7 +235,7 @@ const StructuredWordDisplay: React.FC<StructuredWordDisplayProps> = ({ data, onA
                         title="聆聽例句發音"
                         aria-label="聆聽例句發音"
                       >
-                        <Volume2 size={15} />
+                        {isPlaying ? <Square size={15} /> : <Volume2 size={15} />}
                       </button>
                       {onSentenceAnalysis && (
                         <button

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react"
-import { RefreshCw, Check, Clock, RotateCcw, Volume2, RotateCcwSquare } from "lucide-react"
+import { useVoice } from '@/hooks/useVoice'
+import { RefreshCw, Check, Clock, RotateCcw, Volume2, RotateCcwSquare, Square } from "lucide-react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
@@ -14,6 +15,7 @@ interface StudyModeProps {
 }
 
 export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
+  const { toggleSpeakWord, isPlaying } = useVoice()
   const [currentWord, setCurrentWord] = useState<WordDetail | null>(null)
   const [isFlipped, setIsFlipped] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -103,17 +105,8 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
 
   const handleFlipCard = () => setIsFlipped(!isFlipped)
 
-  const handlePronunciation = (text: string) => {
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(text)
-      utterance.lang = 'en-US'
-      utterance.rate = 0.8
-      speechSynthesis.speak(utterance)
-    } else {
-      // Fallback to Google Translate TTS
-      const audio = new Audio(`https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=en&client=tw-ob`)
-      audio.play().catch(console.error)
-    }
+  const handlePronunciation = async (text: string) => {
+    await toggleSpeakWord(text)
   }
 
   const getDifficultyColor = (difficulty: number) => {
@@ -255,7 +248,7 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
                     }}
                     className="absolute right-0 top-1/2 transform -translate-y-1/2 p-2 h-auto text-sky-600 dark:text-sky-400 hover:text-sky-700 dark:hover:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-900/30"
                   >
-                    <Volume2 className="h-5 w-5" />
+                    {isPlaying ? <Square className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
                   </Button>
                 </div>
                 <div className="w-16 h-1 bg-gradient-to-r from-sky-400 to-blue-500 rounded-full mx-auto"></div>
@@ -363,7 +356,7 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
                                   }}
                                   className="ml-2 p-1 h-auto text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300"
                                 >
-                                  <Volume2 className="h-3 w-3" />
+                                  {isPlaying ? <Square className="h-3 w-3" /> : <Volume2 className="h-3 w-3" />}
                                 </Button>
                               </div>
                             ))}

@@ -48,6 +48,9 @@ export default function DailyDiscoveryPage() {
       setDiscoveryData(data);
       if (type) {
         setContentType(type);
+        try { localStorage.setItem('memwhiz_daily_content_type', type); } catch {}
+      } else if (data?.content_type) {
+        setContentType(data.content_type as 'article' | 'conversation');
       }
     } catch (err) {
       console.error('獲取每日探索失敗:', err);
@@ -69,7 +72,13 @@ export default function DailyDiscoveryPage() {
   }, [discoveryData]);
 
   useEffect(() => {
-    fetchDailyDiscovery();
+    // 優先使用上次選擇，預設為 article
+    let initial: 'article' | 'conversation' = 'article';
+    try {
+      const saved = localStorage.getItem('memwhiz_daily_content_type') as 'article' | 'conversation' | null;
+      if (saved === 'article' || saved === 'conversation') initial = saved;
+    } catch {}
+    fetchDailyDiscovery(initial);
   }, [fetchDailyDiscovery]);
 
   if (loading) {
@@ -135,38 +144,42 @@ export default function DailyDiscoveryPage() {
             </div>
           </div>
           
-          {/* Content Type Switcher */}
-          <div className="flex items-center gap-2">
-            <motion.button
-              onClick={() => fetchDailyDiscovery('article')}
-              disabled={loading}
-              className={`p-2 rounded-lg transition-colors ${
-                discoveryData.content_type === 'article'
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
-              }`}
-              whileHover={!loading ? animation.hover : {}}
-              whileTap={!loading ? animation.tap : {}}
-              title="精選文章"
-            >
-              <BookOpen className="h-4 w-4" />
-            </motion.button>
-            <motion.button
-              onClick={() => fetchDailyDiscovery('conversation')}
-              disabled={loading}
-              className={`p-2 rounded-lg transition-colors ${
-                discoveryData.content_type === 'conversation'
-                  ? 'bg-green-500 text-white'
-                  : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
-              }`}
-              whileHover={!loading ? animation.hover : {}}
-              whileTap={!loading ? animation.tap : {}}
-              title="實用對話"
-            >
-              <MessageCircle className="h-4 w-4" />
-            </motion.button>
+          {/* Content Type Switcher - 更醒目的分段控制 */}
+          <div className="flex items-center">
+            <div className="inline-flex rounded-xl overflow-hidden border border-slate-200 dark:border-slate-600">
+              <button
+                onClick={() => fetchDailyDiscovery('article')}
+                disabled={loading}
+                className={`px-3 py-2 flex items-center gap-2 text-sm ${
+                  (contentType ?? discoveryData.content_type) === 'article'
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-600'
+                }`}
+                aria-pressed={(contentType ?? discoveryData.content_type) === 'article'}
+              >
+                <BookOpen className="h-4 w-4" />
+                <span className="hidden sm:inline">精選文章</span>
+              </button>
+              <button
+                onClick={() => fetchDailyDiscovery('conversation')}
+                disabled={loading}
+                className={`px-3 py-2 flex items-center gap-2 text-sm ${
+                  (contentType ?? discoveryData.content_type) === 'conversation'
+                    ? 'bg-green-500 text-white'
+                    : 'bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-600'
+                }`}
+                aria-pressed={(contentType ?? discoveryData.content_type) === 'conversation'}
+              >
+                <MessageCircle className="h-4 w-4" />
+                <span className="hidden sm:inline">實用對話</span>
+              </button>
+            </div>
           </div>
         </div>
+      </div>
+      {/* 切換提示（行動版更明顯） */}
+      <div className="px-4 pt-3 text-center sm:hidden">
+        <span className="text-xs text-slate-500 dark:text-slate-400">可切換「精選文章 / 實用對話」</span>
       </div>
 
       {/* Content */}
