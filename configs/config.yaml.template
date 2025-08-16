@@ -27,7 +27,7 @@ webhook:
   url: "https://your-domain.com/webhook"  # 部署時需要更改為實際的 webhook URL
   path: "/webhook"
   host: "0.0.0.0"
-  port: 8000
+  port: 8080
 
 ai_services:
   # 可選擇使用的 LLM API: "google", "openai", "deepseek"
@@ -107,3 +107,24 @@ prompts:
       "difficulty_level": "學習難度",
       "frequency": "使用頻率"
     }}
+# =============================================================
+# MemWhiz 配置樣例（config.yaml.template）
+#
+# 注意：正式部署建議改用環境變數覆蓋（Cloud Run 推薦）
+# 這份檔案做為本地 fallback 與示例，不會自動讀取所有鍵。
+#
+# 單體部署（Cloud Run）建議環境變數：
+# - BOT_MODE=webhook            # 以 webhook 模式啟動 bot
+# - START_API=true              # 將 FastAPI 路由橋接到同一個 aiohttp 服務
+# - ENABLE_TELEGRAM_BRIDGE=0    # 禁止在 FastAPI 進程內初始化 Telegram 橋接，避免重複掛載 Router
+# - WEBHOOK_URL=https://<你的域>/webhook
+# - TELEGRAM_BOT_TOKEN=從 Secret 讀取
+# - PORT=8080（Cloud Run 預設）
+#
+# 本檔案中的值會被對應的環境變數覆蓋，例如：
+# - telegram.bot_token        ← TELEGRAM_BOT_TOKEN
+# - database.db_path          ← DATABASE_DB_PATH
+# - access_control.*          ← ACCESS_CONTROL_*
+# - mini_app.*                ← MINI_APP_*
+# - webhook.url/path/host/port← WEBHOOK_URL/WEBHOOK_PATH/WEBHOOK_HOST/WEBHOOK_PORT
+# =============================================================

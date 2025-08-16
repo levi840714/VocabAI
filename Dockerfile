@@ -18,6 +18,10 @@ COPY main.py .
 COPY config_loader.py .
 COPY bot/ bot/
 COPY api/ api/
+COPY bridge/ bridge/
+
+# 保證可從專案根目錄 import 本地模組（如 bridge）
+ENV PYTHONPATH=/app
 
 # 複製配置模板（稍後會被環境變數覆蓋）
 COPY configs/config.yaml.template configs/config.yaml

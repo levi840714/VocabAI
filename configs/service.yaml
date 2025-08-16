@@ -30,6 +30,9 @@ spec:
               value: 'webhook'
             - name: START_API
               value: 'true'
+            # 關閉 FastAPI 進程內的 Telegram 橋接，避免重複附掛 Router
+            - name: ENABLE_TELEGRAM_BRIDGE
+              value: '0'
 
             # --- config.yaml.template 的內容被映射到環境變數 ---
 

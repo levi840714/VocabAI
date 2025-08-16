@@ -311,6 +311,7 @@ async def start_webhook():
         logging.info("Webhook URL set successfully")
     except Exception as e:
         logging.error(f"Failed to set webhook URL: {e}")
+        # 不再在同一進程中切換到 polling，以避免重複附掛 Router 的風險
         raise
     
     # Create aiohttp application
@@ -474,12 +475,7 @@ async def main():
         # Start bot
         if mode == 'webhook':
             logging.info(f"Starting bot in webhook mode (BOT_MODE={mode}) (API routes integrated)")
-            try:
-                await start_webhook()
-            except Exception as webhook_error:
-                logging.error(f"Webhook mode failed: {webhook_error}")
-                logging.info("Falling back to polling mode...")
-                await start_polling()
+            await start_webhook()
         else:
             logging.info(f"Starting bot in polling mode (BOT_MODE={mode})")
             await start_polling()

@@ -36,6 +36,15 @@ from crud import (
     check_bookmark_exists, update_bookmark_personal_notes, create_tag, get_tags, add_tag_to_bookmark
 )
 from dependencies import get_database_path, get_ai_service, validate_user_access, get_whitelist_users, is_whitelist_enabled
+# 控制是否在 API 進程中載入 Telegram 事件橋接（避免 Cloud Run 多次附掛 Router）
+ENABLE_TELEGRAM_BRIDGE = os.getenv('ENABLE_TELEGRAM_BRIDGE', '0') == '1'
+if ENABLE_TELEGRAM_BRIDGE:
+    try:
+        from bot.utils.event_manager import get_event_manager as _get_event_manager
+    except Exception:
+        _get_event_manager = None
+else:
+    _get_event_manager = None
 from telegram_auth import get_user_from_telegram_header
 
 # Uvicorn will handle the logging configuration. We just get the logger instance for our custom logs.
@@ -113,6 +122,9 @@ app = FastAPI(
     redoc_url="/redoc" if os.getenv("ENVIRONMENT", "development") == "development" else None,
 )
 
+# Global event manager singleton to avoid re-attaching routers
+EVENT_MANAGER = None
+
 # CORS middleware - 強化設定以防止跨域和 Referrer Policy 錯誤
 origins = [
     "*",  # Allow all origins for development; restrict in production
@@ -174,6 +186,14 @@ async def startup_event():
     db_path = get_database_path()
     await ensure_db_initialized(db_path)
     logger.info("Database initialized successfully")
+    # Initialize event manager once to avoid attaching routers multiple times
+    global EVENT_MANAGER
+    if ENABLE_TELEGRAM_BRIDGE and _get_event_manager is not None and EVENT_MANAGER is None:
+        try:
+            EVENT_MANAGER = _get_event_manager()
+            logger.info("Event manager initialized")
+        except Exception as e:
+            logger.warning(f"Failed to initialize event manager at startup: {e}")
 
 # 添加全域錯誤處理器
 @app.exception_handler(405)
@@ -524,21 +544,23 @@ async def create_or_update_settings(
         
         # 發布設定變更事件
         try:
-            from bot.utils.event_manager import get_event_manager
-            event_manager = get_event_manager()
+            global EVENT_MANAGER
+            event_manager = EVENT_MANAGER or (_get_event_manager() if _get_event_manager else None)
             
             # 發布通用設定更新事件
-            await event_manager.publish_user_settings_updated(user_id)
+            if event_manager:
+                await event_manager.publish_user_settings_updated(user_id)
             
             # 檢查是否有提醒相關的設定變更
             learning_prefs = settings_data.learning_preferences.dict()
             if 'review_reminder_enabled' in learning_prefs or 'review_reminder_time' in learning_prefs:
-                await event_manager.publish_reminder_settings_changed(
-                    user_id=user_id,
-                    reminder_enabled=learning_prefs.get('review_reminder_enabled', False),
-                    reminder_time=learning_prefs.get('review_reminder_time', '09:00')
-                )
-                logger.info(f"🚀 API 發布提醒設定變更事件 - 用戶: {user_id}")
+                if event_manager:
+                    await event_manager.publish_reminder_settings_changed(
+                        user_id=user_id,
+                        reminder_enabled=learning_prefs.get('review_reminder_enabled', False),
+                        reminder_time=learning_prefs.get('review_reminder_time', '09:00')
+                    )
+                    logger.info(f"🚀 API 發布提醒設定變更事件 - 用戶: {user_id}")
         except Exception as e:
             logger.warning(f"發布事件失敗: {e}")
         
@@ -606,22 +628,24 @@ async def update_settings(
         
         # 發布設定變更事件
         try:
-            from bot.utils.event_manager import get_event_manager
-            event_manager = get_event_manager()
+            global EVENT_MANAGER
+            event_manager = EVENT_MANAGER or (_get_event_manager() if _get_event_manager else None)
             
             # 發布通用設定更新事件
-            await event_manager.publish_user_settings_updated(user_id)
+            if event_manager:
+                await event_manager.publish_user_settings_updated(user_id)
             
             # 檢查是否有提醒相關的設定變更
             if settings_data.learning_preferences:
                 learning_prefs = settings_data.learning_preferences.dict()
                 if 'review_reminder_enabled' in learning_prefs or 'review_reminder_time' in learning_prefs:
-                    await event_manager.publish_reminder_settings_changed(
-                        user_id=user_id,
-                        reminder_enabled=learning_prefs.get('review_reminder_enabled', False),
-                        reminder_time=learning_prefs.get('review_reminder_time', '09:00')
-                    )
-                    logger.info(f"🚀 API PUT 發布提醒設定變更事件 - 用戶: {user_id}")
+                    if event_manager:
+                        await event_manager.publish_reminder_settings_changed(
+                            user_id=user_id,
+                            reminder_enabled=learning_prefs.get('review_reminder_enabled', False),
+                            reminder_time=learning_prefs.get('review_reminder_time', '09:00')
+                        )
+                        logger.info(f"🚀 API PUT 發布提醒設定變更事件 - 用戶: {user_id}")
         except Exception as e:
             logger.warning(f"發布事件失敗: {e}")
         
