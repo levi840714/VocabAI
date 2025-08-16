@@ -349,41 +349,46 @@ const SettingsPage: React.FC = () => {
           
           {/* 語音測試區域 */}
           <div className="bg-slate-50 dark:bg-slate-700/50 p-4 rounded-lg space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="min-w-0">
                 <ThemeText variant="body" className="font-medium">語音測試</ThemeText>
                 <ThemeText variant="caption">測試當前環境的語音效果</ThemeText>
               </div>
-              <div className="flex gap-2">
-                <ThemeButton
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => isPlaying ? stop() : toggleSpeak('Hello')}
-                >
-                  {isPlaying ? <span className="w-4 h-4 inline-block">■</span> : <Volume2 className="w-4 h-4" />}
-                  <span>Hello</span>
-                </ThemeButton>
-                <ThemeButton
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => isPlaying ? stop() : toggleSpeakWord('Beautiful')}
-                >
-                  {isPlaying ? <span className="w-4 h-4 inline-block">■</span> : <Volume2 className="w-4 h-4" />}
-                  <span>Beautiful</span>
-                </ThemeButton>
-                <ThemeButton
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => isPlaying ? stop() : toggleSpeakSentence('The weather is wonderful today.')}
-                >
-                  {isPlaying ? <span className="w-4 h-4 inline-block">■</span> : <Volume2 className="w-4 h-4" />}
-                  <span>句子</span>
-                </ThemeButton>
+              <div className="w-full sm:w-auto">
+                <div className="flex items-center gap-2 overflow-x-auto whitespace-nowrap sm:overflow-visible sm:flex">
+                  <ThemeButton
+                    variant="secondary"
+                    size="sm"
+                    className="shrink-0 whitespace-nowrap"
+                    onClick={() => isPlaying ? stop() : toggleSpeak('Hello')}
+                  >
+                    {isPlaying ? <span className="w-4 h-4 inline-block">■</span> : <Volume2 className="w-4 h-4" />}
+                    <span>Hello</span>
+                  </ThemeButton>
+                  <ThemeButton
+                    variant="secondary"
+                    size="sm"
+                    className="shrink-0 whitespace-nowrap"
+                    onClick={() => isPlaying ? stop() : toggleSpeakWord('Beautiful')}
+                  >
+                    {isPlaying ? <span className="w-4 h-4 inline-block">■</span> : <Volume2 className="w-4 h-4" />}
+                    <span>Beautiful</span>
+                  </ThemeButton>
+                  <ThemeButton
+                    variant="secondary"
+                    size="sm"
+                    className="shrink-0 whitespace-nowrap"
+                    onClick={() => isPlaying ? stop() : toggleSpeakSentence('The weather is wonderful today.')}
+                  >
+                    {isPlaying ? <span className="w-4 h-4 inline-block">■</span> : <Volume2 className="w-4 h-4" />}
+                    <span>句子</span>
+                  </ThemeButton>
+                </div>
               </div>
             </div>
             
             {/* 環境資訊顯示（移除可用語音清單） */}
-            <div className="text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-600 p-3 rounded border">
+            <div className="text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-600 p-3 rounded border break-words">
               <div className="font-medium mb-2">當前語音環境:</div>
               <div className="space-y-1">
                 <div>🔊 語音支援: {voiceService.getEnvironmentInfo().supportsSpeechSynthesis ? '✅ 支援' : '❌ 不支援'}</div>

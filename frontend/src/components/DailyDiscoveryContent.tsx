@@ -6,6 +6,7 @@ import { useVoice } from '@/hooks/useVoice';
 import { useSettings } from '@/contexts/SettingsContext';
 import { ThemeCard, ThemeTitle, ThemeText, ThemeButton } from './ui/ThemeComponents';
 import { useAnimation } from '../hooks/useAnimation';
+import { useFixedBottomOffset } from '@/hooks/useFixedBottomOffset';
 import { useClickableText } from '../hooks/useClickableText';
 import { memWhizAPI } from '../lib/api';
 
@@ -72,6 +73,8 @@ export default function DailyDiscoveryContent({
   const [bookmarking, setBookmarking] = useState(false);
   // 節拍指示
   const [beatTick, setBeatTick] = useState(false);
+  // 行動版控制列：計算貼齊視窗底部的偏移（含安全區/工具列/鍵盤）
+  const mobileBottom = useFixedBottomOffset(16);
   
   // 文章播放分句
   const splitIntoSentences = (text: string) => {
@@ -461,8 +464,11 @@ export default function DailyDiscoveryContent({
                   {currentIndex + 1} / {articleSentences.length}
                 </div>
               </div>
-              {/* Mobile: fixed to viewport bottom */}
-              <div className="sm:hidden fixed left-1/2 -translate-x-1/2 bottom-4 z-50 flex items-center gap-3 bg-white/95 dark:bg-slate-800/95 backdrop-blur rounded-xl px-4 py-2 shadow-lg border border-slate-200 dark:border-slate-600 w-[calc(100%-2rem)] max-w-xl">
+              {/* Mobile: fixed to viewport bottom, accounting for safe-area/keyboard */}
+              <div
+                className="sm:hidden fixed left-0 right-0 z-50 flex items-center gap-3 bg-white/95 dark:bg-slate-800/95 backdrop-blur rounded-xl px-4 py-2 shadow-lg border border-slate-200 dark:border-slate-600 w-[calc(100%-2rem)] max-w-xl mx-auto"
+                style={{ bottom: `${mobileBottom}px` }}
+              >
                 <button
                   onClick={handlePrev}
                   className="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600"
