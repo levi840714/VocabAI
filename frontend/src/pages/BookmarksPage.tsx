@@ -3,24 +3,26 @@ import { motion } from 'framer-motion';
 import { ArrowLeft, BookmarkCheck, Calendar, Filter, Search, Archive } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { memWhizAPI } from '../lib/api';
-import { BookmarkSummaryListResponse, BookmarkSummary, BookmarkType } from '../lib/types';
+import { BookmarkSummaryListResponse, BookmarkSummary } from '../lib/types';
 import { ThemeCard, ThemeTitle, ThemeText, ThemeButton } from '../components/ui/ThemeComponents';
 import { useAnimation } from '../hooks/useAnimation';
 import { useClickableText } from '../hooks/useClickableText';
 import { useClickableTextContext } from '../contexts/ClickableTextContext';
 
-const BOOKMARK_TYPE_LABELS = {
-  [BookmarkType.FULL]: '完整文章',
-  [BookmarkType.KNOWLEDGE_POINT]: '知識重點',
-  [BookmarkType.ARTICLE_SECTION]: '文章段落',
-  [BookmarkType.DISCUSSION]: '討論問題'
+// 類型顏色（保留於卡片顯示，不作為篩選）
+const TYPE_BADGE_COLORS: Record<string, string> = {
+  full: 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400',
+  knowledge_point: 'bg-green-100 dark:bg-green-900 text-green-600 dark:text-green-400',
+  article_section: 'bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-400',
+  discussion: 'bg-orange-100 dark:bg-orange-900 text-orange-600 dark:text-orange-400'
 };
 
-const BOOKMARK_TYPE_COLORS = {
-  [BookmarkType.FULL]: 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400',
-  [BookmarkType.KNOWLEDGE_POINT]: 'bg-green-100 dark:bg-green-900 text-green-600 dark:text-green-400',
-  [BookmarkType.ARTICLE_SECTION]: 'bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-400',
-  [BookmarkType.DISCUSSION]: 'bg-orange-100 dark:bg-orange-900 text-orange-600 dark:text-orange-400'
+// 類型中文標籤（顯示用途）
+const TYPE_BADGE_LABELS: Record<string, string> = {
+  full: '完整文章',
+  knowledge_point: '知識重點',
+  article_section: '文章段落',
+  discussion: '討論問題'
 };
 
 export default function BookmarksPage() {
@@ -32,7 +34,11 @@ export default function BookmarksPage() {
   const [bookmarks, setBookmarks] = useState<BookmarkSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedType, setSelectedType] = useState<string>('');
+  // 內容類型篩選：all/article/conversation
+  const [contentFilter, setContentFilter] = useState<'all' | 'article' | 'conversation'>('all');
+  // 時間篩選：以內容日期 content_date 為準
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
   const [currentPage, setCurrentPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
@@ -64,11 +70,14 @@ export default function BookmarksPage() {
       setLoading(true);
       setError(null);
       
-      const data = await memWhizAPI.getBookmarks(
-        selectedType || undefined,
-        currentPage,
-        pageSize
-      );
+      // 後端篩選 + 分頁
+      const data = await memWhizAPI.getBookmarks({
+        contentType: contentFilter === 'all' ? undefined : contentFilter,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+        page: currentPage,
+        pageSize,
+      });
       
       setBookmarks(data.bookmarks);
       setTotalCount(data.total_count);
@@ -78,14 +87,14 @@ export default function BookmarksPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedType, currentPage, pageSize]);
+  }, [contentFilter, startDate, endDate, currentPage, pageSize]);
 
   useEffect(() => {
     fetchBookmarks();
   }, [fetchBookmarks]);
 
-  const handleTypeFilter = (type: string) => {
-    setSelectedType(type === selectedType ? '' : type);
+  const handleContentFilter = (type: 'all' | 'article' | 'conversation') => {
+    setContentFilter(type);
     setCurrentPage(0);
   };
 
@@ -165,6 +174,8 @@ export default function BookmarksPage() {
             className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors"
             whileHover={animation.hover}
             whileTap={animation.tap}
+            aria-expanded={showFilters}
+            aria-label="開啟/關閉篩選"
           >
             <Filter className="h-5 w-5" />
           </motion.button>
@@ -190,26 +201,18 @@ export default function BookmarksPage() {
               />
             </div>
             
-            {/* Type Filters */}
-            <div className="flex flex-wrap gap-2">
-              <motion.button
-                onClick={() => handleTypeFilter('')}
-                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                  selectedType === '' 
-                    ? 'bg-blue-500 text-white' 
-                    : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600'
-                }`}
-                whileHover={animation.hover}
-                whileTap={animation.tap}
-              >
-                全部
-              </motion.button>
-              {Object.entries(BOOKMARK_TYPE_LABELS).map(([type, label]) => (
+            {/* 內容類型篩選 */}
+            <div className="flex flex-wrap gap-2 mb-3">
+              {([
+                ['all', '全部'], 
+                ['article', '精選文章'], 
+                ['conversation', '實用對話']
+              ] as const).map(([key, label]) => (
                 <motion.button
-                  key={type}
-                  onClick={() => handleTypeFilter(type)}
+                  key={key}
+                  onClick={() => handleContentFilter(key)}
                   className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                    selectedType === type 
+                    contentFilter === key 
                       ? 'bg-blue-500 text-white' 
                       : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600'
                   }`}
@@ -219,6 +222,47 @@ export default function BookmarksPage() {
                   {label}
                 </motion.button>
               ))}
+            </div>
+
+            {/* 日期範圍（依內容日期） */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
+              {/* 起始日期 */}
+              <div className="flex flex-col">
+                <label className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-1 flex items-center gap-1">
+                  <Calendar className="h-3.5 w-3.5 text-slate-500" /> 起始日期
+                </label>
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => { setStartDate(e.target.value); setCurrentPage(0); }}
+                    className="h-9 w-full sm:w-56 pl-9 pr-3 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-slate-900 dark:text-slate-100 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  />
+                </div>
+              </div>
+              {/* 結束日期 */}
+              <div className="flex flex-col">
+                <label className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">結束日期</label>
+                <div className="relative">
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => { setEndDate(e.target.value); setCurrentPage(0); }}
+                    className="h-9 w-full sm:w-56 pl-3 pr-3 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-slate-900 dark:text-slate-100 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  />
+                </div>
+              </div>
+              <div className="flex items-end">
+                {(startDate || endDate) && (
+                  <button
+                    onClick={() => { setStartDate(''); setEndDate(''); setCurrentPage(0); }}
+                    className="h-9 px-3 rounded-lg text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/30 border border-blue-200 dark:border-blue-800 transition-colors"
+                  >
+                    清除日期
+                  </button>
+                )}
+              </div>
             </div>
           </motion.div>
         )}
@@ -256,11 +300,14 @@ export default function BookmarksPage() {
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          BOOKMARK_TYPE_COLORS[bookmark.bookmark_type as keyof typeof BOOKMARK_TYPE_COLORS] || 
-                          'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'
-                        }`}>
-                          {BOOKMARK_TYPE_LABELS[bookmark.bookmark_type as keyof typeof BOOKMARK_TYPE_LABELS] || bookmark.bookmark_type}
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            TYPE_BADGE_COLORS[bookmark.bookmark_type] ||
+                            'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'
+                          }`}
+                          title={bookmark.bookmark_type}
+                        >
+                          {TYPE_BADGE_LABELS[bookmark.bookmark_type] || bookmark.bookmark_type}
                         </span>
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                           bookmark.content_type === 'conversation' 

@@ -421,29 +421,36 @@ class MemWhizAPI {
     });
   }
 
-  async getBookmarks(
+  async getBookmarks(options?: {
     bookmarkType?: string,
-    page: number = 0,
-    pageSize: number = 20
-  ): Promise<BookmarkSummaryListResponse> {
+    contentType?: 'article' | 'conversation',
+    startDate?: string,
+    endDate?: string,
+    page?: number,
+    pageSize?: number,
+  }): Promise<BookmarkSummaryListResponse> {
     let endpoint = '/v1/bookmarks';
-    
     const params = new URLSearchParams();
-    
-    if (bookmarkType) {
-      params.append('bookmark_type', bookmarkType);
-    }
-    
+    const {
+      bookmarkType,
+      contentType,
+      startDate,
+      endDate,
+      page = 0,
+      pageSize = 20,
+    } = options || {};
+
+    if (bookmarkType) params.append('bookmark_type', bookmarkType);
+    if (contentType) params.append('content_type', contentType);
+    if (startDate) params.append('start_date', startDate);
+    if (endDate) params.append('end_date', endDate);
     params.append('page', page.toString());
     params.append('page_size', pageSize.toString());
-    
-    // 本地測試模式下添加 user_id 參數
+
     if (isLocalDevelopment() && !this.telegramAuthData) {
       params.append('user_id', '613170570');
     }
-    
     endpoint += '?' + params.toString();
-    
     return this.request(endpoint);
   }
 

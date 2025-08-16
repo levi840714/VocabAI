@@ -864,46 +864,84 @@ async def delete_bookmark_endpoint(
 @app.get("/api/v1/bookmarks", response_model=BookmarkSummaryListResponse)
 async def get_bookmarks_endpoint(
     bookmark_type: Optional[str] = Query(None, description="Filter by bookmark type"),
+    content_type: Optional[str] = Query(None, description="Filter by content type: article|conversation"),
+    start_date: Optional[str] = Query(None, description="Start date YYYY-MM-DD (by content date)"),
+    end_date: Optional[str] = Query(None, description="End date YYYY-MM-DD (by content date)"),
     page: int = Query(default=0, ge=0, description="Page number"),
     page_size: int = Query(default=20, ge=1, le=100, description="Items per page"),
     user_id: int = Depends(get_current_user)
 ):
-    """Get user bookmarks summary (lightweight list)."""
-    logger.info(f"GET /bookmarks called - user_id: {user_id}, type: {bookmark_type}")
-    
+    """Get user bookmarks summary (supports filtering and pagination)."""
+    logger.info(
+        f"GET /bookmarks called - user_id: {user_id}, bookmark_type: {bookmark_type}, content_type: {content_type}, start: {start_date}, end: {end_date}, page: {page}, size: {page_size}"
+    )
     try:
         db_path = get_database_path()
         await ensure_db_initialized(db_path)
-        
-        bookmarks_data, total_count = await get_user_bookmarks_summary(db_path, user_id, bookmark_type, page, page_size)
-        
-        # 轉換為簡化的響應格式
-        bookmarks = []
-        for bookmark_data in bookmarks_data:
-            # 解析時間
-            from datetime import datetime
-            bookmark_created_at = to_taipei_time(bookmark_data['created_at'])
-            
-            bookmark = BookmarkSummary(
-                id=bookmark_data['id'],
-                discovery_id=bookmark_data['discovery_id'],
-                bookmark_type=bookmark_data['bookmark_type'],
-                knowledge_point_id=bookmark_data['knowledge_point_id'],
-                personal_notes=bookmark_data['personal_notes'],
-                created_at=bookmark_created_at,
-                content_date=bookmark_data['content_date'],
-                article_title=bookmark_data['article_title'],
-                content_type=bookmark_data.get('content_type', 'article')
+
+        # 先獲取第一頁以取得總數
+        first_page, total_count = await get_user_bookmarks_summary(db_path, user_id, bookmark_type, 0, max(50, page_size))
+
+        # 如果超過一頁，聚合所有頁再做篩選（避免過濾後計數不正確）
+        all_rows = list(first_page)
+        if total_count > len(first_page):
+            pages = (total_count + max(50, page_size) - 1) // max(50, page_size)
+            for p in range(1, pages):
+                rows, _ = await get_user_bookmarks_summary(db_path, user_id, bookmark_type, p, max(50, page_size))
+                all_rows.extend(rows)
+
+        # 轉換為簡化結構並套用過濾
+        def row_to_summary(row):
+            created = to_taipei_time(row['created_at'])
+            return BookmarkSummary(
+                id=row['id'],
+                discovery_id=row['discovery_id'],
+                bookmark_type=row['bookmark_type'],
+                knowledge_point_id=row['knowledge_point_id'],
+                personal_notes=row['personal_notes'],
+                created_at=created,
+                content_date=row['content_date'],
+                article_title=row['article_title'],
+                content_type=row.get('content_type', 'article')
             )
-            bookmarks.append(bookmark)
-        
+
+        all_summaries = [row_to_summary(r) for r in all_rows]
+
+        # 後端過濾（內容類型 + 日期）
+        from datetime import datetime
+        filtered = []
+        for b in all_summaries:
+            if content_type and b.content_type != content_type:
+                continue
+            if start_date:
+                try:
+                    if datetime.strptime(b.content_date, '%Y-%m-%d') < datetime.strptime(start_date, '%Y-%m-%d'):
+                        continue
+                except Exception:
+                    pass
+            if end_date:
+                try:
+                    # 包含當天
+                    if datetime.strptime(b.content_date, '%Y-%m-%d') > datetime.strptime(end_date, '%Y-%m-%d'):
+                        continue
+                except Exception:
+                    pass
+            filtered.append(b)
+
+        filtered_total = len(filtered)
+
+        # 重新套用分頁
+        start_idx = page * page_size
+        end_idx = start_idx + page_size
+        page_items = filtered[start_idx:end_idx]
+
         return BookmarkSummaryListResponse(
-            bookmarks=bookmarks,
-            total_count=total_count,
+            bookmarks=page_items,
+            total_count=filtered_total,
             page=page,
             page_size=page_size
         )
-        
+
     except Exception as e:
         logger.error(f"Error getting bookmarks: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to retrieve bookmarks")
@@ -1144,4 +1182,3 @@ async def create_bookmark_tag_endpoint(
 async def read_root():
     """Legacy hello endpoint."""
     return {"message": "Hello from MemWhiz API!", "version": "1.0.0"}
-
