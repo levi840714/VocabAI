@@ -200,13 +200,10 @@ def load_config() -> dict:
             with open(config_path, 'r', encoding='utf-8') as f:
                 yaml_config = yaml.safe_load(f)
                 if yaml_config:
-                    config_file_found = True
-                    logging.info(f"Loaded configuration from {config_path}")
-                    
+                    config_file_found = True                    
                     # 如果環境變數中沒有 token，從 YAML 讀取
                     if not settings.telegram_bot_token and 'telegram' in yaml_config and 'bot_token' in yaml_config['telegram']:
                         config['telegram']['bot_token'] = yaml_config['telegram']['bot_token']
-                        logging.info("Loaded bot token from YAML")
                     
                     # 如果環境變數中沒有白名單用戶，從 YAML 讀取
                     if not settings.access_control_whitelist_users and 'access_control' in yaml_config:
@@ -228,7 +225,6 @@ def load_config() -> dict:
                         db_path = yaml_config['database']['db_path']
                         # 自動解析為專案根目錄的絕對路徑
                         config['database']['db_path'] = resolve_project_path(db_path)
-                        logging.info(f"Loaded and resolved database path from YAML: {config['database']['db_path']}")
                     
                     # 讀取其他配置
                     if 'ai_services' in yaml_config:
@@ -249,11 +245,8 @@ def load_config() -> dict:
                         prompts_config = yaml_config['prompts']
                         if 'simple_explanation' in prompts_config:
                             config['prompts']['simple_explanation'] = prompts_config['simple_explanation']
-                            logging.info("Loaded simple_explanation prompt from YAML")
                         if 'deep_learning' in prompts_config:
-                            config['prompts']['deep_learning'] = prompts_config['deep_learning']
-                            logging.info("Loaded deep_learning prompt from YAML")
-                    
+                            config['prompts']['deep_learning'] = prompts_config['deep_learning']  
                     break  # 找到配置文件就停止搜尋
         except FileNotFoundError:
             continue  # 嘗試下一個路徑

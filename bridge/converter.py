@@ -1,5 +1,8 @@
 from aiohttp import web
 import logging
+import inspect
+from typing import Any, Optional, get_origin, get_args
+from pydantic import BaseModel
 
 
 def make_converter(validate_user_access):
@@ -15,110 +18,98 @@ def make_converter(validate_user_access):
 
     async def convert_fastapi_to_aiohttp(fastapi_handler, request, **kwargs):
         try:
-            # Extract query parameters and validate user
+            # Extract params from request
             query_params = dict(request.query)
-            user_id = validate_user_access(query_params.get('user_id'))
+            path_params = dict(request.match_info)
 
-            result = None
-            # GET requests
-            if request.method == 'GET':
-                # Common path-param pattern
-                if 'word_id' in request.match_info:
-                    result = await fastapi_handler(word_id=int(request.match_info['word_id']), user_id=user_id)
-                # Shorthand single-param endpoints
-                elif request.path.endswith('/next') or request.path.endswith('/stats') or request.path.endswith('/settings'):
-                    result = await fastapi_handler(user_id=user_id)
-                # Daily discovery with optional filters
-                elif request.path.endswith('/daily-discovery'):
-                    date_str = query_params.get('date_str')
-                    content_type = query_params.get('content_type')
-                    result = await fastapi_handler(date_str=date_str, content_type=content_type, user_id=user_id)
-                # Bookmarks collection
-                elif request.path.endswith('/bookmarks') and 'bookmark_id' not in request.match_info:
-                    page = int(query_params.get('page', 0))
-                    page_size = int(query_params.get('page_size', 20))
-                    bookmark_type = query_params.get('bookmark_type')
-                    result = await fastapi_handler(bookmark_type=bookmark_type, page=page, page_size=page_size, user_id=user_id)
-                # Bookmark detail
-                elif '/bookmarks/' in request.path and 'bookmark_id' in request.match_info and not request.path.endswith('/notes'):
-                    result = await fastapi_handler(bookmark_id=int(request.match_info['bookmark_id']), user_id=user_id)
-                # Bookmark tags
-                elif request.path.endswith('/bookmarks/tags'):
-                    result = await fastapi_handler(user_id=user_id)
-                # Words list
-                elif 'words' in request.path:
-                    page = int(query_params.get('page', 0))
-                    page_size = int(query_params.get('page_size', 10))
-                    filter_type = query_params.get('filter_type', 'all')
-                    result = await fastapi_handler(page=page, page_size=page_size, filter_type=filter_type, user_id=user_id)
-                else:
-                    # Fallback: call without params
-                    result = await fastapi_handler()
+            # Resolve body JSON if present
+            body_data: dict[str, Any] = {}
+            if request.method in ['POST', 'PUT', 'PATCH'] and request.can_read_body:
+                try:
+                    parsed = await request.json()
+                    if isinstance(parsed, dict):
+                        body_data = parsed
+                except Exception:
+                    body_data = {}
 
-            # POST/PUT/DELETE
-            elif request.method in ['POST', 'PUT', 'DELETE']:
-                if request.method == 'DELETE':
-                    # Words delete
-                    if 'word_id' in request.match_info:
-                        word_id = int(request.match_info['word_id'])
-                        result = await fastapi_handler(word_id=word_id, user_id=user_id)
-                    # Bookmarks delete
-                    elif 'discovery_id' in request.match_info:
-                        discovery_id = int(request.match_info['discovery_id'])
-                        bookmark_type = query_params.get('bookmark_type', 'full')
-                        knowledge_point_id = query_params.get('knowledge_point_id')
-                        result = await fastapi_handler(discovery_id=discovery_id, bookmark_type=bookmark_type, knowledge_point_id=knowledge_point_id, user_id=user_id)
+            # Resolve user id (auth is secondary; focus is auto param mapping)
+            user_id_raw: Optional[Any] = query_params.get('user_id')
+            try:
+                auth_header = request.headers.get('Authorization')
+                if auth_header:
+                    from api.telegram_auth import get_user_from_telegram_header
+                    telegram_uid = get_user_from_telegram_header(auth_header)
+                    if telegram_uid is not None:
+                        user_id_raw = telegram_uid
+            except Exception:
+                pass
+            user_id = validate_user_access(user_id_raw)
+
+            def cast_value(value: Any, annotation: Any) -> Any:
+                if value is None or annotation is inspect._empty:
+                    return value
+                origin = get_origin(annotation)
+                args = get_args(annotation)
+                target = None
+                # Optional[X]
+                if origin is Optional:
+                    target = args[0] if args else Any
                 else:
-                    data = await request.json() if request.can_read_body else {}
-                    # Word-specific
-                    if 'word_id' in request.match_info:
-                        word_id = int(request.match_info['word_id'])
-                        if 'notes' in request.path:
-                            from api.schemas import UpdateNotesRequest
-                            notes_data = UpdateNotesRequest(**data)
-                            result = await fastapi_handler(word_id=word_id, notes_data=notes_data)
-                        elif 'toggle-learned' in request.path:
-                            result = await fastapi_handler(word_id=word_id, user_id=user_id)
-                        elif 'review' in request.path:
-                            from api.schemas import ReviewRequest
-                            review_data = ReviewRequest(**data)
-                            result = await fastapi_handler(word_id=word_id, review_data=review_data)
-                    # Bookmark notes update
-                    elif 'bookmark_id' in request.match_info and request.method == 'PUT' and request.path.endswith('/notes'):
-                        from api.schemas import UpdateBookmarkNotesRequest
-                        notes_request = UpdateBookmarkNotesRequest(**data)
-                        bookmark_id = int(request.match_info['bookmark_id'])
-                        result = await fastapi_handler(bookmark_id=bookmark_id, notes_request=notes_request, user_id=user_id)
-                    # Bookmarks create
-                    elif request.path.endswith('/bookmarks') and request.method == 'POST':
-                        from api.schemas import BookmarkRequest
-                        bookmark_request = BookmarkRequest(**data)
-                        result = await fastapi_handler(bookmark_request=bookmark_request, user_id=user_id)
-                    # Tags create
-                    elif request.path.endswith('/bookmarks/tags') and request.method == 'POST':
-                        from api.schemas import CreateTagRequest
-                        tag_request = CreateTagRequest(**data)
-                        result = await fastapi_handler(tag_request=tag_request, user_id=user_id)
-                    # Words create
-                    elif 'words' in request.path:
-                        from api.schemas import WordCreate
-                        word_data = WordCreate(**data)
-                        result = await fastapi_handler(word_data=word_data, user_id=user_id)
-                    # AI explain
-                    elif 'ai/explain' in request.path:
-                        from api.schemas import AIExplanationRequest
-                        ai_request = AIExplanationRequest(**data)
-                        result = await fastapi_handler(request=ai_request)
-                    # Settings
-                    elif 'settings' in request.path:
-                        if request.method == 'POST':
-                            from api.schemas import UserSettingsCreate
-                            settings_data = UserSettingsCreate(**data)
-                            result = await fastapi_handler(settings_data=settings_data, user_id=user_id)
-                        elif request.method == 'PUT':
-                            from api.schemas import UserSettingsUpdate
-                            settings_data = UserSettingsUpdate(**data)
-                            result = await fastapi_handler(settings_data=settings_data, user_id=user_id)
+                    target = annotation
+                try:
+                    if target in (int, float, str):
+                        return target(value)
+                    if target is bool:
+                        if isinstance(value, str):
+                            return value.lower() in ['1', 'true', 't', 'yes', 'y']
+                        return bool(value)
+                except Exception:
+                    return value
+                return value
+
+            def build_kwargs(func):
+                sig = inspect.signature(func)
+                kwargs = {}
+                for name, param in sig.parameters.items():
+                    ann = param.annotation
+                    # Inject resolved user_id when requested
+                    if name == 'user_id':
+                        kwargs[name] = user_id
+                        continue
+                    # Path params first
+                    if name in path_params:
+                        kwargs[name] = cast_value(path_params[name], ann)
+                        continue
+                    # Query params next
+                    if name in query_params:
+                        kwargs[name] = cast_value(query_params[name], ann)
+                        continue
+                    # Pydantic model from body
+                    try:
+                        if isinstance(ann, type) and issubclass(ann, BaseModel):
+                            candidate = None
+                            if name in body_data and isinstance(body_data[name], dict):
+                                candidate = body_data[name]
+                            else:
+                                candidate = body_data
+                            try:
+                                kwargs[name] = ann(**candidate)
+                                continue
+                            except Exception:
+                                pass
+                    except Exception:
+                        pass
+                    # Plain body field
+                    if name in body_data:
+                        kwargs[name] = cast_value(body_data[name], ann)
+                        continue
+                    # Default value
+                    if param.default is not inspect._empty:
+                        kwargs[name] = param.default
+                return kwargs
+
+            call_kwargs = build_kwargs(fastapi_handler)
+            result = await fastapi_handler(**call_kwargs)
 
             # Serialize Pydantic responses
             if hasattr(result, 'model_dump'):
@@ -142,4 +133,3 @@ def make_converter(validate_user_access):
             return web.json_response({'error': str(e)}, status=400)
 
     return convert_fastapi_to_aiohttp
-
