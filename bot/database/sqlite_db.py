@@ -849,6 +849,11 @@ async def get_user_bookmarks_summary(db_path, user_id, bookmark_type=None, page=
             
             if has_basic_data:
                 # 從收藏表讀取基本資訊
+                # 提取內容類型：如果 content_date 包含類型（如 "2025-08-16_conversation"），則提取類型
+                content_date_parts = row[6].split('_') if row[6] else ['', '']
+                content_date = content_date_parts[0]
+                content_type = content_date_parts[1] if len(content_date_parts) > 1 else 'article'
+                
                 bookmark = {
                     'id': row[0],
                     'discovery_id': row[1],
@@ -856,8 +861,9 @@ async def get_user_bookmarks_summary(db_path, user_id, bookmark_type=None, page=
                     'knowledge_point_id': row[3],
                     'personal_notes': row[4],
                     'created_at': row[5],
-                    'content_date': row[6].split('_')[0] if '_' in row[6] else row[6],
-                    'article_title': row[7]
+                    'content_date': content_date,
+                    'article_title': row[7],
+                    'content_type': content_type
                 }
             else:
                 # 向後兼容：從原始表獲取基本資訊
@@ -869,6 +875,11 @@ async def get_user_bookmarks_summary(db_path, user_id, bookmark_type=None, page=
                 discovery_row = await discovery_cursor.fetchone()
                 
                 if discovery_row:
+                    # 提取內容類型：如果 content_date 包含類型，則提取類型
+                    content_date_parts = discovery_row[0].split('_') if discovery_row[0] else ['', '']
+                    content_date = content_date_parts[0]
+                    content_type = content_date_parts[1] if len(content_date_parts) > 1 else 'article'
+                    
                     bookmark = {
                         'id': row[0],
                         'discovery_id': row[1],
@@ -876,8 +887,9 @@ async def get_user_bookmarks_summary(db_path, user_id, bookmark_type=None, page=
                         'knowledge_point_id': row[3],
                         'personal_notes': row[4],
                         'created_at': row[5],
-                        'content_date': discovery_row[0].split('_')[0] if '_' in discovery_row[0] else discovery_row[0],
-                        'article_title': discovery_row[1]
+                        'content_date': content_date,
+                        'article_title': discovery_row[1],
+                        'content_type': content_type
                     }
                 else:
                     # 如果原始內容不存在，跳過這個收藏

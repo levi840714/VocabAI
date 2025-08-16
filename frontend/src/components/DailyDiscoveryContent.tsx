@@ -85,8 +85,11 @@ export default function DailyDiscoveryContent({
     }
   };
 
-  // 收藏功能
-  const handleBookmark = async () => {
+  // 收藏功能 - 優化以避免頁面重新載入
+  const handleBookmark = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
     if (bookmarking) return;
     
     setBookmarking(true);
@@ -99,6 +102,7 @@ export default function DailyDiscoveryContent({
           bookmark_type: 'full'
         });
       }
+      // 只呼叫回調，不進行額外的重新載入
       onBookmarkUpdate?.();
     } catch (error) {
       console.error('收藏操作失敗:', error);
@@ -267,8 +271,12 @@ export default function DailyDiscoveryContent({
           <span className="px-3 py-1.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400">
             {discoveryData.content_type === 'conversation' ? discoveryData.conversation?.scenario_category : discoveryData.article?.topic_category}
           </span>
-          <span className="px-3 py-1.5 rounded-full text-xs font-medium bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-400">
-            {discoveryData.content_type === 'conversation' ? '對話' : '文章'}
+          <span className={`px-3 py-1.5 rounded-full text-xs font-medium ${
+            discoveryData.content_type === 'conversation' 
+              ? 'bg-green-100 dark:bg-green-900 text-green-600 dark:text-green-400' 
+              : 'bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-400'
+          }`}>
+            {discoveryData.content_type === 'conversation' ? '實用對話' : '精選文章'}
           </span>
           {discoveryData.content_type === 'article' && (
             <ThemeText variant="caption" size="sm">

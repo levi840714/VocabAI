@@ -892,7 +892,8 @@ async def get_bookmarks_endpoint(
                 personal_notes=bookmark_data['personal_notes'],
                 created_at=bookmark_created_at,
                 content_date=bookmark_data['content_date'],
-                article_title=bookmark_data['article_title']
+                article_title=bookmark_data['article_title'],
+                content_type=bookmark_data.get('content_type', 'article')
             )
             bookmarks.append(bookmark)
         

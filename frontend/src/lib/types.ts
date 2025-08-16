@@ -225,6 +225,7 @@ export interface BookmarkSummary {
   created_at: string
   content_date: string
   article_title: string
+  content_type: string
 }
 
 export interface BookmarkSummaryListResponse {

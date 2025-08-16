@@ -262,6 +262,13 @@ export default function BookmarksPage() {
                         }`}>
                           {BOOKMARK_TYPE_LABELS[bookmark.bookmark_type as keyof typeof BOOKMARK_TYPE_LABELS] || bookmark.bookmark_type}
                         </span>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          bookmark.content_type === 'conversation' 
+                            ? 'bg-green-100 dark:bg-green-900 text-green-600 dark:text-green-400' 
+                            : 'bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-400'
+                        }`}>
+                          {bookmark.content_type === 'conversation' ? '實用對話' : '精選文章'}
+                        </span>
                         <ThemeText variant="caption" size="sm">
                           <Calendar className="inline h-3 w-3 mr-1" />
                           {formatDate(bookmark.content_date)}

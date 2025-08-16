@@ -359,6 +359,7 @@ class BookmarkSummary(BaseModel):
     created_at: datetime = Field(..., description="收藏時間")
     content_date: str = Field(..., description="內容日期")
     article_title: str = Field(..., description="文章標題")
+    content_type: str = Field(..., description="內容類型 (article/conversation)")
 
 class BookmarkSummaryListResponse(BaseModel):
     bookmarks: List[BookmarkSummary] = Field(..., description="收藏摘要列表")
