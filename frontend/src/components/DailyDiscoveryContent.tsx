@@ -421,7 +421,9 @@ export default function DailyDiscoveryContent({
               )
             )}
             {readingArticle && (
-              <div className="sticky bottom-4 mt-6 flex items-center gap-3 bg-white/90 dark:bg-slate-800/90 backdrop-blur rounded-xl px-4 py-2 shadow-lg border border-slate-200 dark:border-slate-600">
+              <>
+              {/* Desktop/Tablet: sticky inside article container */}
+              <div className="hidden sm:flex sticky bottom-4 mt-6 items-center gap-3 bg-white/90 dark:bg-slate-800/90 backdrop-blur rounded-xl px-4 py-2 shadow-lg border border-slate-200 dark:border-slate-600">
                 <button
                   onClick={handlePrev}
                   className="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600"
@@ -459,6 +461,46 @@ export default function DailyDiscoveryContent({
                   {currentIndex + 1} / {articleSentences.length}
                 </div>
               </div>
+              {/* Mobile: fixed to viewport bottom */}
+              <div className="sm:hidden fixed left-1/2 -translate-x-1/2 bottom-4 z-50 flex items-center gap-3 bg-white/95 dark:bg-slate-800/95 backdrop-blur rounded-xl px-4 py-2 shadow-lg border border-slate-200 dark:border-slate-600 w-[calc(100%-2rem)] max-w-xl">
+                <button
+                  onClick={handlePrev}
+                  className="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600"
+                  title="上一句"
+                  aria-label="上一句"
+                >
+                  <SkipBack className="h-5 w-5" />
+                </button>
+                <button
+                  onClick={handlePauseResume}
+                  className="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600"
+                  title={isPaused ? '繼續' : '暫停'}
+                  aria-label={isPaused ? '繼續' : '暫停'}
+                >
+                  {isPaused ? <Play className="h-5 w-5" /> : <Pause className="h-5 w-5" />}
+                </button>
+                <button
+                  onClick={handleStop}
+                  className="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600"
+                  title="停止"
+                  aria-label="停止"
+                >
+                  <Square className="h-5 w-5" />
+                </button>
+                <button
+                  onClick={handleNext}
+                  className="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600"
+                  title="下一句"
+                  aria-label="下一句"
+                >
+                  <SkipForward className="h-5 w-5" />
+                </button>
+                <div className={`ml-2 h-2 w-6 rounded-full ${beatTick ? 'bg-blue-500' : 'bg-blue-300'} transition-colors`} aria-hidden="true"></div>
+                <div className="text-xs text-slate-600 dark:text-slate-300 ml-auto">
+                  {currentIndex + 1} / {articleSentences.length}
+                </div>
+              </div>
+              </>
             )}
           </div>
         )}

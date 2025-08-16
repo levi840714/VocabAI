@@ -177,10 +177,6 @@ export default function DailyDiscoveryPage() {
           </div>
         </div>
       </div>
-      {/* 切換提示（行動版更明顯） */}
-      <div className="px-4 pt-3 text-center sm:hidden">
-        <span className="text-xs text-slate-500 dark:text-slate-400">可切換「精選文章 / 實用對話」</span>
-      </div>
 
       {/* Content */}
       <div className="max-w-4xl mx-auto p-4">
