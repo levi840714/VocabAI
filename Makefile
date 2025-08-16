@@ -18,7 +18,7 @@ YELLOW := \033[33m
 RED := \033[31m
 NC := \033[0m # No Color
 
-.PHONY: help setup install clean test lint run-bot run-api run-full run-webhook dev-frontend build status stop-all
+.PHONY: help setup install clean test lint run-bot run-api run-full run-webhook dev-frontend build status stop-all check-bridge
 
 ## 📚 顯示幫助信息
 help:
@@ -42,6 +42,7 @@ help:
 	@echo "  $(YELLOW)status$(NC)       - 檢查服務狀態"
 	@echo "  $(YELLOW)stop-all$(NC)     - 停止所有背景服務"
 	@echo "  $(YELLOW)build$(NC)        - 構建前端專案"
+	@echo "  $(YELLOW)check-bridge$(NC) - 比對 FastAPI 與 aiohttp 路由"
 	@echo ""
 
 ## 🚀 初始化專案環境
@@ -139,6 +140,11 @@ lint:
 	@$(VENV_BIN)/isort --check-only bot/ api/ main.py || true
 	@echo "$(YELLOW)📋 Flake8 檢查...$(NC)"
 	@$(VENV_BIN)/flake8 bot/ api/ main.py --max-line-length=88 --ignore=E203,W503 || true
+
+## 🔍 檢查 FastAPI↔aiohttp 橋接一致性
+check-bridge:
+	@echo "$(BLUE)🔍 檢查 FastAPI 與 aiohttp 路由一致性...$(NC)"
+	@$(PYTHON_VENV) scripts/check_bridge.py || true
 
 ## 📊 檢查服務狀態
 status:

@@ -178,9 +178,6 @@ async def setup_api_routes(app):
         except Exception as e:
             return web.json_response({'error': str(e)}, status=400)
     
-    async def health_handler(request):
-        return web.json_response({'status': 'healthy', 'service': 'memwhiz-api'})
-    
     # 全域 GCS 同步管理器 (在 main 函數中設定)
     global gcs_sync_manager
     
@@ -215,218 +212,44 @@ async def setup_api_routes(app):
     async def options_handler(request):
         return web.Response()
     
-    # Import existing API handlers from api/main.py
-    # 🚨 重要：新增 API 時請確保：
-    # 1. 在 api/main.py 中定義 FastAPI 端點
-    # 2. 在這裡導入對應的函數
-    # 3. 創建包裝函數（wrapper）
-    # 4. 在 convert_fastapi_to_aiohttp 中添加處理邏輯（如果需要）
-    # 5. 在下方添加路由註冊
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'api'))
-    from api.main import (
-        get_words, add_word, get_word_by_id, get_next_review, submit_review,
-        get_ai_explanation, get_user_statistics, update_word_notes, delete_word,
-        toggle_word_learned, get_current_user, get_user_settings, create_or_update_settings, update_settings,
-        get_daily_discovery
-    )
-    
-    # Convert FastAPI handlers to aiohttp handlers
-    async def convert_fastapi_to_aiohttp(fastapi_handler, request, **kwargs):
-        """Convert FastAPI handler to work with aiohttp"""
-        try:
-            # Extract query parameters
-            query_params = dict(request.query)
-            
-            # Get user_id using existing logic
-            user_id = validate_user_access(query_params.get('user_id'))
-            
-            # Handle different request types
-            if request.method == 'GET':
-                if 'word_id' in request.match_info:
-                    result = await fastapi_handler(word_id=int(request.match_info['word_id']), user_id=user_id)
-                elif request.path.endswith('/next'):
-                    result = await fastapi_handler(user_id=user_id)
-                elif request.path.endswith('/stats'):
-                    result = await fastapi_handler(user_id=user_id)
-                elif request.path.endswith('/settings'):
-                    result = await fastapi_handler(user_id=user_id)
-                elif request.path.endswith('/daily-discovery'):
-                    # Handle daily-discovery endpoint
-                    date_str = query_params.get('date_str')
-                    content_type = query_params.get('content_type')
-                    result = await fastapi_handler(date_str=date_str, content_type=content_type, user_id=user_id)
-                elif 'words' in request.path:
-                    # Handle words list endpoint
-                    page = int(query_params.get('page', 0))
-                    page_size = int(query_params.get('page_size', 10))
-                    filter_type = query_params.get('filter_type', 'all')
-                    result = await fastapi_handler(
-                        page=page, page_size=page_size, filter_type=filter_type, user_id=user_id
-                    )
-                else:
-                    result = await fastapi_handler()
-            elif request.method in ['POST', 'PUT', 'DELETE']:
-                # Handle POST/PUT/DELETE with request body
-                if request.method == 'DELETE':
-                    word_id = int(request.match_info['word_id'])
-                    result = await fastapi_handler(word_id=word_id, user_id=user_id)
-                else:
-                    data = await request.json() if request.can_read_body else {}
-                    if 'word_id' in request.match_info:
-                        word_id = int(request.match_info['word_id'])
-                        if 'notes' in request.path:
-                            from api.schemas import UpdateNotesRequest
-                            notes_data = UpdateNotesRequest(**data)
-                            result = await fastapi_handler(word_id=word_id, notes_data=notes_data)
-                        elif 'toggle-learned' in request.path:
-                            result = await fastapi_handler(word_id=word_id, user_id=user_id)
-                        elif 'review' in request.path:
-                            from api.schemas import ReviewRequest
-                            review_data = ReviewRequest(**data)
-                            result = await fastapi_handler(word_id=word_id, review_data=review_data)
-                    elif 'words' in request.path:
-                        from api.schemas import WordCreate
-                        word_data = WordCreate(**data)
-                        result = await fastapi_handler(word_data=word_data, user_id=user_id)
-                    elif 'ai/explain' in request.path:
-                        from api.schemas import AIExplanationRequest
-                        ai_request = AIExplanationRequest(**data)
-                        result = await fastapi_handler(request=ai_request)
-                    elif 'settings' in request.path:
-                        if request.method == 'POST':
-                            from api.schemas import UserSettingsCreate
-                            settings_data = UserSettingsCreate(**data)
-                            result = await fastapi_handler(settings_data=settings_data, user_id=user_id)
-                        elif request.method == 'PUT':
-                            from api.schemas import UserSettingsUpdate
-                            settings_data = UserSettingsUpdate(**data)
-                            result = await fastapi_handler(settings_data=settings_data, user_id=user_id)
-            
-            # Convert result to dict if it's a Pydantic model
-            if hasattr(result, 'model_dump'):
-                result = result.model_dump()
-            elif hasattr(result, 'dict'):
-                result = result.dict()
-            
-            # 處理 datetime 序列化問題
-            import json
-            from datetime import datetime, date
-            
-            def json_serializer(obj):
-                """JSON 序列化器，處理 datetime 和 date 對象"""
-                if isinstance(obj, datetime):
-                    return obj.isoformat()
-                elif isinstance(obj, date):
-                    return obj.isoformat()
-                raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
-            
-            return web.json_response(result, dumps=lambda obj: json.dumps(obj, default=json_serializer))
-            
-        except Exception as e:
-            return web.json_response({'error': str(e)}, status=400)
-    
-    # Create wrapper handlers
-    async def get_words_wrapper(request):
-        return await convert_fastapi_to_aiohttp(get_words, request)
-    
-    async def add_word_wrapper(request):
-        return await convert_fastapi_to_aiohttp(add_word, request)
-    
-    async def get_word_by_id_wrapper(request):
-        return await convert_fastapi_to_aiohttp(get_word_by_id, request)
-    
-    async def update_word_notes_wrapper(request):
-        return await convert_fastapi_to_aiohttp(update_word_notes, request)
-    
-    async def delete_word_wrapper(request):
-        return await convert_fastapi_to_aiohttp(delete_word, request)
-    
-    async def toggle_word_learned_wrapper(request):
-        return await convert_fastapi_to_aiohttp(toggle_word_learned, request)
-    
-    async def get_next_review_wrapper(request):
-        return await convert_fastapi_to_aiohttp(get_next_review, request)
-    
-    async def submit_review_wrapper(request):
-        return await convert_fastapi_to_aiohttp(submit_review, request)
-    
-    async def get_ai_explanation_wrapper(request):
-        return await convert_fastapi_to_aiohttp(get_ai_explanation, request)
-    
-    async def get_user_statistics_wrapper(request):
-        return await convert_fastapi_to_aiohttp(get_user_statistics, request)
-    
-    # Settings wrapper functions
-    async def get_user_settings_wrapper(request):
-        return await convert_fastapi_to_aiohttp(get_user_settings, request)
-    
-    async def create_or_update_settings_wrapper(request):
-        result = await convert_fastapi_to_aiohttp(create_or_update_settings, request)
-        
-        # 發布用戶設定更新事件
-        try:
-            from bot.utils.event_manager import get_event_manager
-            query_params = dict(request.query)
-            user_id = validate_user_access(query_params.get('user_id'))
-            
-            event_manager = get_event_manager()
-            await event_manager.publish_user_settings_updated(user_id)
-        except Exception as e:
-            logging.warning(f"發布設定更新事件失敗: {e}")
-        
-        return result
-    
-    async def update_settings_wrapper(request):
-        result = await convert_fastapi_to_aiohttp(update_settings, request)
-        
-        # 發布用戶設定更新事件
-        try:
-            from bot.utils.event_manager import get_event_manager
-            query_params = dict(request.query)
-            user_id = validate_user_access(query_params.get('user_id'))
-            
-            event_manager = get_event_manager()
-            await event_manager.publish_user_settings_updated(user_id)
-        except Exception as e:
-            logging.warning(f"發布設定更新事件失敗: {e}")
-        
-        return result
-    
-    # Daily Discovery wrapper function
-    async def get_daily_discovery_wrapper(request):
-        return await convert_fastapi_to_aiohttp(get_daily_discovery, request)
-    
-    # Add routes
-    app.router.add_get('/api/v1/words', get_words_wrapper)
-    app.router.add_post('/api/v1/words', add_word_wrapper)
-    app.router.add_get('/api/v1/words/{word_id}', get_word_by_id_wrapper)
-    app.router.add_put('/api/v1/words/{word_id}/notes', update_word_notes_wrapper)
-    app.router.add_delete('/api/v1/words/{word_id}', delete_word_wrapper)
-    app.router.add_put('/api/v1/words/{word_id}/toggle-learned', toggle_word_learned_wrapper)
-    
-    app.router.add_get('/api/v1/review/next', get_next_review_wrapper)
-    app.router.add_post('/api/v1/review/{word_id}', submit_review_wrapper)
-    
-    app.router.add_post('/api/v1/ai/explain', get_ai_explanation_wrapper)
-    
-    app.router.add_get('/api/v1/stats', get_user_statistics_wrapper)
-    
-    # Settings routes
-    app.router.add_get('/api/v1/settings', get_user_settings_wrapper)
-    app.router.add_post('/api/v1/settings', create_or_update_settings_wrapper)
-    app.router.add_put('/api/v1/settings', update_settings_wrapper)
-    
-    # Daily Discovery route
-    app.router.add_get('/api/v1/daily-discovery', get_daily_discovery_wrapper)
-    
-    app.router.add_get('/api/v1/health', health_handler)
-    app.router.add_post('/api/v1/sync-db', sync_db_handler)  # 手動同步端點
+    # Bridge converter
+    # NOTE:
+    # - Do NOT implement endpoint-specific mapping in main.py.
+    # - Implement/adjust bridging logic in bridge/converter.py only.
+    # - New FastAPI endpoints (api/main.py) will be auto-registered to aiohttp below.
+    from bridge.converter import make_converter
+    convert_fastapi_to_aiohttp = make_converter(validate_user_access)
+
+    # aiohttp 專屬管理端點
+    app.router.add_post('/api/v1/sync-db', sync_db_handler)
     
     # CORS OPTIONS handlers
     app.router.add_options('/api/{path:.*}', options_handler)
     
     # Add CORS middleware
     app.middlewares.append(cors_middleware)
+
+    # Centralized auto-bridge for all FastAPI routes
+    # NOTE:
+    # - Route registration is centralized in bridge/routes.py
+    # - Do NOT add app.router.add_* here for API endpoints.
+    from bridge.routes import auto_register_fastapi_routes
+    await auto_register_fastapi_routes(app, convert_fastapi_to_aiohttp)
+
+    # Feature-specific explicit bridge (bookmarks & legacy hello)
+    try:
+        from bridge.aiohttp_bridge import register_bookmark_routes
+        await register_bookmark_routes(app, convert_fastapi_to_aiohttp)
+    except Exception as e:
+        logging.warning(f"Extra bookmark bridge failed: {e}")
+
+    # Register additional bridge routes (bookmarks, legacy hello)
+    try:
+        from bridge.aiohttp_bridge import register_bookmark_routes
+        await register_bookmark_routes(app, convert_fastapi_to_aiohttp)
+        logging.info("Bookmark and legacy routes bridged via external module")
+    except Exception as e:
+        logging.warning(f"Failed to register extra bridge routes: {e}")
 
 async def setup_bot_and_dispatcher():
     """Setup bot and dispatcher with all handlers and services."""
