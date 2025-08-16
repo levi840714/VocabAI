@@ -18,7 +18,7 @@ YELLOW := \033[33m
 RED := \033[31m
 NC := \033[0m # No Color
 
-.PHONY: help setup install clean test lint run-bot run-api run-full run-webhook dev-frontend build status stop-all check-bridge
+.PHONY: help setup install clean test lint run-bot run-api run-full run-webhook run-bridge dev-frontend build status stop-all check-bridge
 
 ## 📚 顯示幫助信息
 help:
@@ -34,6 +34,7 @@ help:
 	@echo "  $(YELLOW)run-api$(NC)      - 只啟動 FastAPI 服務"
 	@echo "  $(YELLOW)run-full$(NC)     - 啟動完整服務 (Bot + API)"
 	@echo "  $(YELLOW)run-webhook$(NC)  - 以 webhook 模式啟動 Bot + API"
+	@echo "  $(YELLOW)run-bridge$(NC)   - 本地啟動 aiohttp 橋接 API（無 Bot）"
 	@echo "  $(YELLOW)dev-frontend$(NC) - 啟動前端開發服務器"
 	@echo ""
 	@echo "$(GREEN)工具命令:$(NC)"
@@ -103,6 +104,14 @@ run-webhook:
 	@echo "$(RED)⚠️  確保已在 config.yaml 中配置正確的 webhook URL$(NC)"
 	@echo "$(YELLOW)使用 Ctrl+C 停止$(NC)"
 	@BOT_MODE=webhook START_API=true API_PORT=8000 $(PYTHON_VENV) main.py
+
+## 🔗 本地橋接模式（僅 API，無 Bot）
+run-bridge:
+	@echo "$(BLUE)🔗 啟動本地橋接模式 API（aiohttp）...$(NC)"
+	@PORT=$${PORT:-8000}; \
+	 echo "$(YELLOW)API: http://localhost:$${PORT}$(NC)"; \
+	 echo "$(YELLOW)使用 Ctrl+C 停止$(NC)"; \
+	 PORT=$${PORT} $(PYTHON_VENV) scripts/bridge_server.py
 
 ## 💻 啟動前端開發服務器
 dev-frontend:

@@ -4,6 +4,12 @@ import inspect
 from typing import Any, Optional, get_origin, get_args
 from pydantic import BaseModel
 
+try:
+    # FastAPI Param base for Query/Path/Header/Body defaults
+    from fastapi.params import Param as FastAPIParam  # type: ignore
+except Exception:  # pragma: no cover - optional import
+    FastAPIParam = None  # type: ignore
+
 
 def make_converter(validate_user_access):
     """
@@ -67,6 +73,22 @@ def make_converter(validate_user_access):
                     return value
                 return value
 
+            def _unwrap_fastapi_default(default_obj: Any) -> Any:
+                """Unwrap FastAPI Param defaults (e.g., Query(...)) to primitive default values.
+
+                If default is Ellipsis (required), return None to let handler use own logic.
+                """
+                try:
+                    if FastAPIParam is not None and isinstance(default_obj, FastAPIParam):
+                        inner = getattr(default_obj, 'default', None)
+                        # FastAPI uses Ellipsis to denote required; map to None
+                        if inner is Ellipsis:
+                            return None
+                        return inner
+                except Exception:
+                    pass
+                return default_obj
+
             def build_kwargs(func):
                 sig = inspect.signature(func)
                 kwargs = {}
@@ -103,9 +125,9 @@ def make_converter(validate_user_access):
                     if name in body_data:
                         kwargs[name] = cast_value(body_data[name], ann)
                         continue
-                    # Default value
+                    # Default value (handle FastAPI Param wrappers like Query(...))
                     if param.default is not inspect._empty:
-                        kwargs[name] = param.default
+                        kwargs[name] = _unwrap_fastapi_default(param.default)
                 return kwargs
 
             call_kwargs = build_kwargs(fastapi_handler)
