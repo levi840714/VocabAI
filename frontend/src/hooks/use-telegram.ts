@@ -105,13 +105,10 @@ export function useTelegram(): UseTelegramReturn {
         setAuthData(webApp.initData);
       }
 
-      console.log('Telegram Web App initialized:', {
-        user: webApp.initDataUnsafe?.user,
-        hasInitData: !!webApp.initData
-      });
+      // Initialized
 
     } catch (error) {
-      console.error('Error initializing Telegram Web App:', error);
+      // Swallow initialization error, app can still run in non-TG env
     } finally {
       setIsReady(true);
     }

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react"
 import { memWhizAPI, Word as APIWord, WordsResponse, StatsResponse } from "@/lib/api"
 import { parseStructuredResponse, cleanStructuredResponse } from "@/lib/parseStructuredResponse"
+import { useTelegramContext } from "@/contexts/TelegramContext"
 
 // Convert API Word to frontend Word format
 const convertAPIWordToWord = (apiWord: APIWord) => {
@@ -198,10 +199,14 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // Initial load
+  // Initial load — wait for Telegram auth to be ready to avoid missing Authorization header
+  const telegram = useTelegramContext()
   useEffect(() => {
+    if (!telegram.isReady) return
+    if (telegram.isTelegramWebApp && !telegram.user) return
     refreshWords()
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [telegram.isReady, telegram.isTelegramWebApp, telegram.user])
 
   return (
     <VocabularyContext.Provider value={{ 

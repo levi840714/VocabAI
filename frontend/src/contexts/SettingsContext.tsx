@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { useTelegramContext } from '@/contexts/TelegramContext';
 import { 
   memWhizAPI, 
   UserSettingsResponse, 
@@ -300,8 +301,18 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     }
   }, [interfaceSettings.theme_mode]);
 
-  // 初始載入
+  // 初始載入（等待 Telegram 認證就緒，避免未帶 Authorization 造成 401）
+  const telegram = useTelegramContext();
+
   useEffect(() => {
+    // 尚未就緒先不打 API
+    if (!telegram.isReady) {
+      return;
+    }
+    // 在 Telegram WebApp 內，需等取得使用者（代表 initData 有效）
+    if (telegram.isTelegramWebApp && !telegram.user) {
+      return;
+    }
     // 在 API 載入前先嘗試應用本地設定的主題
     const localSettings = localStorage.getItem('memwhiz_user_settings');
     if (localSettings) {
@@ -316,7 +327,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     }
     
     refreshSettings();
-  }, []);
+  }, [telegram.isReady, telegram.isTelegramWebApp, telegram.user]);
 
   // 應用主題變更（包括載入過程中）
   useEffect(() => {

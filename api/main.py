@@ -393,15 +393,18 @@ async def get_user_statistics(user_id: int = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail="Failed to retrieve statistics")
 
 @app.put("/api/v1/words/{word_id}/notes", response_model=dict)
-async def update_word_notes(word_id: int, notes_data: UpdateNotesRequest):
+async def update_word_notes(word_id: int, notes_data: UpdateNotesRequest, user_id: int = Depends(get_current_user)):
     """Update user notes for a specific word."""
-    logger.info(f"PUT /words/{word_id}/notes called - notes_data: {notes_data}")
+    logger.info(f"PUT /words/{word_id}/notes called - user_id: {user_id}")
     db_path = get_database_path()
     
     try:
         word_data = await find_word_by_id(db_path, word_id)
         if not word_data:
             raise HTTPException(status_code=404, detail="Word not found")
+        # Ensure the word belongs to the authenticated user
+        if word_data['user_id'] != user_id:
+            raise HTTPException(status_code=403, detail="Access denied - word belongs to different user")
         
         success = await update_user_notes(db_path, word_id, notes_data.notes)
         if not success:

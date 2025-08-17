@@ -34,7 +34,8 @@ def validate_telegram_web_app_data(init_data: str, bot_token: str) -> Dict[str, 
     """
     try:
         # 解析查詢字符串
-        parsed_data = dict(parse_qsl(init_data))
+        # 解析查詢字符串（保留空值並處理百分比編碼）
+        parsed_data = dict(parse_qsl(init_data, keep_blank_values=True))
         
         # 提取 hash 值
         received_hash = parsed_data.pop('hash', '')
@@ -47,9 +48,10 @@ def validate_telegram_web_app_data(init_data: str, bot_token: str) -> Dict[str, 
             data_check_arr.append(f"{key}={value}")
         data_check_string = '\n'.join(data_check_arr)
         
-        # 使用 bot token 創建密鑰
-        secret_key = hashlib.sha256(bot_token.encode()).digest()
-        
+        # 使用 WebApp 規範創建密鑰：secret_key = HMAC_SHA256("WebAppData", bot_token)
+        # 注意：這與 Login Widget 的 SHA256(bot_token) 不同
+        secret_key = hmac.new(b"WebAppData", bot_token.encode(), hashlib.sha256).digest()
+
         # 計算期望的 hash 值
         expected_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
         

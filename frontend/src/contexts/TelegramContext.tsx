@@ -29,12 +29,6 @@ export function TelegramProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (telegram.isReady) {
       memWhizAPI.setTelegramAuth(telegram.authData);
-      
-      console.log('Telegram context initialized:', {
-        isTelegramWebApp: telegram.isTelegramWebApp,
-        hasUser: !!telegram.user,
-        hasAuthData: !!telegram.authData
-      });
     }
   }, [telegram.isReady, telegram.authData]);
 

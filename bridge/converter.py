@@ -47,8 +47,8 @@ def make_converter(validate_user_access):
                     telegram_uid = get_user_from_telegram_header(auth_header)
                     if telegram_uid is not None:
                         user_id_raw = telegram_uid
-            except Exception:
-                pass
+            except Exception as e:
+                logging.exception("[bridge] Error parsing Authorization header")
             user_id = validate_user_access(user_id_raw)
 
             def cast_value(value: Any, annotation: Any) -> Any:

@@ -10,7 +10,7 @@ spec:
   template:
     metadata:
       annotations:
-        autoscaling.knative.dev/minScale: '1'
+        autoscaling.knative.dev/minScale: '0'
         autoscaling.knative.dev/maxScale: '1'
       
     spec:
@@ -25,6 +25,8 @@ spec:
               cpu: 1000m
               memory: 512Mi
           env:
+            - name: ENVIRONMENT
+              value: 'production'
             # --- 系統運行模式 ---
             - name: BOT_MODE
               value: 'webhook'
@@ -44,7 +46,12 @@ spec:
             - name: ACCESS_CONTROL_ENABLE_WHITELIST
               value: 'true'
             - name: ACCESS_CONTROL_LOCAL_TEST_MODE
-              value: 'true'
+              value: 'false'
+            - name: ACCESS_CONTROL_WHITELIST_USERS
+              valueFrom:
+                secretKeyRef:
+                  name: telegram_user_ids
+                  key: latest
 
             # mini_app
             - name: MINI_APP_URL
@@ -52,7 +59,7 @@ spec:
             - name: MINI_APP_ENABLE_TELEGRAM_AUTH
               value: 'true'
             - name: MINI_APP_SESSION_TIMEOUT
-              value: '3600'
+              value: '86400'
 
             # webhook
             - name: WEBHOOK_URL
@@ -143,11 +150,6 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: deepseek_api_key
-                  key: latest
-            - name: ACCESS_CONTROL_WHITELIST_USERS
-              valueFrom:
-                secretKeyRef:
-                  name: telegram_user_ids
                   key: latest
             - name: DATABASE_GCS_BUCKET
               value: 'memwhiz-db'

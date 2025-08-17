@@ -124,12 +124,6 @@ class MemWhizAPI {
 
   constructor(baseUrl: string = API_BASE_URL) {
     this.baseUrl = baseUrl;
-    console.log('MemWhizAPI initialized with baseUrl:', this.baseUrl);
-    console.log('Environment variables:', {
-      VITE_API_BASE_URL: import.meta.env.VITE_API_BASE_URL,
-      DEV: import.meta.env.DEV,
-      computed: API_BASE_URL
-    });
   }
 
   // 設置 Telegram 驗證數據
@@ -143,10 +137,15 @@ class MemWhizAPI {
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
     
+    // 若尚未設置但可從 Telegram WebApp 讀到 initData，動態抓取填入
+    try {
+      if (!this.telegramAuthData && typeof window !== 'undefined' && (window as any)?.Telegram?.WebApp?.initData) {
+        this.telegramAuthData = (window as any).Telegram.WebApp.initData;
+      }
+    } catch {}
+
     // 創建驗證標頭
     const authHeaders = createTelegramAuthHeader(this.telegramAuthData);
-    
-    console.log('Making API request:', { url, method: options.method || 'GET', authHeaders });
     
     try {
       const response = await fetch(url, {
@@ -158,19 +157,14 @@ class MemWhizAPI {
         ...options,
       });
 
-      console.log('API response status:', response.status, response.statusText);
-
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.error('API error response:', errorData);
         throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
-      console.log('API response data:', data);
       return data;
     } catch (error) {
-      console.error('API request failed:', error);
       throw error;
     }
   }
