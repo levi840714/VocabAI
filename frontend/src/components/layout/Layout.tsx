@@ -70,7 +70,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         navigate('/');
       }
     }
-    // 如果沒有觸發返回，頁面會自動透過 dragConstraints 和 dragElastic 彈回原位置
   };
 
   return (
@@ -82,13 +81,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           <motion.div
             key={location.pathname}
             initial="initial"
-            animate={isDragging ? "in" : { ...pageVariants.in, x: 0 }}
+            animate="in"
             exit="out"
             variants={pageVariants}
-            transition={isDragging ? pageTransition : { ...pageTransition, type: "spring", stiffness: 400, damping: 30 }}
+            transition={pageTransition}
             drag={!isHomePage && isMobile ? "x" : false}
             dragConstraints={{ left: 0, right: 150 }}
             dragElastic={0.2}
+            dragSnapToOrigin
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
             dragMomentum={false}
