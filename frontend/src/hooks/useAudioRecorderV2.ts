@@ -68,13 +68,50 @@ export function useAudioRecorderV2() {
     // Only reuse stream in Mini App environment where permissions are more fragile
     const isInMiniApp = isTelegramMiniApp()
     
+    // Enhanced stream reuse for Mini App to minimize permission prompts
     if (isInMiniApp && mediaStreamRef.current && isStreamActive()) {
-      console.log('[AudioRecorderV2] Reusing existing stream in Mini App')
+      console.log('[AudioRecorderV2] Reusing existing active stream in Mini App')
       return mediaStreamRef.current
     }
 
+    // For Mini App, also try to reuse recently created but inactive streams
+    // if they were created within the last 5 seconds (likely same session)
+    if (isInMiniApp && mediaStreamRef.current) {
+      const tracks = mediaStreamRef.current.getTracks()
+      const hasRecentTracks = tracks.some(track => 
+        track.readyState === 'ended' && track.label // Recently ended but still labeled
+      )
+      
+      if (hasRecentTracks) {
+        console.log('[AudioRecorderV2] Attempting to reactivate recent stream in Mini App')
+        try {
+          // Try to re-request with same constraints to avoid new permission
+          const constraints: MediaStreamConstraints = {
+            audio: {
+              echoCancellation: false,
+              noiseSuppression: false,
+              autoGainControl: false,
+              sampleRate: 16000,
+              channelCount: 1
+            }
+          }
+          const newStream = await navigator.mediaDevices.getUserMedia(constraints)
+          
+          // Clean up old stream
+          mediaStreamRef.current.getTracks().forEach(track => track.stop())
+          mediaStreamRef.current = newStream
+          setState(s => ({ ...s, streamActive: true, error: null, permissionState: 'granted' }))
+          
+          console.log('[AudioRecorderV2] Successfully reactivated stream without new permission prompt')
+          return newStream
+        } catch (reactivateError) {
+          console.log('[AudioRecorderV2] Stream reactivation failed, proceeding with normal flow')
+        }
+      }
+    }
+
     // In regular browsers, always get fresh stream for privacy
-    // In Mini App, clean up old stream if exists but inactive
+    // In Mini App, clean up old stream if exists but inactive and can't be reused
     if (mediaStreamRef.current) {
       console.log('[AudioRecorderV2] Cleaning up old stream')
       mediaStreamRef.current.getTracks().forEach(track => track.stop())
@@ -275,11 +312,19 @@ export function useAudioRecorderV2() {
     setState(s => ({ ...s, error: null }))
 
     try {
-      // Check permissions first
-      const permissionState = await checkPermissions()
-      if (permissionState === 'denied') {
-        setState(s => ({ ...s, error: 'microphone_permission_denied', permissionState: 'denied' }))
-        return
+      const isInMiniApp = isTelegramMiniApp()
+      
+      // For Mini App, skip permission check if we already have an active stream
+      // This avoids unnecessary API calls that might trigger permission prompts
+      if (isInMiniApp && mediaStreamRef.current && isStreamActive()) {
+        console.log('[AudioRecorderV2] Skipping permission check in Mini App - using existing stream')
+      } else {
+        // Check permissions first for new streams
+        const permissionState = await checkPermissions()
+        if (permissionState === 'denied') {
+          setState(s => ({ ...s, error: 'microphone_permission_denied', permissionState: 'denied' }))
+          return
+        }
       }
 
       const stream = await getOrCreateStream()
@@ -542,20 +587,41 @@ export function useAudioRecorderV2() {
       audioCtxRef.current = null
     } catch {}
     
-    // PRIVACY FIX: Stop MediaStream tracks to release microphone
-    // This prevents the microphone indicator from staying on
+    // Balanced privacy approach: stop tracks in browsers, keep alive briefly in Mini App
+    const isInMiniApp = isTelegramMiniApp()
+    
     try {
       if (mediaStreamRef.current) {
-        console.log('[AudioRecorderV2] Stopping MediaStream tracks for privacy')
-        mediaStreamRef.current.getTracks().forEach(track => {
-          track.stop()
-          console.log(`[AudioRecorderV2] Stopped track: ${track.kind}, state: ${track.readyState}`)
-        })
-        mediaStreamRef.current = null
-        setState(s => ({ ...s, streamActive: false }))
+        if (isInMiniApp) {
+          // In Mini App, keep stream alive briefly to avoid permission re-prompts
+          console.log('[AudioRecorderV2] Keeping stream alive in Mini App for next recording')
+          setState(s => ({ ...s, streamActive: true }))
+          
+          // Set a timeout to clean up stream after 30 seconds of inactivity
+          setTimeout(() => {
+            if (mediaStreamRef.current && (!mediaRecorderRef.current || mediaRecorderRef.current?.state === 'inactive')) {
+              console.log('[AudioRecorderV2] Cleaning up idle stream in Mini App after timeout')
+              mediaStreamRef.current.getTracks().forEach(track => {
+                track.stop()
+                console.log(`[AudioRecorderV2] Stopped idle track: ${track.kind}`)
+              })
+              mediaStreamRef.current = null
+              setState(s => ({ ...s, streamActive: false }))
+            }
+          }, 30000)
+        } else {
+          // In regular browsers, immediately stop tracks for privacy
+          console.log('[AudioRecorderV2] Stopping MediaStream tracks for privacy')
+          mediaStreamRef.current.getTracks().forEach(track => {
+            track.stop()
+            console.log(`[AudioRecorderV2] Stopped track: ${track.kind}, state: ${track.readyState}`)
+          })
+          mediaStreamRef.current = null
+          setState(s => ({ ...s, streamActive: false }))
+        }
       }
     } catch (streamError) {
-      console.error('[AudioRecorderV2] Error stopping stream:', streamError)
+      console.error('[AudioRecorderV2] Error handling stream:', streamError)
     }
   }, [])
 
