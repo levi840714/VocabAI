@@ -9,8 +9,8 @@ import { memWhizAPI, type WordDetail } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import { parseStructuredResponse } from "@/lib/parseStructuredResponse"
 import { motion } from "framer-motion"
-import { useSpeechRecognition } from '@/hooks/useSpeechRecognition'
-import { useAudioRecorder } from '@/hooks/useAudioRecorder'
+import { useSpeechRecognitionV2 } from '@/hooks/useSpeechRecognitionV2'
+import { useAudioRecorderV2 } from '@/hooks/useAudioRecorderV2'
 import { stopSpeaking } from '@/lib/voiceService'
 
 interface StudyModeProps {
@@ -141,6 +141,22 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
 
   const loadNextReview = async () => {
     setIsLoading(true)
+    
+    // 清除語音辨識和錄音狀態
+    try {
+      if (speech.listening) {
+        speech.stop()
+      }
+      if (recorder.recording) {
+        recorder.stop()
+      }
+      // 清除之前的辨識結果和錄音
+      speech.reset()
+      recorder.clear()
+    } catch (error) {
+      console.error('清除語音狀態失敗:', error)
+    }
+    
     try {
       const result = await memWhizAPI.getNextReview()
       
@@ -204,7 +220,21 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
     }
   }
 
-  const handleFlipCard = () => setIsFlipped(!isFlipped)
+  const handleFlipCard = () => {
+    setIsFlipped(!isFlipped)
+    
+    // 翻牌時也清除語音狀態，避免干擾
+    try {
+      if (speech.listening) {
+        speech.stop()
+      }
+      if (recorder.recording) {
+        recorder.stop()
+      }
+    } catch (error) {
+      console.error('翻牌時清除語音狀態失敗:', error)
+    }
+  }
 
   const handlePronunciation = async (text: string) => {
     await toggleSpeakWord(text)
@@ -239,8 +269,8 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
     return parseStructuredResponse(word.initial_ai_explanation)
   }
 
-  // Speech recognition hook (MVP, front-end only)
-  const speech = useSpeechRecognition({ lang: 'en-US', interimResults: false, continuous: false })
+  // Enhanced speech recognition hook with better permission handling
+  const speech = useSpeechRecognitionV2({ lang: 'en-US', interimResults: false, continuous: false })
 
   const practiceSentence = useMemo(() => {
     if (!currentWord) return ''
@@ -261,8 +291,8 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
     return { percent, detail }
   }, [practiceSentence, speech])
 
-  // Local audio recorder for replay (no persistence)
-  const recorder = useAudioRecorder()
+  // Enhanced audio recorder with better permission handling
+  const recorder = useAudioRecorderV2()
 
   // Auto-stop local recorder when speech recognition ends on its own
   useEffect(() => {
@@ -541,10 +571,37 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
           <Card className="mt-6">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-base sm:text-lg">口說練習（MVP）</CardTitle>
-                <Badge variant="outline" className="text-xs">
-                  {speech.supported ? '本機辨識' : '不支援辨識'}
-                </Badge>
+                <CardTitle className="text-base sm:text-lg">口說練習</CardTitle>
+                <div className="flex items-center gap-1 flex-wrap">
+                  <Badge 
+                    variant="outline" 
+                    className={`text-xs whitespace-nowrap ${
+                      speech.permissionState === 'granted' ? 'bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-700 text-green-700 dark:text-green-300' :
+                      speech.permissionState === 'denied' ? 'bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-700 text-red-700 dark:text-red-300' :
+                      'bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-700 text-amber-700 dark:text-amber-300'
+                    }`}
+                  >
+                    {speech.supported ? (
+                      speech.permissionState === 'granted' ? '✓ 辨識就緒' :
+                      speech.permissionState === 'denied' ? '✗ 權限被拒' :
+                      '本機辨識'
+                    ) : '不支援辨識'}
+                  </Badge>
+                  {recorder.permissionState && recorder.permissionState !== 'unknown' && (
+                    <Badge 
+                      variant="outline" 
+                      className={`text-xs whitespace-nowrap ${
+                        recorder.permissionState === 'granted' ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700 text-blue-700 dark:text-blue-300' :
+                        recorder.permissionState === 'denied' ? 'bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-700 text-red-700 dark:text-red-300' :
+                        'bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-700 text-amber-700 dark:text-amber-300'
+                      }`}
+                    >
+                      {recorder.permissionState === 'granted' ? '✓ 錄音就緒' :
+                       recorder.permissionState === 'denied' ? '✗ 錄音被拒' :
+                       '錄音待授權'}
+                    </Badge>
+                  )}
+                </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -567,9 +624,10 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
                       <Button
                         variant={speech.listening ? 'destructive' : 'outline'}
                         size="sm"
+                        disabled={speech.processing}
                         onClick={(e) => {
                           e.stopPropagation()
-                          if (speech.listening) {
+                          if (speech.listening || speech.processing) {
                             speech.stop()
                             if (recorder.recording) recorder.stop()
                           } else {
@@ -582,8 +640,22 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
                         }}
                         className={(speech.listening ? 'border-rose-300 dark:border-rose-600 ' : '') + 'w-full sm:w-auto'}
                       >
-                        {speech.listening ? <MicOff className="h-4 w-4 mr-1"/> : <Mic className="h-4 w-4 mr-1"/>}
-                        {speech.listening ? '停止' : '開始錄音'}
+                        {speech.processing ? (
+                          <>
+                            <div className="w-4 h-4 mr-1 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                            處理中
+                          </>
+                        ) : speech.listening ? (
+                          <>
+                            <MicOff className="h-4 w-4 mr-1"/>
+                            停止
+                          </>
+                        ) : (
+                          <>
+                            <Mic className="h-4 w-4 mr-1"/>
+                            開始錄音
+                          </>
+                        )}
                       </Button>
                     ) : (
                       <Button
@@ -648,8 +720,11 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
                 </div>
               )}
 
-              {speech.error && (
-                <div className="text-xs text-rose-600 dark:text-rose-400">錯誤：{speech.error}</div>
+              {(speech.error || recorder.error) && (
+                <div className="text-xs text-rose-600 dark:text-rose-400 p-2 bg-rose-50 dark:bg-rose-900/30 rounded-md border border-rose-200 dark:border-rose-700">
+                  {speech.error && <div>語音辨識：{speech.errorMessage || speech.error}</div>}
+                  {recorder.error && <div>音頻錄製：{recorder.errorMessage || recorder.error}</div>}
+                </div>
               )}
 
               {speech.transcript && (
