@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useVoice } from '@/hooks/useVoice'
-import { RefreshCw, Check, Clock, RotateCcw, Volume2, RotateCcwSquare, Square } from "lucide-react"
+import { RefreshCw, Check, Clock, RotateCcw, Volume2, RotateCcwSquare, Square, Mic, MicOff, Activity } from "lucide-react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
@@ -9,9 +9,110 @@ import { memWhizAPI, type WordDetail } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import { parseStructuredResponse } from "@/lib/parseStructuredResponse"
 import { motion } from "framer-motion"
+import { useSpeechRecognition } from '@/hooks/useSpeechRecognition'
+import { useAudioRecorder } from '@/hooks/useAudioRecorder'
+import { stopSpeaking } from '@/lib/voiceService'
 
 interface StudyModeProps {
   onAIAnalysisClick?: (word: string) => void;
+}
+
+// Helper component: word-by-word diff highlight
+function WordDiffHighlight({ target, recognized }: { target: string, recognized: string }) {
+  // LCS-based matching to avoid cascading red after first mismatch
+  const parts = useMemo(() => {
+    const toTokens = (s: string) => s
+      .toLowerCase()
+      .replace(/[^a-z\s']/g, ' ')
+      .split(/\s+/)
+      .filter(Boolean)
+
+    const originalWords = target.split(/(\s+)/) // keep spaces
+
+    // Build normalized tokens from original words (skip pure punctuation)
+    const refTokens: string[] = []
+    const refTokenIndexForWord: (number | null)[] = []
+    for (const seg of originalWords) {
+      if (/\s+/.test(seg)) {
+        refTokenIndexForWord.push(null)
+      } else {
+        const norm = seg.toLowerCase().replace(/[^a-z']/g, '')
+        if (norm) {
+          refTokens.push(norm)
+          refTokenIndexForWord.push(refTokens.length - 1)
+        } else {
+          refTokenIndexForWord.push(null)
+        }
+      }
+    }
+
+    const hypTokens = toTokens(recognized)
+
+    // LCS DP
+    const m = refTokens.length
+    const n = hypTokens.length
+    const dp: number[][] = Array(m + 1)
+      .fill(0)
+      .map(() => Array(n + 1).fill(0))
+    for (let i = 1; i <= m; i++) {
+      for (let j = 1; j <= n; j++) {
+        if (refTokens[i - 1] === hypTokens[j - 1]) dp[i][j] = dp[i - 1][j - 1] + 1
+        else dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1])
+      }
+    }
+    // Backtrack to mark matches on ref side
+    const matchedRef: boolean[] = Array(m).fill(false)
+    let i = m, j = n
+    while (i > 0 && j > 0) {
+      if (refTokens[i - 1] === hypTokens[j - 1]) {
+        matchedRef[i - 1] = true
+        i--; j--
+      } else if (dp[i - 1][j] >= dp[i][j - 1]) i--
+      else j--
+    }
+
+    // Project back to original words incl. spaces
+    const result: { word: string, matched: boolean }[] = []
+    for (let w = 0; w < originalWords.length; w++) {
+      const seg = originalWords[w]
+      if (/\s+/.test(seg)) {
+        result.push({ word: seg, matched: true })
+      } else {
+        const tokenIndex = refTokenIndexForWord[w]
+        if (tokenIndex === null || tokenIndex === undefined) {
+          // punctuation-only segment: keep neutral/treated as matched
+          result.push({ word: seg, matched: true })
+        } else {
+          result.push({ word: seg, matched: !!matchedRef[tokenIndex] })
+        }
+      }
+    }
+    return result
+  }, [target, recognized])
+  if (!target) return null
+  return (
+    <div className="space-y-1 mt-2">
+      <div className="text-xs uppercase tracking-wide text-slate-500">對照高亮</div>
+      <div className="text-sm leading-6">
+        {parts.map((p, i) => (
+          /\s+/.test(p.word) ? (
+            <span key={i}>{p.word}</span>
+          ) : (
+            <span
+              key={i}
+              className={
+                (p.matched
+                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200'
+                  : 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-200'
+                ) + ' px-1 rounded'}
+            >
+              {p.word}
+            </span>
+          )
+        ))}
+      </div>
+    </div>
+  )
 }
 
 export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
@@ -137,6 +238,39 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
     if (!word.initial_ai_explanation) return null
     return parseStructuredResponse(word.initial_ai_explanation)
   }
+
+  // Speech recognition hook (MVP, front-end only)
+  const speech = useSpeechRecognition({ lang: 'en-US', interimResults: false, continuous: false })
+
+  const practiceSentence = useMemo(() => {
+    if (!currentWord) return ''
+    const example = getExampleSentence(currentWord)
+    if (example) return example
+    // fallback: use the word itself
+    return currentWord.word
+  }, [currentWord])
+
+  const practiceScore = useMemo(() => {
+    if (!practiceSentence || !speech.transcript) return null as null | { percent: number, detail: string }
+    const res = speech.score(practiceSentence)
+    const percent = Math.round(res.score * 100)
+    let detail = '再試一次吧'
+    if (percent >= 85) detail = '很棒，幾乎完美！'
+    else if (percent >= 65) detail = '不錯，還可以更清晰'
+    else if (percent >= 40) detail = '有進步空間，加油！'
+    return { percent, detail }
+  }, [practiceSentence, speech])
+
+  // Local audio recorder for replay (no persistence)
+  const recorder = useAudioRecorder()
+
+  // Auto-stop local recorder when speech recognition ends on its own
+  useEffect(() => {
+    if (!speech.listening && recorder.recording) {
+      try { recorder.stop() } catch {}
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [speech.listening])
 
   if (isLoading && !currentWord) {
     return (
@@ -403,6 +537,146 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
         exit={{ opacity: 0, y: 20 }}
         transition={{ duration: 0.3, delay: 0.1 }}
       >
+          {/* Speaking Practice (MVP) */}
+          <Card className="mt-6">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base sm:text-lg">口說練習（MVP）</CardTitle>
+                <Badge variant="outline" className="text-xs">
+                  {speech.supported ? '本機辨識' : '不支援辨識'}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="bg-slate-50 dark:bg-slate-800/60 rounded-lg p-3 border border-slate-200 dark:border-slate-700">
+                <div className="text-sm text-slate-600 dark:text-slate-300 italic">
+                  "{practiceSentence}"
+                </div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => { e.stopPropagation(); handlePronunciation(practiceSentence) }}
+                    className="text-sky-600 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-900/30 w-full sm:w-auto"
+                  >
+                    {isPlaying ? <Square className="h-4 w-4 mr-1"/> : <Volume2 className="h-4 w-4 mr-1"/>}
+                    播放句子
+                  </Button>
+                  <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+                    {speech.supported ? (
+                      <Button
+                        variant={speech.listening ? 'destructive' : 'outline'}
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (speech.listening) {
+                            speech.stop()
+                            if (recorder.recording) recorder.stop()
+                          } else {
+                            // start both recognition and local recording (for replay)
+                            try { stopSpeaking() } catch {}
+                            recorder.clear()
+                            speech.start()
+                            if (recorder.supported) recorder.start()
+                          }
+                        }}
+                        className={(speech.listening ? 'border-rose-300 dark:border-rose-600 ' : '') + 'w-full sm:w-auto'}
+                      >
+                        {speech.listening ? <MicOff className="h-4 w-4 mr-1"/> : <Mic className="h-4 w-4 mr-1"/>}
+                        {speech.listening ? '停止' : '開始錄音'}
+                      </Button>
+                    ) : (
+                      <Button
+                        variant={recorder.recording ? 'destructive' : 'outline'}
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (recorder.recording) {
+                            recorder.stop()
+                          } else {
+                            try { stopSpeaking() } catch {}
+                            recorder.clear()
+                            if (recorder.supported) recorder.start()
+                          }
+                        }}
+                        className={(recorder.recording ? 'border-rose-300 dark:border-rose-600 ' : '') + 'w-full sm:w-auto'}
+                      >
+                        {recorder.recording ? <MicOff className="h-4 w-4 mr-1"/> : <Mic className="h-4 w-4 mr-1"/>}
+                        {recorder.recording ? '停止' : '開始錄音'}
+                      </Button>
+                    )}
+                  </div>
+                  {(!speech.supported) && (
+                    <div className="text-xs text-slate-500 dark:text-slate-400 w-full">
+                      裝置不支援語音辨識，提供「錄音與重播」功能。
+                    </div>
+                  )}
+                  {recorder.blobUrl ? (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={(e) => { e.stopPropagation(); recorder.play() }}
+                      className="bg-slate-100 dark:bg-slate-700 w-full sm:w-auto"
+                    >
+                      重播錄音
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+
+              {/* Live volume meter and waveform */}
+              {recorder.recording && (
+                <div className="space-y-2">
+                  <div className="text-xs text-slate-500">錄音中 · 音量</div>
+                  <div className="h-2 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-emerald-400 to-sky-500 transition-all"
+                      style={{ width: `${Math.min(100, Math.max(5, Math.round((recorder.volume || 0) * 120)))}%` }}
+                    />
+                  </div>
+                  {recorder.waveform && recorder.waveform.length > 0 && (
+                    <div className="flex items-end gap-0.5 h-14 bg-slate-50 dark:bg-slate-800/60 rounded-md p-2 border border-slate-200 dark:border-slate-700">
+                      {recorder.waveform.map((v, i) => (
+                        <div
+                          key={i}
+                          className="w-1.5 bg-sky-400/70 dark:bg-sky-500/70 rounded-sm"
+                          style={{ height: `${Math.max(8, Math.min(100, Math.round(v * 100)))}%` }}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {speech.error && (
+                <div className="text-xs text-rose-600 dark:text-rose-400">錯誤：{speech.error}</div>
+              )}
+
+              {speech.transcript && (
+                <div className="space-y-2">
+                  <div className="text-xs uppercase tracking-wide text-slate-500">辨識結果</div>
+                  <div className="rounded-md border border-slate-200 dark:border-slate-700 p-2 bg-white dark:bg-slate-800 text-sm text-slate-800 dark:text-slate-200">
+                    {speech.transcript}
+                  </div>
+                  {/* Word-by-word diff highlight */}
+                  <WordDiffHighlight target={practiceSentence} recognized={speech.transcript} />
+                  {practiceScore && (
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                          <Activity className="h-4 w-4"/>
+                          分數：{practiceScore.percent}%
+                        </div>
+                        <div className="text-xs text-slate-500">{practiceScore.detail}</div>
+                      </div>
+                      <Progress value={practiceScore.percent} className="h-2" />
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           <Card className="mt-6">
             <CardFooter className="pt-4 pb-4 sm:pt-6 sm:pb-6 border-t bg-gradient-to-r from-emerald-50/60 to-teal-50/40 dark:from-emerald-900/20 dark:to-teal-900/20 px-3 sm:px-6">
           {/* Mobile layout - 美化手機版按鈕 */}
