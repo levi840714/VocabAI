@@ -12,6 +12,7 @@ import { Brain, Edit, Trash2, Volume2, ExternalLink, RefreshCw, AlertCircle } fr
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { memWhizAPI, type WordDetail } from '@/lib/api';
+import { useTelegramContext } from '@/contexts/TelegramContext';
 import { useToast } from '@/hooks/use-toast';
 import PullToRefresh from '@/components/PullToRefresh';
 
@@ -65,12 +66,16 @@ const WordDetailPage: React.FC = () => {
     }
   };
 
-  // 主要數據獲取 Effect
+  // 主要數據獲取 Effect（等待 Telegram 就緒，避免未帶授權標頭導致 401/403）
+  const telegram = useTelegramContext();
   useEffect(() => {
-    if (wordId) {
-      fetchWordDetail(wordId);
+    if (!wordId) return;
+    // 若在 TG WebApp 內，需等就緒且拿到 user（表示 initData 可用）
+    if (telegram.isTelegramWebApp) {
+      if (!telegram.isReady || !telegram.user) return;
     }
-  }, [wordId]);
+    fetchWordDetail(wordId);
+  }, [wordId, telegram.isReady, telegram.isTelegramWebApp, telegram.user]);
 
   // 確保頁面載入時滾動到頂部並自動播放語音
   useEffect(() => {

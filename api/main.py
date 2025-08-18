@@ -298,9 +298,14 @@ async def get_word_by_id(word_id: int, user_id: int = Depends(get_current_user))
         if not word_data:
             raise HTTPException(status_code=404, detail="Word not found")
         
-        # 檢查用戶權限
+        # 檢查用戶權限（強制整數型別比較避免型別差異導致誤判）
         word_dict = dict(word_data)
-        if word_dict['user_id'] != user_id:
+        row_user_id = int(word_dict.get('user_id')) if word_dict.get('user_id') is not None else None
+        req_user_id = int(user_id) if user_id is not None else None
+        if row_user_id != req_user_id:
+            logger.warning(
+                f"Ownership mismatch for word {word_id}: row_user_id={row_user_id}, request_user_id={req_user_id}"
+            )
             raise HTTPException(status_code=403, detail="Access denied - word belongs to different user")
         
         # 添加 learned 狀態計算
@@ -403,10 +408,11 @@ async def update_word_notes(word_id: int, notes_data: UpdateNotesRequest, user_i
         if not word_data:
             raise HTTPException(status_code=404, detail="Word not found")
         # Ensure the word belongs to the authenticated user
-        if word_data['user_id'] != user_id:
+        row_user_id = int(word_data.get('user_id')) if word_data.get('user_id') is not None else None
+        if row_user_id != int(user_id):
             raise HTTPException(status_code=403, detail="Access denied - word belongs to different user")
         
-        success = await update_user_notes(db_path, word_id, notes_data.notes)
+        success = await update_user_notes(db_path, word_id, user_id, notes_data.notes)
         if not success:
             raise HTTPException(status_code=500, detail="Failed to update notes")
         
@@ -428,7 +434,8 @@ async def delete_word(word_id: int, user_id: int = Depends(get_current_user)):
         if not word_data:
             raise HTTPException(status_code=404, detail="Word not found")
         
-        if word_data['user_id'] != user_id:
+        row_user_id = int(word_data.get('user_id')) if word_data.get('user_id') is not None else None
+        if row_user_id != int(user_id):
             raise HTTPException(status_code=403, detail="Access denied - word belongs to different user")
         
         success = await delete_user_word(db_path, word_id, user_id)

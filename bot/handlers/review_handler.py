@@ -80,7 +80,7 @@ async def process_review_response_handler(callback_query: CallbackQuery, state: 
         word_data['interval'], word_data['difficulty'], response
     )
 
-    await update_word_review_status(db_path, word_id, new_interval, new_difficulty, next_review_date)
+    await update_word_review_status(db_path, word_id, user_id, new_interval, new_difficulty, next_review_date)
     
     user_data = await state.get_data()
     reviewed_count = user_data.get('reviewed_count', 0) + 1

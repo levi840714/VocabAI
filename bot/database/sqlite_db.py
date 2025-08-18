@@ -188,14 +188,17 @@ async def get_word_to_review(db_path, user_id):
         logging.info(f"get_word_to_review result for user {user_id}: {word}")
         return word
 
-async def update_word_review_status(db_path, word_id, new_interval, new_difficulty, next_review_date, response=None):
+async def update_word_review_status(db_path, word_id, user_id, new_interval, new_difficulty, next_review_date, response=None):
     """Updates the review status of a word."""
     async with aiosqlite.connect(db_path) as db:
-        await db.execute("""
-        UPDATE words
-        SET interval = ?, difficulty = ?, next_review = ?
-        WHERE id = ?
-        """, (new_interval, new_difficulty, next_review_date, word_id))
+        await db.execute(
+            """
+            UPDATE words
+            SET interval = ?, difficulty = ?, next_review = ?
+            WHERE id = ? AND user_id = ?
+            """,
+            (new_interval, new_difficulty, next_review_date, word_id, user_id),
+        )
         
         # Insert into learning history with the actual response
         if response:
@@ -205,7 +208,7 @@ async def update_word_review_status(db_path, word_id, new_interval, new_difficul
             """, (word_id, response))
         
         await db.commit()
-    logging.info(f"Word {word_id} review status updated. Next review: {next_review_date}")
+    logging.info(f"Word {word_id} review status updated for user {user_id}. Next review: {next_review_date}")
 
 async def get_all_user_ids(db_path):
     """Retrieves all unique user IDs from the database."""
@@ -331,16 +334,23 @@ async def get_word_difficulty_distribution(db_path, user_id):
         rows = await cursor.fetchall()
         return {row[0]: row[1] for row in rows}
 
-async def update_word_notes(db_path, word_id, user_notes):
-    """Updates the user notes for a word."""
+async def update_word_notes(db_path, word_id, user_id, user_notes):
+    """Updates the user notes for a word, scoped by user_id."""
     async with aiosqlite.connect(db_path) as db:
-        await db.execute("""
-        UPDATE words
-        SET user_notes = ?
-        WHERE id = ?
-        """, (user_notes, word_id))
+        cursor = await db.execute(
+            """
+            UPDATE words
+            SET user_notes = ?
+            WHERE id = ? AND user_id = ?
+            """,
+            (user_notes, word_id, user_id),
+        )
         await db.commit()
-    logging.info(f"Word {word_id} user notes updated.")
+        if cursor.rowcount == 0:
+            logging.warning(f"No rows updated for word {word_id} and user {user_id} (notes unchanged or not owned)")
+            return False
+    logging.info(f"Word {word_id} user notes updated for user {user_id}.")
+    return True
 
 async def delete_word(db_path, word_id, user_id):
     """Deletes a word and its associated learning history."""
@@ -354,8 +364,8 @@ async def delete_word(db_path, word_id, user_id):
         # Delete learning history first (foreign key constraint)
         await db.execute("DELETE FROM learning_history WHERE word_id = ?", (word_id,))
         
-        # Delete the word
-        await db.execute("DELETE FROM words WHERE id = ?", (word_id,))
+        # Delete the word (scoped by user)
+        await db.execute("DELETE FROM words WHERE id = ? AND user_id = ?", (word_id, user_id))
         
         await db.commit()
     logging.info(f"Word {word_id} deleted for user {user_id}")
@@ -374,11 +384,14 @@ async def mark_word_as_learned(db_path, word_id, user_id):
         from datetime import datetime, timedelta
         next_review_date = (datetime.now() + timedelta(days=365)).strftime('%Y-%m-%d')
         
-        await db.execute("""
-        UPDATE words
-        SET interval = 365, difficulty = 0, next_review = ?
-        WHERE id = ?
-        """, (next_review_date, word_id))
+        await db.execute(
+            """
+            UPDATE words
+            SET interval = 365, difficulty = 0, next_review = ?
+            WHERE id = ? AND user_id = ?
+            """,
+            (next_review_date, word_id, user_id),
+        )
         
         # Add to learning history
         await db.execute("""
@@ -403,11 +416,14 @@ async def reset_word_learning_status(db_path, word_id, user_id):
         from datetime import datetime, timedelta
         next_review_date = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
         
-        await db.execute("""
-        UPDATE words
-        SET interval = 1, difficulty = 2, next_review = ?
-        WHERE id = ?
-        """, (next_review_date, word_id))
+        await db.execute(
+            """
+            UPDATE words
+            SET interval = 1, difficulty = 2, next_review = ?
+            WHERE id = ? AND user_id = ?
+            """,
+            (next_review_date, word_id, user_id),
+        )
         
         # Add to learning history
         await db.execute("""

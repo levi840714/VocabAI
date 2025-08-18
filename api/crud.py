@@ -74,7 +74,11 @@ async def update_review_result(db_path: str, word_id: int, response: str, user_i
     if not word:
         return {"success": False, "message": "Word not found"}
     
-    if word['user_id'] != user_id:
+    try:
+        row_user_id = int(word.get('user_id')) if word.get('user_id') is not None else None
+    except Exception:
+        row_user_id = word.get('user_id')
+    if row_user_id != int(user_id):
         return {"success": False, "message": "Unauthorized access to word"}
     
     # Calculate new review parameters (ensure types are integers)
@@ -86,7 +90,7 @@ async def update_review_result(db_path: str, word_id: int, response: str, user_i
     )
     
     # Update in database
-    await update_word_review_status(db_path, word_id, new_interval, new_difficulty, next_review_date, response)
+    await update_word_review_status(db_path, word_id, user_id, new_interval, new_difficulty, next_review_date, response)
     
     return {
         "success": True,
@@ -112,11 +116,10 @@ async def find_word_by_text(db_path: str, user_id: int, word: str):
     """Find a word by its text."""
     return await get_word_by_word(db_path, user_id, word)
 
-async def update_user_notes(db_path: str, word_id: int, user_notes: str) -> bool:
-    """Update user notes for a word."""
+async def update_user_notes(db_path: str, word_id: int, user_id: int, user_notes: str) -> bool:
+    """Update user notes for a word (scoped by user)."""
     try:
-        await update_word_notes(db_path, word_id, user_notes)
-        return True
+        return await update_word_notes(db_path, word_id, user_id, user_notes)
     except Exception:
         return False
 
