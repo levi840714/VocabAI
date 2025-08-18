@@ -71,6 +71,7 @@ export default function DailyDiscoveryContent({
   const playbackSessionId = useRef(0);
   const articleContainerRef = useRef<HTMLDivElement | null>(null);
   const [bookmarking, setBookmarking] = useState(false);
+  // 也用於對話導讀的容器（共用以便自動捲動）
   // 節拍指示
   const [beatTick, setBeatTick] = useState(false);
   // 行動版控制列：計算貼齊視窗底部的偏移（含安全區/工具列/鍵盤）
@@ -82,6 +83,22 @@ export default function DailyDiscoveryContent({
       .split(/(?<=[.!?])\s+/)
       .map(s => s.trim())
       .filter(Boolean);
+  };
+
+  // 以現成分句陣列啟動全文導讀（供對話使用）
+  const handlePronunciationSentences = async (sentences: string[], startIndex = 0) => {
+    if (!sentences || sentences.length === 0) return;
+    // 結束前一段播放
+    window.speechSynthesis?.cancel();
+    readingRef.current = true;
+    pausedRef.current = false;
+    setIsPaused(false);
+    setReadingArticle(true);
+    setArticleSentences(sentences);
+    sentencesRef.current = sentences;
+    setCurrentIndex(startIndex);
+    const session = ++playbackSessionId.current;
+    await playFrom(sentences, startIndex, session);
   };
 
   // 從指定句子開始播放（支援 stop/pause 控制）
@@ -152,6 +169,12 @@ export default function DailyDiscoveryContent({
     pausedRef.current = false;
     setReadingArticle(false);
     setIsPaused(false);
+  };
+
+  // 單句簡易播放（不進入導讀、不顯示控制列）
+  const handleSingleSpeak = (text: string) => {
+    try { window.speechSynthesis?.cancel(); } catch {}
+    void speakSentence(text);
   };
 
   const handleNext = async () => {
@@ -361,8 +384,12 @@ export default function DailyDiscoveryContent({
             <motion.button
               onClick={() => {
                 if (discoveryData.content_type === 'conversation') {
-                  const conversationText = discoveryData.conversation?.conversation.map(turn => turn.text).join(' ') || '';
-                  handlePronunciation(conversationText);
+                  if (readingArticle) {
+                    handleStop();
+                  } else {
+                    const sentences = discoveryData.conversation?.conversation.map(turn => turn.text) || [];
+                    void handlePronunciationSentences(sentences, 0);
+                  }
                 } else {
                   handlePronunciation(discoveryData.article?.content || '');
                 }
@@ -513,7 +540,7 @@ export default function DailyDiscoveryContent({
 
         {/* Conversation Content */}
         {discoveryData.content_type === 'conversation' && discoveryData.conversation && (
-          <div className="space-y-6">
+          <div className="space-y-6" ref={articleContainerRef}>
             {/* Scenario Description */}
             <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4">
               <ThemeText variant="body" className="text-base text-slate-600 dark:text-slate-400">
@@ -521,34 +548,68 @@ export default function DailyDiscoveryContent({
               </ThemeText>
             </div>
 
-            {/* Conversation Turns */}
-            <div className="space-y-4">
-              {discoveryData.conversation.conversation.map((turn, index) => (
-                <motion.div
-                  key={index}
-                  className="flex flex-col gap-2"
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="px-2 py-1 text-xs font-medium bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded">
-                      {turn.speaker}
-                    </span>
-                    <motion.button
-                      onClick={() => handlePronunciation(turn.text)}
-                      className="p-1 rounded text-slate-500 hover:text-blue-500 transition-colors"
-                      whileHover={animation.hover}
-                      whileTap={animation.tap}
-                      title="播放此句"
+            {/* Conversation: normal view or guided reading view */}
+            {!readingArticle ? (
+              <div className="space-y-4">
+                {discoveryData.conversation.conversation.map((turn, index) => (
+                  <motion.div
+                    key={index}
+                    className="flex flex-col gap-2"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-1 text-xs font-medium bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded">
+                        {turn.speaker}
+                      </span>
+                      <motion.button
+                        onClick={() => handleSingleSpeak(turn.text)}
+                        className="p-1 rounded text-slate-500 hover:text-blue-500 transition-colors"
+                        whileHover={animation.hover}
+                        whileTap={animation.tap}
+                        title="播放此句"
+                      >
+                        <Volume2 className="h-4 w-4" />
+                      </motion.button>
+                    </div>
+                    
+                    {makeTextClickable(
+                      <div className="clickable-conversation-content">
+                        <div className="text-lg text-slate-800 dark:text-slate-200 mb-2">
+                          {turn.text}
+                        </div>
+                        <div className="text-sm text-slate-600 dark:text-slate-400">
+                          {turn.translation}
+                        </div>
+                        {turn.audio_notes && (
+                          <div className="text-xs text-blue-600 dark:text-blue-400 mt-1 italic">
+                            💡 {turn.audio_notes}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </motion.div>
+                ))}
+              </div>
+            ) : (
+              <>
+                {/* Guided reading view: preserve original dialogue layout */}
+                <div className="space-y-4">
+                  {discoveryData.conversation.conversation.map((turn, i) => (
+                    <div
+                      key={i}
+                      data-sent-idx={i}
+                      className={`flex flex-col gap-2 rounded-lg p-2 transition-colors ${
+                        i === currentIndex ? 'bg-yellow-200/40 dark:bg-yellow-600/30' : ''
+                      }`}
                     >
-                      <Volume2 className="h-4 w-4" />
-                    </motion.button>
-                  </div>
-                  
-                  {makeTextClickable(
-                    <div className="clickable-conversation-content">
-                      <div className="text-lg text-slate-800 dark:text-slate-200 mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-1 text-xs font-medium bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded">
+                          {turn.speaker}
+                        </span>
+                      </div>
+                      <div className="text-lg text-slate-800 dark:text-slate-200">
                         {turn.text}
                       </div>
                       <div className="text-sm text-slate-600 dark:text-slate-400">
@@ -560,10 +621,51 @@ export default function DailyDiscoveryContent({
                         </div>
                       )}
                     </div>
-                  )}
-                </motion.div>
-              ))}
-            </div>
+                  ))}
+                </div>
+                {/* Desktop/Tablet control bar */}
+                <div className="hidden sm:flex sticky bottom-4 mt-2 items-center gap-3 bg-white/90 dark:bg-slate-800/90 backdrop-blur rounded-xl px-4 py-2 shadow-lg border border-slate-200 dark:border-slate-600">
+                  <button onClick={handlePrev} className="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600" title="上一句" aria-label="上一句">
+                    <SkipBack className="h-5 w-5" />
+                  </button>
+                  <button onClick={handlePauseResume} className="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600" title={isPaused ? '繼續' : '暫停'} aria-label={isPaused ? '繼續' : '暫停'}>
+                    {isPaused ? <Play className="h-5 w-5" /> : <Pause className="h-5 w-5" />}
+                  </button>
+                  <button onClick={handleStop} className="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600" title="停止" aria-label="停止">
+                    <Square className="h-5 w-5" />
+                  </button>
+                  <button onClick={handleNext} className="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600" title="下一句" aria-label="下一句">
+                    <SkipForward className="h-5 w-5" />
+                  </button>
+                  <div className={`ml-2 h-2 w-6 rounded-full ${beatTick ? 'bg-blue-500' : 'bg-blue-300'} transition-colors`} aria-hidden="true"></div>
+                  <div className="text-xs text-slate-600 dark:text-slate-300 ml-2">
+                    {currentIndex + 1} / {articleSentences.length}
+                  </div>
+                </div>
+                {/* Mobile control bar */}
+                <div
+                  className="sm:hidden fixed left-0 right-0 z-50 flex items-center gap-3 bg-white/95 dark:bg-slate-800/95 backdrop-blur rounded-xl px-4 py-2 shadow-lg border border-slate-200 dark:border-slate-600 w-[calc(100%-2rem)] max-w-xl mx-auto"
+                  style={{ bottom: `${mobileBottom}px` }}
+                >
+                  <button onClick={handlePrev} className="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600" title="上一句" aria-label="上一句">
+                    <SkipBack className="h-5 w-5" />
+                  </button>
+                  <button onClick={handlePauseResume} className="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600" title={isPaused ? '繼續' : '暫停'} aria-label={isPaused ? '繼續' : '暫停'}>
+                    {isPaused ? <Play className="h-5 w-5" /> : <Pause className="h-5 w-5" />}
+                  </button>
+                  <button onClick={handleStop} className="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600" title="停止" aria-label="停止">
+                    <Square className="h-5 w-5" />
+                  </button>
+                  <button onClick={handleNext} className="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600" title="下一句" aria-label="下一句">
+                    <SkipForward className="h-5 w-5" />
+                  </button>
+                  <div className={`ml-2 h-2 w-6 rounded-full ${beatTick ? 'bg-blue-500' : 'bg-blue-300'} transition-colors`} aria-hidden="true"></div>
+                  <div className="text-xs text-slate-600 dark:text-slate-300 ml-auto">
+                    {currentIndex + 1} / {articleSentences.length}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         )}
       </ThemeCard>
