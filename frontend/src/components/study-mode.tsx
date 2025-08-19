@@ -321,7 +321,7 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
   // Enhanced audio recorder with better permission handling
   const recorder = useAudioRecorderV2()
 
-  // Smart recording startup with UI loading state
+  // Smart recording startup with UI loading state and permission optimization
   const handleStartRecording = async () => {
     setIsRecordingStarting(true)
     
@@ -334,19 +334,22 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
       
       console.log('[StudyMode] Starting recording systems...')
       
-      // Start both systems in parallel for fastest startup
-      const promises: Promise<void>[] = []
-      
+      // 優化：優先使用語音辨識系統，因為它處理麥克風權限更完善
       if (speech.supported) {
-        promises.push(speech.start())
+        console.log('[StudyMode] Starting speech recognition first...')
+        await speech.start()
+        
+        // 如果語音辨識成功啟動，再嘗試啟動錄音器
+        // 此時麥克風權限已經授權，錄音器不會再次彈窗
+        if (recorder.supported && speech.listening) {
+          console.log('[StudyMode] Starting audio recorder (no additional permission prompt)...')
+          await recorder.start()
+        }
+      } else if (recorder.supported) {
+        // 如果只有錄音器可用，直接啟動
+        console.log('[StudyMode] Starting audio recorder only...')
+        await recorder.start()
       }
-      
-      if (recorder.supported) {
-        promises.push(recorder.start())
-      }
-      
-      // Wait for both to be ready
-      await Promise.all(promises)
       
       // Small delay to ensure streams are fully active before showing UI
       await new Promise(resolve => setTimeout(resolve, 200))
@@ -365,13 +368,26 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
     }
   }
 
-  // Auto-stop local recorder when speech recognition ends on its own
+  // Enhanced auto-stop logic for better speech processing coordination
   useEffect(() => {
-    if (!speech.listening && recorder.recording) {
+    // 當語音辨識停止且不在處理狀態時，停止錄音器
+    if (!speech.listening && !speech.processing && recorder.recording) {
+      console.log('[StudyMode] Speech ended, stopping recorder')
       try { recorder.stop() } catch {}
     }
+    
+    // 如果語音辨識進入處理狀態，給予額外時間處理
+    if (speech.processing && recorder.recording) {
+      console.log('[StudyMode] Speech processing, keeping recorder active briefly')
+      setTimeout(() => {
+        if (recorder.recording && !speech.listening) {
+          console.log('[StudyMode] Processing timeout, stopping recorder')
+          try { recorder.stop() } catch {}
+        }
+      }, 1000) // 給予1秒處理時間
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [speech.listening])
+  }, [speech.listening, speech.processing])
 
   if (isLoading && !currentWord) {
     return (
@@ -496,7 +512,11 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
                 <CardTitle className="text-base font-medium flex items-center gap-2">
                   🎙️ 口說練習
                   <Badge variant="outline" className="text-xs">
-                    {speech.supported ? '支援' : '不支援'}
+                    {speech.supported ? (
+                      speech.permissionState === 'granted' ? '已授權' :
+                      speech.permissionState === 'denied' ? '權限被拒' :
+                      speech.permissionState === 'prompt' ? '需授權' : '支援'
+                    ) : '不支援'}
                   </Badge>
                 </CardTitle>
               </CardHeader>
@@ -517,19 +537,17 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
                     </Button>
                     {speech.supported ? (
                       <Button
-                        variant={speech.listening ? 'destructive' : 'outline'}
+                        variant={speech.listening ? 'secondary' : 'outline'}
                         size="sm"
-                        disabled={speech.processing || isRecordingStarting}
+                        disabled={speech.processing || isRecordingStarting || speech.listening}
                         onClick={(e) => {
                           e.stopPropagation()
-                          if (speech.listening || speech.processing) {
-                            speech.stop()
-                            if (recorder.recording) recorder.stop()
-                          } else {
+                          // 只允許啟動錄音，不允許手動停止
+                          if (!speech.listening && !speech.processing) {
                             handleStartRecording()
                           }
                         }}
-                        className={`text-xs px-2 py-1 h-7 ${speech.listening ? 'border-rose-300 dark:border-rose-600' : ''}`}
+                        className={`text-xs px-2 py-1 h-7 ${speech.listening ? 'pointer-events-none' : ''}`}
                       >
                         {isRecordingStarting ? (
                           <>
@@ -543,8 +561,21 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
                           </>
                         ) : speech.listening ? (
                           <>
-                            <MicOff className="h-3 w-3 mr-1"/>
-                            停止
+                            {/* 波浪動態效果 */}
+                            <div className="flex items-center gap-0.5 mr-1">
+                              {[...Array(4)].map((_, i) => (
+                                <div
+                                  key={i}
+                                  className="w-0.5 bg-current rounded-full animate-pulse"
+                                  style={{
+                                    height: '8px',
+                                    animationDelay: `${i * 150}ms`,
+                                    animationDuration: '1.2s'
+                                  }}
+                                />
+                              ))}
+                            </div>
+                            錄音中
                           </>
                         ) : (
                           <>
@@ -555,18 +586,17 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
                       </Button>
                     ) : (
                       <Button
-                        variant={recorder.recording ? 'destructive' : 'outline'}
+                        variant={recorder.recording ? 'secondary' : 'outline'}
                         size="sm"
-                        disabled={isRecordingStarting || recorder.processing}
+                        disabled={isRecordingStarting || recorder.processing || recorder.recording}
                         onClick={(e) => {
                           e.stopPropagation()
-                          if (recorder.recording) {
-                            recorder.stop()
-                          } else {
+                          // 只允許啟動錄音，不允許手動停止
+                          if (!recorder.recording && !recorder.processing) {
                             handleStartRecording()
                           }
                         }}
-                        className={`text-xs px-2 py-1 h-7 ${recorder.recording ? 'border-rose-300 dark:border-rose-600' : ''}`}
+                        className={`text-xs px-2 py-1 h-7 ${recorder.recording ? 'pointer-events-none' : ''}`}
                       >
                         {isRecordingStarting ? (
                           <>
@@ -580,8 +610,21 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
                           </>
                         ) : recorder.recording ? (
                           <>
-                            <MicOff className="h-3 w-3 mr-1"/>
-                            停止
+                            {/* 波浪動態效果 */}
+                            <div className="flex items-center gap-0.5 mr-1">
+                              {[...Array(4)].map((_, i) => (
+                                <div
+                                  key={i}
+                                  className="w-0.5 bg-current rounded-full animate-pulse"
+                                  style={{
+                                    height: '8px',
+                                    animationDelay: `${i * 150}ms`,
+                                    animationDuration: '1.2s'
+                                  }}
+                                />
+                              ))}
+                            </div>
+                            錄音中
                           </>
                         ) : (
                           <>
@@ -592,7 +635,7 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
                       </Button>
                     )}
                     {/* 重播按鈕直接加在錄音按鈕旁邊 */}
-                    {recorder.blobUrl && !recorder.recording && !recorder.processing && (
+                    {recorder.blobUrl && !recorder.recording && !recorder.processing && !speech.listening && !speech.processing && (
                       <Button
                         variant="ghost"
                         size="sm"

@@ -314,10 +314,16 @@ export function useAudioRecorderV2() {
     try {
       const isInMiniApp = isTelegramMiniApp()
       
+      // 新增：檢測是否已有其他活躍的麥克風流（如語音辨識）
+      const existingStreams = await navigator.mediaDevices.enumerateDevices()
+      const hasActiveMicrophone = existingStreams.some(device => 
+        device.kind === 'audioinput' && device.label !== ''
+      )
+      
       // For Mini App, skip permission check if we already have an active stream
       // This avoids unnecessary API calls that might trigger permission prompts
-      if (isInMiniApp && mediaStreamRef.current && isStreamActive()) {
-        console.log('[AudioRecorderV2] Skipping permission check in Mini App - using existing stream')
+      if ((isInMiniApp && mediaStreamRef.current && isStreamActive()) || hasActiveMicrophone) {
+        console.log('[AudioRecorderV2] Skipping permission check - existing stream detected')
       } else {
         // Check permissions first for new streams
         const permissionState = await checkPermissions()

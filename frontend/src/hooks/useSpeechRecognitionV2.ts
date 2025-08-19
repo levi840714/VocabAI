@@ -111,7 +111,7 @@ export function useSpeechRecognitionV2(options: UseSpeechRecognitionOptions = {}
     if (!state.listening) return
     
     const now = Date.now()
-    const silenceThreshold = isMobileDevice() ? 3000 : 2000 // Longer threshold for mobile
+    const silenceThreshold = 2000 // 2 seconds for all devices
     
     if (now - lastActivityRef.current > silenceThreshold) {
       console.log('[SpeechRecognitionV2] Auto-stopping due to silence')
