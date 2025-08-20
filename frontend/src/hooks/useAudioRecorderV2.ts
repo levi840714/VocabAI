@@ -13,6 +13,7 @@ interface RecorderState {
   waveform: number[]
   permissionState: 'unknown' | 'granted' | 'denied' | 'prompt'
   streamActive: boolean
+  playing: boolean
 }
 
 export function useAudioRecorderV2() {
@@ -26,6 +27,7 @@ export function useAudioRecorderV2() {
     waveform: [],
     permissionState: 'unknown',
     streamActive: false,
+    playing: false,
   })
   
   const mediaStreamRef = useRef<MediaStream | null>(null)
@@ -37,6 +39,9 @@ export function useAudioRecorderV2() {
   const rafRef = useRef<number | null>(null)
   const lastUpdateRef = useRef<number>(0)
   const permissionCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const playbackCtxRef = useRef<AudioContext | null>(null)
+  const playbackSourceRef = useRef<AudioBufferSourceNode | null>(null)
+  const playingRef = useRef<boolean>(false)
 
   // Check if we're in Telegram Mini App environment
   const isTelegramMiniApp = useCallback(() => {
@@ -126,17 +131,25 @@ export function useAudioRecorderV2() {
       try {
         console.log(`[AudioRecorderV2] Requesting microphone access (${isInMiniApp ? 'Mini App' : 'Browser'}), retries left:`, retries)
         
-        // More conservative constraints for Mini App to reduce permission issues
+        // 優化錄音約束：針對手機錄音音量問題進行調整
+        const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
         const constraints: MediaStreamConstraints = {
           audio: isInMiniApp ? {
-            // Minimal constraints for Mini App to avoid permission complexity
+            // Mini App: 最小約束避免權限複雜性，但優化音量
             echoCancellation: false,
             noiseSuppression: false,
-            autoGainControl: false,
+            autoGainControl: false, // 關閉自動增益，手動控制音量
             sampleRate: 16000,
             channelCount: 1
+          } : isMobileDevice ? {
+            // 手機瀏覽器：平衡音質與音量
+            echoCancellation: false, // 關閉回音消除保持原始音量
+            noiseSuppression: false, // 關閉降噪保持音量
+            autoGainControl: false,  // 關閉自動增益手動控制
+            sampleRate: 44100,       // 使用更高採樣率
+            channelCount: 1
           } : {
-            // Standard constraints for regular browsers
+            // 桌面瀏覽器：標準設定
             echoCancellation: true,
             noiseSuppression: true,
             autoGainControl: true
@@ -265,6 +278,15 @@ export function useAudioRecorderV2() {
       
       // Clean up blob URLs
       if (state.blobUrl) URL.revokeObjectURL(state.blobUrl)
+      // Stop playback
+      try {
+        playbackSourceRef.current?.stop(0)
+      } catch {}
+      try {
+        playbackCtxRef.current?.close()
+      } catch {}
+      playbackSourceRef.current = null
+      playbackCtxRef.current = null
       
       // Clear timers
       if (permissionCheckTimeoutRef.current) {
@@ -357,14 +379,14 @@ export function useAudioRecorderV2() {
         
         // Cleanup audio analysis
         try {
-          if (audioCtxRef.current && audioCtxRef.current.__cleanup) {
-            audioCtxRef.current.__cleanup()
+          if (audioCtxRef.current && (audioCtxRef.current as any).__cleanup) {
+            (audioCtxRef.current as any).__cleanup()
           }
         } catch {}
         
         // Process recording data with mobile-friendly approach
         const chunks = [...chunksRef.current]  // Create copy to avoid reference issues
-        console.log(`[AudioRecorderV2] Processing ${chunks.length} chunks, total size: ${chunks.reduce((sum, chunk) => sum + chunk.size, 0)} bytes`)
+        console.log(`[AudioRecorderV2] Processing ${chunks.length} chunks, total size: ${chunks.reduce((sum, chunk) => sum + (chunk as Blob).size, 0)} bytes`)
         
         if (chunks.length === 0) {
           console.warn('[AudioRecorderV2] No audio chunks recorded')
@@ -379,7 +401,7 @@ export function useAudioRecorderV2() {
         }
         
         // Remove last tiny chunk only if we have multiple chunks and the last one is very small
-        if (chunks.length > 2 && chunks[chunks.length - 1].size < 1000) {
+        if (chunks.length > 2 && (chunks[chunks.length - 1] as Blob).size < 1000) {
           chunks.pop()
         }
         
@@ -471,13 +493,23 @@ export function useAudioRecorderV2() {
         const source = audioCtx.createMediaStreamSource(stream)
         const analyser = audioCtx.createAnalyser()
         
+        // 新增音量增強節點（特別針對手機錄音音量偏低問題）
+        const gainNode = audioCtx.createGain()
+        const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+        const isiOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent)
+        // iPhone Mini App 錄音增益需要極高倍數
+        gainNode.gain.value = (isInMiniApp && isiOSDevice) ? 4.5 : 
+                              isMobileDevice ? 3.2 : 1.8
+        
         // More aggressive settings for mobile
         analyser.fftSize = 256  // Smaller FFT size for better mobile performance
         analyser.smoothingTimeConstant = 0.8
         analyser.minDecibels = -90
         analyser.maxDecibels = -10
         
-        source.connect(analyser)
+        // 串接音頻處理鏈：source -> gainNode -> analyser
+        source.connect(gainNode)
+        gainNode.connect(analyser)
         analyserRef.current = analyser
 
         const timeDomain = new Uint8Array(analyser.frequencyBinCount)
@@ -550,7 +582,7 @@ export function useAudioRecorderV2() {
         rafRef.current = requestAnimationFrame(render)
         
         // Store cleanup for later use
-        audioCtxRef.current.__cleanup = cleanup
+        ;(audioCtxRef.current as any).__cleanup = cleanup
         
       } catch (analysisError) {
         console.warn('[AudioRecorderV2] Audio analysis setup failed:', analysisError)
@@ -633,14 +665,161 @@ export function useAudioRecorderV2() {
 
   const play = useCallback(() => {
     if (!state.blobUrl) return
+    
+    const isMobile = () => /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+    const isiOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent)
+    // iPhone Mini App 需要極大的音量增強倍數，因為 iOS WebView 音頻輸出被嚴重限制
+    const playbackBoost = (isTelegramMiniApp() && isiOS()) ? 8.0 : 
+                          (isTelegramMiniApp() || isMobile()) ? 4.5 : 1.8
+    if (playingRef.current) return
+    playingRef.current = true
+    setState(s => ({ ...s, playing: true }))
+    
+    // 嘗試使用 WebAudio 放大播放音量（行動裝置較小聲時）
+    if (playbackBoost > 1.0 && typeof window !== 'undefined' && (window.AudioContext || (window as any).webkitAudioContext)) {
+      try {
+        // 停止之前的播放
+        try { playbackSourceRef.current?.stop(0) } catch {}
+        try { playbackCtxRef.current?.close() } catch {}
+        playbackSourceRef.current = null
+        playbackCtxRef.current = null
+
+        fetch(state.blobUrl)
+          .then(r => r.arrayBuffer())
+          .then(async (buf) => {
+            const Ctx: any = (window as any).AudioContext || (window as any).webkitAudioContext
+            const ctx = new Ctx()
+            
+            // iPhone Mini App 需要特殊的 AudioContext 設定
+            if (isTelegramMiniApp() && isiOS()) {
+              // 嘗試設定最高採樣率和最佳延遲
+              try {
+                await ctx.resume()
+                // 強制啟用高品質音頻處理
+                if (ctx.state === 'suspended') {
+                  await new Promise(resolve => {
+                    const resumeAudio = () => {
+                      ctx.resume().then(resolve)
+                    }
+                    // 模擬用戶交互來解鎖音頻
+                    setTimeout(resumeAudio, 100)
+                  })
+                }
+              } catch {}
+            }
+            
+            const audioBuffer = await ctx.decodeAudioData(buf)
+            const source = ctx.createBufferSource()
+            source.buffer = audioBuffer
+            const gainNode = ctx.createGain()
+            
+            // iPhone Mini App 需要更複雜的音頻鏈處理
+            if (isTelegramMiniApp() && isiOS()) {
+              // 加入動態範圍壓縮器來提升音量感知
+              const compressor = ctx.createDynamicsCompressor()
+              compressor.threshold.value = -24
+              compressor.knee.value = 30
+              compressor.ratio.value = 12
+              compressor.attack.value = 0.003
+              compressor.release.value = 0.25
+              
+              // 音頻鏈：source -> gainNode -> compressor -> destination
+              gainNode.gain.value = playbackBoost
+              source.connect(gainNode)
+              gainNode.connect(compressor)
+              compressor.connect(ctx.destination)
+            } else {
+              gainNode.gain.value = playbackBoost
+              source.connect(gainNode).connect(ctx.destination)
+            }
+            
+            playbackCtxRef.current = ctx
+            playbackSourceRef.current = source
+            source.onended = () => {
+              playingRef.current = false
+              setState(s => ({ ...s, playing: false }))
+              try { ctx.close() } catch {}
+              playbackCtxRef.current = null
+              playbackSourceRef.current = null
+            }
+            source.start(0)
+          })
+          .catch(() => {
+            // WebAudio 失敗時，直接用 Audio 但盡量提高音量
+            try {
+              if (!audioRef.current) audioRef.current = new Audio()
+              audioRef.current.src = state.blobUrl!
+              audioRef.current.volume = 1.0 // HTML Audio 最大音量
+              
+              // iPhone Mini App 特殊設定
+              if (isTelegramMiniApp() && isiOS()) {
+                // 設定最高品質播放
+                audioRef.current.preload = 'auto'
+                audioRef.current.loop = false
+                // 嘗試觸發音頻硬體最大音量模式
+                if ('webkitAudioContext' in window) {
+                  audioRef.current.muted = false
+                  audioRef.current.defaultMuted = false
+                }
+              }
+              
+              // 嘗試設定高品質播放（部分瀏覽器支援）
+              if ('preservesPitch' in audioRef.current) {
+                (audioRef.current as any).preservesPitch = false
+              }
+              audioRef.current.onended = () => {
+                playingRef.current = false
+                setState(s => ({ ...s, playing: false }))
+              }
+              audioRef.current.play().catch(() => {
+                playingRef.current = false
+                setState(s => ({ ...s, playing: false }))
+              })
+            } catch {}
+          })
+        return
+      } catch {}
+    }
+    
+    // 後備：直接使用 <audio>，手機也盡量提高音量
     try {
       if (!audioRef.current) {
         audioRef.current = new Audio()
       }
       audioRef.current.src = state.blobUrl
-      audioRef.current.play().catch(() => {})
+      audioRef.current.volume = 1.0 // 最大音量
+      
+      // iPhone Mini App 最後的後備優化
+      if (isTelegramMiniApp() && isiOS()) {
+        // 嘗試所有可能的音量提升技術
+        audioRef.current.preload = 'auto'
+        audioRef.current.controls = false
+        audioRef.current.muted = false
+        audioRef.current.defaultMuted = false
+        // 嘗試設定媒體會話
+        if ('mediaSession' in navigator) {
+          try {
+            (navigator as any).mediaSession.setActionHandler('play', () => {
+              audioRef.current?.play()
+            })
+          } catch {}
+        }
+      }
+      
+      // 手機錄音回放優化設定
+      if ('preservesPitch' in audioRef.current) {
+        (audioRef.current as any).preservesPitch = false
+      }
+      audioRef.current.onended = () => {
+        playingRef.current = false
+        setState(s => ({ ...s, playing: false }))
+      }
+      audioRef.current.play().catch(() => {
+        playingRef.current = false
+        setState(s => ({ ...s, playing: false }))
+      })
     } catch {}
-  }, [state.blobUrl])
+  }, [state.blobUrl, isTelegramMiniApp])
 
   const clear = useCallback(() => {
     if (state.blobUrl) URL.revokeObjectURL(state.blobUrl)

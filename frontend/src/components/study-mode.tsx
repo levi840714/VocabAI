@@ -12,6 +12,7 @@ import { motion } from "framer-motion"
 import { useSpeechRecognitionV2 } from '@/hooks/useSpeechRecognitionV2'
 import { useAudioRecorderV2 } from '@/hooks/useAudioRecorderV2'
 import { stopSpeaking } from '@/lib/voiceService'
+import { useDeviceDetection } from '@/hooks/useDeviceDetection'
 
 interface StudyModeProps {
   onAIAnalysisClick?: (word: string) => void;
@@ -320,6 +321,7 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
 
   // Enhanced audio recorder with better permission handling
   const recorder = useAudioRecorderV2()
+  const device = useDeviceDetection()
 
   // Smart recording startup with UI loading state and permission optimization
   const handleStartRecording = async () => {
@@ -338,9 +340,13 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
       if (speech.supported) {
         console.log('[StudyMode] Starting speech recognition first...')
         await speech.start()
-        // 同步啟動錄音器，不再依賴 speech.listening 狀態
+        
+        // 比照每日探索：行動裝置給予短暫緩衝後再啟動錄音，避免授權時序問題
+        const delay = device.isMobile ? 600 : 0
+        if (delay) await new Promise(res => setTimeout(res, delay))
+
         if (recorder.supported) {
-          console.log('[StudyMode] Starting audio recorder in parallel...')
+          console.log('[StudyMode] Starting audio recorder after grace...')
           try { await recorder.start() } catch {}
         }
       } else if (recorder.supported) {
@@ -634,15 +640,26 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
                     )}
                     {/* 重播按鈕直接加在錄音按鈕旁邊 */}
                     {recorder.blobUrl && !recorder.recording && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 px-2 text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-900/30 text-xs"
-                        onClick={() => recorder.play()}
-                      >
-                        <Volume2 className="h-3 w-3 mr-1" />
-                        重播
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-900/30 text-xs"
+                          onClick={() => recorder.play()}
+                          disabled={recorder.playing}
+                        >
+                          <Volume2 className="h-3 w-3 mr-1" />
+                          重播
+                        </Button>
+                        {/* iPhone Mini App 音量提示 */}
+                        {typeof window !== 'undefined' && 
+                         (window as any).Telegram?.WebApp && 
+                         /iPad|iPhone|iPod/.test(navigator.userAgent) && (
+                          <div className="text-[9px] text-amber-600 dark:text-amber-400">
+                            📱 聲音太小？請調高手機音量
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>
@@ -724,6 +741,7 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
                           size="sm"
                           className="h-7 px-2 text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-900/30 text-xs"
                           onClick={() => recorder.play()}
+                          disabled={recorder.playing}
                         >
                           <Volume2 className="h-3 w-3 mr-1" />
                           重播

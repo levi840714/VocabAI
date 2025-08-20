@@ -6,6 +6,7 @@ import { useSpeechRecognitionV2 } from '@/hooks/useSpeechRecognitionV2'
 import { useAudioRecorderV2 } from '@/hooks/useAudioRecorderV2'
 import { stopSpeaking } from '@/lib/voiceService'
 import WordDiffHighlight from '@/components/WordDiffHighlight'
+import { useDeviceDetection } from '@/hooks/useDeviceDetection'
 
 interface ShadowingPanelProps {
   text: string
@@ -32,6 +33,8 @@ export default function ShadowingPanel({ text, index, total, onPrev, onNext, onE
     initialGraceMs: 1200,
     safetyTimeoutMs: dynamicSafety,
   })
+  const device = useDeviceDetection()
+  const sleep = (ms: number) => new Promise(res => setTimeout(res, ms))
   const recorder = useAudioRecorderV2()
   const [phase, setPhase] = useState<Phase>('idle')
 
@@ -57,8 +60,9 @@ export default function ShadowingPanel({ text, index, total, onPrev, onNext, onE
       setPhase('recording')
       try { recorder.clear() } catch {}
       speech.reset()
-      // 同步啟動辨識與錄音，不再等待 listening 狀態
+      // 先啟動辨識，行動裝置給予緩衝，之後再啟動錄音
       if (speech.supported) { try { await speech.start() } catch {} }
+      if (device.isMobile) await sleep(700)
       if (recorder.supported) { try { await recorder.start() } catch {} }
     } catch (e) {
       // 靜默處理，錯誤會在 hooks errorMessage 呈現
@@ -167,6 +171,7 @@ export default function ShadowingPanel({ text, index, total, onPrev, onNext, onE
                   try { recorder.clear() } catch {}
                   speech.reset()
                   if (speech.supported) { try { await speech.start() } catch {} }
+                  if (device.isMobile) await sleep(500)
                   if (recorder.supported) { try { await recorder.start() } catch {} }
                 }}
                 disabled={!text}
@@ -177,15 +182,26 @@ export default function ShadowingPanel({ text, index, total, onPrev, onNext, onE
             </>
           )}
 
-          {phase === 'result' && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => { try { recorder.play() } catch {} }}
-              className="h-8 px-2"
-            >
-              <Play className="h-4 w-4 mr-1" /> 重放錄音
-            </Button>
+          {phase === 'result' && recorder.blobUrl && !recorder.recording && (
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => { try { recorder.play() } catch {} }}
+                disabled={recorder.playing}
+                className="h-8 px-2"
+              >
+                <Play className="h-4 w-4 mr-1" /> 重放錄音
+              </Button>
+              {/* iPhone Mini App 音量提示 */}
+              {typeof window !== 'undefined' && 
+               (window as any).Telegram?.WebApp && 
+               /iPad|iPhone|iPod/.test(navigator.userAgent) && (
+                <div className="text-[10px] text-amber-600 dark:text-amber-400">
+                  📱 聲音太小？請調高手機音量
+                </div>
+              )}
+            </>
           )}
         </div>
 
