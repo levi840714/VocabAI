@@ -384,14 +384,11 @@ async def mark_word_as_learned(db_path, word_id, user_id):
         from datetime import datetime, timedelta
         next_review_date = (datetime.now() + timedelta(days=365)).strftime('%Y-%m-%d')
         
-        await db.execute(
-            """
-            UPDATE words
-            SET interval = 365, difficulty = 0, next_review = ?
-            WHERE id = ? AND user_id = ?
-            """,
-            (next_review_date, word_id, user_id),
-        )
+        await db.execute("""
+        UPDATE words
+        SET interval = 365, difficulty = 0, next_review = ?
+        WHERE id = ?
+        """, (next_review_date, word_id))
         
         # Add to learning history
         await db.execute("""
@@ -416,14 +413,11 @@ async def reset_word_learning_status(db_path, word_id, user_id):
         from datetime import datetime, timedelta
         next_review_date = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
         
-        await db.execute(
-            """
-            UPDATE words
-            SET interval = 1, difficulty = 2, next_review = ?
-            WHERE id = ? AND user_id = ?
-            """,
-            (next_review_date, word_id, user_id),
-        )
+        await db.execute("""
+        UPDATE words
+        SET interval = 1, difficulty = 2, next_review = ?
+        WHERE id = ?
+        """, (next_review_date, word_id))
         
         # Add to learning history
         await db.execute("""

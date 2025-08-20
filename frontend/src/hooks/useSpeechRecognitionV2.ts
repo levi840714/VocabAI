@@ -9,6 +9,10 @@ export interface UseSpeechRecognitionOptions {
   lang?: string
   interimResults?: boolean
   continuous?: boolean
+  // 允許自訂靜音偵測與啟動緩衝
+  silenceThresholdMs?: number // 無聲多久判定停止（預設 2000ms）
+  initialGraceMs?: number // 開始後的緩衝期，在此期間不觸發靜音停止（預設 700ms）
+  safetyTimeoutMs?: number // 保險超時（Mini App 預設 12000、一般 30000）
 }
 
 export interface ScoreResult {
@@ -79,6 +83,7 @@ export function useSpeechRecognitionV2(options: UseSpeechRecognitionOptions = {}
   const permissionCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const silenceTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const lastActivityRef = useRef<number>(0)
+  const graceUntilRef = useRef<number>(0)
 
   // Check if we're in Telegram Mini App environment
   const isTelegramMiniApp = useCallback(() => {
@@ -111,7 +116,11 @@ export function useSpeechRecognitionV2(options: UseSpeechRecognitionOptions = {}
     if (!state.listening) return
     
     const now = Date.now()
-    const silenceThreshold = 2000 // 2 seconds for all devices
+    const silenceThreshold = Math.max(500, options.silenceThresholdMs ?? 2000)
+    // 在啟動初期給予緩衝，不觸發停止
+    if (graceUntilRef.current && now < graceUntilRef.current) {
+      return
+    }
     
     if (now - lastActivityRef.current > silenceThreshold) {
       console.log('[SpeechRecognitionV2] Auto-stopping due to silence')
@@ -247,6 +256,9 @@ export function useSpeechRecognitionV2(options: UseSpeechRecognitionOptions = {}
         console.log('[SpeechRecognitionV2] Recognition started')
         startTimeRef.current = Date.now()
         lastActivityRef.current = Date.now()
+        // 設定啟動緩衝期，避免太快被靜音偵測關閉
+        const grace = Math.max(0, options.initialGraceMs ?? 700)
+        graceUntilRef.current = Date.now() + grace
         setState(s => ({ ...s, listening: true, error: null }))
         
         // Start silence detection for mobile devices
@@ -351,7 +363,9 @@ export function useSpeechRecognitionV2(options: UseSpeechRecognitionOptions = {}
         recognitionRef.current = rec
 
         // Set up safety timeout (especially important for Mini App)
-        const timeoutDuration = isInMiniApp ? 12000 : 30000 // Shorter timeout for Mini App
+        const timeoutDuration = options.safetyTimeoutMs
+          ? options.safetyTimeoutMs
+          : (isInMiniApp ? 12000 : 30000) // Shorter timeout for Mini App
         timeoutRef.current = setTimeout(() => {
           console.log('[SpeechRecognitionV2] Safety timeout triggered')
           try { rec.stop() } catch {}

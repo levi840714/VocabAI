@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Volume2, BookmarkPlus, BookmarkCheck, BookOpen, Lightbulb, MessageSquare, Pause, Play, Square, SkipBack, SkipForward } from 'lucide-react';
+import { Volume2, BookmarkPlus, BookmarkCheck, BookOpen, Lightbulb, MessageSquare, Pause, Play, Square, SkipBack, SkipForward, PenTool } from 'lucide-react';
+import ShadowingPanel from '@/components/ShadowingPanel';
 import { DailyDiscoveryResponse, KnowledgePoint } from '../lib/types';
 import { useVoice } from '@/hooks/useVoice';
 import { useSettings } from '@/contexts/SettingsContext';
@@ -60,6 +61,7 @@ export default function DailyDiscoveryContent({
   const animation = useAnimation();
   const { makeTextClickable } = useClickableText();
   const [readingArticle, setReadingArticle] = useState(false);
+  const [shadowMode, setShadowMode] = useState(false);
   const { speakSentence } = useVoice();
   const { interfaceSettings } = useSettings();
   const [articleSentences, setArticleSentences] = useState<string[]>([]);
@@ -97,8 +99,10 @@ export default function DailyDiscoveryContent({
     setArticleSentences(sentences);
     sentencesRef.current = sentences;
     setCurrentIndex(startIndex);
-    const session = ++playbackSessionId.current;
-    await playFrom(sentences, startIndex, session);
+    if (!shadowMode) {
+      const session = ++playbackSessionId.current;
+      await playFrom(sentences, startIndex, session);
+    }
   };
 
   // 從指定句子開始播放（支援 stop/pause 控制）
@@ -140,8 +144,10 @@ export default function DailyDiscoveryContent({
     pausedRef.current = false;
     readingRef.current = true;
     setReadingArticle(true);
-    const session = ++playbackSessionId.current;
-    await playFrom(sents, 0, session);
+    if (!shadowMode) {
+      const session = ++playbackSessionId.current;
+      await playFrom(sents, 0, session);
+    }
   };
 
   const handlePauseResume = () => {
@@ -383,26 +389,63 @@ export default function DailyDiscoveryContent({
             )}
             <motion.button
               onClick={() => {
+                setShadowMode(false)
                 if (discoveryData.content_type === 'conversation') {
-                  if (readingArticle) {
+                  if (readingArticle && !shadowMode) {
                     handleStop();
-                  } else {
+                  } else if (!readingArticle) {
                     const sentences = discoveryData.conversation?.conversation.map(turn => turn.text) || [];
                     void handlePronunciationSentences(sentences, 0);
                   }
                 } else {
-                  handlePronunciation(discoveryData.article?.content || '');
+                  if (readingArticle && !shadowMode) {
+                    handleStop();
+                  } else if (!readingArticle) {
+                    handlePronunciation(discoveryData.article?.content || '');
+                  }
                 }
               }}
-              className={`p-3 rounded-xl ${readingArticle 
+              className={`p-3 rounded-xl ${readingArticle && !shadowMode 
                 ? 'bg-rose-500 hover:bg-rose-600 dark:bg-rose-600 dark:hover:bg-rose-700' 
                 : 'bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700'
               } text-white transition-colors shadow-sm`}
               whileHover={animation.hover}
               whileTap={animation.tap}
-              title={readingArticle ? '停止播放' : '播放內容'}
+              title={readingArticle && !shadowMode ? '停止播放' : '播放內容'}
             >
-              {readingArticle ? <Square className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+              {readingArticle && !shadowMode ? <Square className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+            </motion.button>
+
+            <motion.button
+              onClick={() => {
+                if (!shadowMode) {
+                  // 關閉任何進行中的連播循環，避免索引被舊循環推進
+                  try { window.speechSynthesis?.cancel() } catch {}
+                  playbackSessionId.current++
+                  readingRef.current = false
+                  const sentences = discoveryData.content_type === 'conversation'
+                    ? (discoveryData.conversation?.conversation.map(t => t.text) || [])
+                    : splitIntoSentences(discoveryData.article?.content || '')
+                  setArticleSentences(discoveryData.content_type === 'article' ? sentences : [])
+                  sentencesRef.current = sentences
+                  setCurrentIndex(0)
+                  setIsPaused(false)
+                  setReadingArticle(true)
+                  setShadowMode(true)
+                } else {
+                  handleStop()
+                  setShadowMode(false)
+                }
+              }}
+              className={`p-3 rounded-xl ${readingArticle && shadowMode
+                ? 'bg-rose-500 hover:bg-rose-600 dark:bg-rose-600 dark:hover:bg-rose-700'
+                : 'bg-green-500 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-700'
+              } text-white transition-colors shadow-sm`}
+              whileHover={animation.hover}
+              whileTap={animation.tap}
+              title={readingArticle && shadowMode ? '結束跟讀' : '跟讀模式'}
+            >
+              {readingArticle && shadowMode ? <Square className="h-5 w-5" /> : <PenTool className="h-5 w-5" />}
             </motion.button>
           </div>
         </div>
@@ -450,7 +493,7 @@ export default function DailyDiscoveryContent({
                 </div>
               )
             )}
-            {readingArticle && (
+            {readingArticle && !shadowMode && (
               <>
               {/* Desktop/Tablet: sticky inside article container */}
               <div className="hidden sm:flex sticky bottom-4 mt-6 items-center gap-3 bg-white/90 dark:bg-slate-800/90 backdrop-blur rounded-xl px-4 py-2 shadow-lg border border-slate-200 dark:border-slate-600">
@@ -491,6 +534,7 @@ export default function DailyDiscoveryContent({
                   {currentIndex + 1} / {articleSentences.length}
                 </div>
               </div>
+              
               {/* Mobile: fixed to viewport bottom, accounting for safe-area/keyboard */}
               <div
                 className="sm:hidden fixed left-0 right-0 z-50 flex items-center gap-3 bg-white/95 dark:bg-slate-800/95 backdrop-blur rounded-xl px-4 py-2 shadow-lg border border-slate-200 dark:border-slate-600 w-[calc(100%-2rem)] max-w-xl mx-auto"
@@ -533,7 +577,18 @@ export default function DailyDiscoveryContent({
                   {currentIndex + 1} / {articleSentences.length}
                 </div>
               </div>
+              
               </>
+            )}
+            {readingArticle && shadowMode && (
+              <ShadowingPanel
+                text={sentencesRef.current[currentIndex] || ''}
+                index={currentIndex}
+                total={sentencesRef.current.length}
+                onPrev={() => setCurrentIndex(i => Math.max(0, i - 1))}
+                onNext={() => setCurrentIndex(i => Math.min(sentencesRef.current.length - 1, i + 1))}
+                onExit={() => { handleStop(); setShadowMode(false); }}
+              />
             )}
           </div>
         )}
@@ -592,7 +647,7 @@ export default function DailyDiscoveryContent({
                   </motion.div>
                 ))}
               </div>
-            ) : (
+            ) : (!shadowMode ? (
               <>
                 {/* Guided reading view: preserve original dialogue layout */}
                 <div className="space-y-4">
@@ -642,6 +697,7 @@ export default function DailyDiscoveryContent({
                     {currentIndex + 1} / {articleSentences.length}
                   </div>
                 </div>
+                
                 {/* Mobile control bar */}
                 <div
                   className="sm:hidden fixed left-0 right-0 z-50 flex items-center gap-3 bg-white/95 dark:bg-slate-800/95 backdrop-blur rounded-xl px-4 py-2 shadow-lg border border-slate-200 dark:border-slate-600 w-[calc(100%-2rem)] max-w-xl mx-auto"
@@ -664,8 +720,41 @@ export default function DailyDiscoveryContent({
                     {currentIndex + 1} / {articleSentences.length}
                   </div>
                 </div>
+                
               </>
-            )}
+            ) : (
+              <>
+                {/* Guided reading with shadowing */}
+                <div className="space-y-4">
+                  {discoveryData.conversation.conversation.map((turn, i) => (
+                    <div
+                      key={i}
+                      data-sent-idx={i}
+                      className={`flex flex-col gap-2 rounded-lg p-2 transition-colors ${i === currentIndex ? 'bg-yellow-200/40 dark:bg-yellow-600/30' : ''}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-1 text-xs font-medium bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded">
+                          {turn.speaker}
+                        </span>
+                      </div>
+                      <div className="text-lg text-slate-800 dark:text-slate-200">{turn.text}</div>
+                      <div className="text-sm text-slate-600 dark:text-slate-400">{turn.translation}</div>
+                      {turn.audio_notes && (
+                        <div className="text-xs text-blue-600 dark:text-blue-400 mt-1 italic">💡 {turn.audio_notes}</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <ShadowingPanel
+                  text={sentencesRef.current[currentIndex] || ''}
+                  index={currentIndex}
+                  total={sentencesRef.current.length}
+                  onPrev={() => setCurrentIndex(i => Math.max(0, i - 1))}
+                  onNext={() => setCurrentIndex(i => Math.min(sentencesRef.current.length - 1, i + 1))}
+                  onExit={() => { handleStop(); setShadowMode(false); }}
+                />
+              </>
+            ))}
           </div>
         )}
       </ThemeCard>

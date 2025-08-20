@@ -338,12 +338,10 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
       if (speech.supported) {
         console.log('[StudyMode] Starting speech recognition first...')
         await speech.start()
-        
-        // 如果語音辨識成功啟動，再嘗試啟動錄音器
-        // 此時麥克風權限已經授權，錄音器不會再次彈窗
-        if (recorder.supported && speech.listening) {
-          console.log('[StudyMode] Starting audio recorder (no additional permission prompt)...')
-          await recorder.start()
+        // 同步啟動錄音器，不再依賴 speech.listening 狀態
+        if (recorder.supported) {
+          console.log('[StudyMode] Starting audio recorder in parallel...')
+          try { await recorder.start() } catch {}
         }
       } else if (recorder.supported) {
         // 如果只有錄音器可用，直接啟動
@@ -635,7 +633,7 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
                       </Button>
                     )}
                     {/* 重播按鈕直接加在錄音按鈕旁邊 */}
-                    {recorder.blobUrl && !recorder.recording && !recorder.processing && !speech.listening && !speech.processing && (
+                    {recorder.blobUrl && !recorder.recording && (
                       <Button
                         variant="ghost"
                         size="sm"
@@ -717,6 +715,21 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
                         </div>
                       </div>
                     </div>
+
+                    {/* 重播錄音 */}
+                    {recorder.blobUrl && !recorder.recording && (
+                      <div className="mb-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-900/30 text-xs"
+                          onClick={() => recorder.play()}
+                        >
+                          <Volume2 className="h-3 w-3 mr-1" />
+                          重播
+                        </Button>
+                      </div>
+                    )}
 
                     {/* 評分 */}
                     {practiceScore && (

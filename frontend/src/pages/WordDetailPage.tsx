@@ -15,6 +15,7 @@ import { memWhizAPI, type WordDetail } from '@/lib/api';
 import { useTelegramContext } from '@/contexts/TelegramContext';
 import { useToast } from '@/hooks/use-toast';
 import PullToRefresh from '@/components/PullToRefresh';
+// 移除單字頁的口說卡，改到每日探索頁做影子跟讀
 
 const WordDetailPage: React.FC = () => {
   const { wordId } = useParams<{ wordId: string }>();
@@ -33,6 +34,8 @@ const WordDetailPage: React.FC = () => {
 
   // 首先嘗試從本地 words 列表獲取
   const localWord = words.find(w => w.id === wordId);
+
+  // 單字詳情頁：暫不顯示口說練習（僅保留查看資訊與操作）
 
   // 獨立獲取單字詳情
   const fetchWordDetail = async (id: string) => {
@@ -245,6 +248,8 @@ const WordDetailPage: React.FC = () => {
     const url = `https://www.vocabulary.com/dictionary/${encodeURIComponent(word.word)}`;
     window.open(url, '_blank', 'noopener,noreferrer');
   };
+
+  
 
   return (
     <PullToRefresh
