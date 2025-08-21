@@ -246,7 +246,11 @@ def load_config() -> dict:
                         if 'simple_explanation' in prompts_config:
                             config['prompts']['simple_explanation'] = prompts_config['simple_explanation']
                         if 'deep_learning' in prompts_config:
-                            config['prompts']['deep_learning'] = prompts_config['deep_learning']  
+                            config['prompts']['deep_learning'] = prompts_config['deep_learning']
+                        if 'sentence_analysis_optimization' in prompts_config:
+                            config['prompts']['sentence_analysis_optimization'] = prompts_config['sentence_analysis_optimization']
+                        if 'translation' in prompts_config:
+                            config['prompts']['translation'] = prompts_config['translation']  
                     break  # 找到配置文件就停止搜尋
         except FileNotFoundError:
             continue  # 嘗試下一個路徑

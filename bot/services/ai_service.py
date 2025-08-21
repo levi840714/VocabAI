@@ -2,13 +2,103 @@ import httpx
 import yaml
 import json
 import re
+import asyncio
+from typing import Optional
+import logging
 
 class AIService:
     def __init__(self, config):
         self.config = config
         self.provider = config['ai_services']['provider']
-        # Increase timeout for deep learning requests
-        self.client = httpx.AsyncClient(timeout=30.0)
+        # Configure httpx client with better timeout and retry settings
+        timeout = httpx.Timeout(
+            connect=10.0,    # Connection timeout
+            read=45.0,       # Read timeout for long AI responses
+            write=10.0,      # Write timeout
+            pool=5.0         # Pool timeout
+        )
+        # Configure limits and retries
+        limits = httpx.Limits(
+            max_connections=10,
+            max_keepalive_connections=5
+        )
+        self.client = httpx.AsyncClient(
+            timeout=timeout,
+            limits=limits,
+            verify=True,     # SSL verification
+            follow_redirects=True
+        )
+
+    async def _retry_api_call(self, api_call_func, max_retries: int = 3, base_delay: float = 1.0):
+        """
+        帶重試機制的 API 調用包裝器
+        
+        Args:
+            api_call_func: 要執行的 API 調用函數
+            max_retries: 最大重試次數
+            base_delay: 基礎延遲時間（秒）
+        
+        Returns:
+            API 調用結果
+        """
+        last_exception = None
+        
+        for attempt in range(max_retries + 1):
+            try:
+                if attempt > 0:
+                    # 指數退避策略
+                    delay = base_delay * (2 ** (attempt - 1))
+                    logging.warning(f"AI API 調用重試 {attempt}/{max_retries}，等待 {delay:.1f} 秒...")
+                    await asyncio.sleep(delay)
+                
+                result = await api_call_func()
+                
+                # 檢查結果是否有效
+                if result and not result.startswith("Error") and not result.startswith("Sorry") and not result.startswith("An unexpected error"):
+                    if attempt > 0:
+                        logging.info(f"AI API 調用在第 {attempt + 1} 次嘗試後成功")
+                    return result
+                else:
+                    logging.warning(f"AI API 返回無效響應，嘗試 {attempt + 1}/{max_retries + 1}: {result[:100]}...")
+                    if attempt < max_retries:
+                        continue
+                    return result  # 最後一次嘗試，即使結果不理想也返回
+                    
+            except (httpx.TimeoutException, httpx.ConnectTimeout, httpx.ReadTimeout) as e:
+                last_exception = e
+                logging.warning(f"AI API 超時錯誤，嘗試 {attempt + 1}/{max_retries + 1}: {str(e)}")
+                if attempt >= max_retries:
+                    break
+                    
+            except (httpx.NetworkError, httpx.ConnectError) as e:
+                last_exception = e
+                logging.warning(f"AI API 網絡錯誤，嘗試 {attempt + 1}/{max_retries + 1}: {str(e)}")
+                if attempt >= max_retries:
+                    break
+                    
+            except httpx.HTTPStatusError as e:
+                last_exception = e
+                if e.response.status_code in [429, 500, 502, 503, 504]:  # 可重試的 HTTP 錯誤
+                    logging.warning(f"AI API HTTP 錯誤 {e.response.status_code}，嘗試 {attempt + 1}/{max_retries + 1}")
+                    if attempt >= max_retries:
+                        break
+                else:
+                    # 不可重試的錯誤（如 400, 401, 403）
+                    logging.error(f"AI API 不可重試的 HTTP 錯誤: {e.response.status_code}")
+                    break
+                    
+            except Exception as e:
+                last_exception = e
+                logging.error(f"AI API 未知錯誤，嘗試 {attempt + 1}/{max_retries + 1}: {str(e)}")
+                if attempt >= max_retries:
+                    break
+        
+        # 所有重試都失敗了
+        error_msg = f"AI API 調用失敗，已重試 {max_retries} 次"
+        if last_exception:
+            error_msg += f": {str(last_exception)}"
+        logging.error(error_msg)
+        return f"Sorry, I couldn't process your request after {max_retries + 1} attempts. Please try again later."
 
     async def get_simple_explanation(self, word: str) -> str:
         """Gets a simple explanation for a word using the configured AI provider."""
@@ -115,7 +205,7 @@ class AIService:
             print(f"Deep learning error: {e}")
             return "An unexpected error occurred while contacting the AI service."
 
-    def parse_structured_response(self, raw_response: str, is_deep_learning: bool = False, is_sentence_analysis: bool = False) -> dict:
+    def parse_structured_response(self, raw_response: str, is_deep_learning: bool = False, is_sentence_analysis: bool = False, is_sentence_optimization: bool = False, is_translation: bool = False) -> dict:
         """Parse JSON response from AI service."""
         try:
             # First try to extract JSON from markdown code block
@@ -131,13 +221,13 @@ class AIService:
                 return json.loads(json_str)
             else:
                 # If no JSON found, return fallback structure
-                return self._create_fallback_structure(raw_response, is_deep_learning, is_sentence_analysis)
+                return self._create_fallback_structure(raw_response, is_deep_learning, is_sentence_analysis, is_sentence_optimization, is_translation)
         except json.JSONDecodeError as e:
             print(f"JSON parsing error: {e}")
             # If JSON parsing fails, create fallback structure
-            return self._create_fallback_structure(raw_response, is_deep_learning, is_sentence_analysis)
+            return self._create_fallback_structure(raw_response, is_deep_learning, is_sentence_analysis, is_sentence_optimization, is_translation)
 
-    def _create_fallback_structure(self, raw_response: str, is_deep_learning: bool = False, is_sentence_analysis: bool = False) -> dict:
+    def _create_fallback_structure(self, raw_response: str, is_deep_learning: bool = False, is_sentence_analysis: bool = False, is_sentence_optimization: bool = False, is_translation: bool = False) -> dict:
         """Create a fallback structured response when JSON parsing fails."""
         basic_structure = {
             "word": "unknown",
@@ -213,6 +303,96 @@ class AIService:
                 "rewrite_suggestions": ["分析失敗，無法提供建議"],
                 "learning_tips": "抱歉，句子分析失敗，請稍後重試",
                 "difficulty_level": "未知"
+            }
+        elif is_sentence_optimization:
+            # Create sentence optimization fallback structure
+            basic_structure = {
+                "original_sentence": "unknown",
+                "analysis": {
+                    "sentence_type": "分析失敗",
+                    "grammar_structure": [{
+                        "component": "未知",
+                        "text": "分析失敗",
+                        "explanation": "無法解析語法結構"
+                    }],
+                    "tense_analysis": {
+                        "tense_name": "分析失敗",
+                        "tense_form": "分析失敗",
+                        "usage_explanation": "分析失敗"
+                    },
+                    "complexity_level": "未知"
+                },
+                "grammar_issues": [{
+                    "type": "分析失敗",
+                    "location": "無法確定",
+                    "description": "句子分析失敗",
+                    "correction": "請稍後重試",
+                    "explanation": "系統暫時無法分析此句子"
+                }],
+                "optimization_suggestions": [{
+                    "type": "系統錯誤",
+                    "original_part": "未知",
+                    "suggested_improvement": "分析失敗",
+                    "reason": "系統暫時無法提供建議",
+                    "example": "請稍後重試"
+                }],
+                "vocabulary_enhancements": [],
+                "style_improvements": {
+                    "formality_level": "無法分析",
+                    "tone_suggestions": "分析失敗",
+                    "clarity_score": "未知",
+                    "overall_assessment": "抱歉，分析失敗，請稍後重試"
+                },
+                "final_optimized_versions": ["分析失敗，無法提供優化版本"],
+                "learning_tips": "抱歉，句子優化分析失敗，請稍後重試"
+            }
+        elif is_translation:
+            # Create translation fallback structure
+            basic_structure = {
+                "original_text": "unknown",
+                "detected_language": "無法識別",
+                "translations": {
+                    "primary_translation": "翻譯失敗",
+                    "alternative_translations": ["分析失敗"],
+                    "literal_translation": "分析失敗"
+                },
+                "language_analysis": {
+                    "grammar_structure": [{
+                        "original_part": "未知",
+                        "translation_part": "分析失敗",
+                        "grammar_note": "無法分析語法結構"
+                    }],
+                    "cultural_context": {
+                        "cultural_differences": "分析失敗",
+                        "usage_context": "無法確定",
+                        "cultural_adaptation": "分析失敗"
+                    },
+                    "language_difficulty": "未知",
+                    "key_challenges": ["分析失敗"]
+                },
+                "vocabulary_breakdown": [{
+                    "original_word": "未知",
+                    "translated_word": "分析失敗",
+                    "part_of_speech": "未知",
+                    "usage_notes": "分析失敗",
+                    "common_alternatives": ["分析失敗"]
+                }],
+                "grammar_comparison": {
+                    "sentence_structure": "分析失敗",
+                    "word_order": "分析失敗",
+                    "tense_aspect": "分析失敗"
+                },
+                "usage_examples": [{
+                    "scenario": "分析失敗",
+                    "example_original": "分析失敗",
+                    "example_translation": "分析失敗",
+                    "context_note": "分析失敗"
+                }],
+                "learning_tips": {
+                    "translation_strategies": "分析失敗",
+                    "common_mistakes": "分析失敗",
+                    "memory_aids": "分析失敗"
+                }
             }
         
         return basic_structure
@@ -547,3 +727,79 @@ class AIService:
         except Exception as e:
             print(f"Daily conversation generation error: {e}")
             return "An unexpected error occurred while generating daily conversation content."
+
+    async def get_sentence_analysis_optimization(self, sentence: str) -> str:
+        """獲取句子分析和優化建議"""
+        if self.provider == "google":
+            # 使用重試機制
+            return await self._retry_api_call(
+                lambda: self._get_google_sentence_analysis_optimization(sentence),
+                max_retries=2,  # 句子分析較複雜，允許更多重試
+                base_delay=1.5
+            )
+        else:
+            raise ValueError(f"Unsupported AI provider: {self.provider}")
+
+    async def _get_google_sentence_analysis_optimization(self, sentence: str) -> str:
+        """使用 Google Gemini API 獲取句子分析和優化建議"""
+        api_key = self.config['ai_services']['google']['api_key']
+        prompt = self.config['prompts']['sentence_analysis_optimization'].format(sentence=sentence)
+
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
+        headers = {"Content-Type": "application/json"}
+        data = {"contents": [{"parts": [{"text": prompt}]}]}
+
+        try:
+            response = await self.client.post(url, headers=headers, json=data)
+            response.raise_for_status()
+            
+            result = response.json()            
+            if 'candidates' in result and result['candidates']:
+                if 'content' in result['candidates'][0] and 'parts' in result['candidates'][0]['content']:
+                    raw_response = result['candidates'][0]['content']['parts'][0]['text'].strip()
+                    print(f"Got sentence analysis optimization response length: {len(raw_response)}")
+                    return raw_response
+            
+            return "Sorry, I couldn't analyze and optimize the sentence."
+
+        except Exception as e:
+            print(f"Sentence analysis optimization error: {e}")
+            return "An unexpected error occurred while analyzing the sentence."
+
+    async def get_translation(self, text: str) -> str:
+        """獲取翻譯和語言分析"""
+        if self.provider == "google":
+            # 使用重試機制
+            return await self._retry_api_call(
+                lambda: self._get_google_translation(text),
+                max_retries=2,  # 翻譯較複雜，允許更多重試
+                base_delay=1.0
+            )
+        else:
+            raise ValueError(f"Unsupported AI provider: {self.provider}")
+
+    async def _get_google_translation(self, text: str) -> str:
+        """使用 Google Gemini API 獲取翻譯和語言分析"""
+        api_key = self.config['ai_services']['google']['api_key']
+        prompt = self.config['prompts']['translation'].format(text=text)
+
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
+        headers = {"Content-Type": "application/json"}
+        data = {"contents": [{"parts": [{"text": prompt}]}]}
+
+        try:
+            response = await self.client.post(url, headers=headers, json=data)
+            response.raise_for_status()
+            
+            result = response.json()            
+            if 'candidates' in result and result['candidates']:
+                if 'content' in result['candidates'][0] and 'parts' in result['candidates'][0]['content']:
+                    raw_response = result['candidates'][0]['content']['parts'][0]['text'].strip()
+                    print(f"Got translation response length: {len(raw_response)}")
+                    return raw_response
+            
+            return "Sorry, I couldn't translate the text."
+
+        except Exception as e:
+            print(f"Translation error: {e}")
+            return "An unexpected error occurred while translating the text."

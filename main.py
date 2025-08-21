@@ -275,12 +275,13 @@ async def setup_bot_and_dispatcher():
     await reminder_service.start()
 
     # Register handlers
-    from bot.handlers import common, word_handler, vocabulary_handler, review_handler, reminder_handler
+    from bot.handlers import common, word_handler, vocabulary_handler, review_handler, reminder_handler, analysis_handler
     dp.include_router(common.router)
     dp.include_router(vocabulary_handler.router)
     dp.include_router(review_handler.router)
     dp.include_router(word_handler.router)
     dp.include_router(reminder_handler.router)
+    dp.include_router(analysis_handler.router)
 
     # Pass services and config to all handlers
     dp['ai_service'] = ai_service
