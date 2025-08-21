@@ -14,6 +14,7 @@ interface RecorderState {
   permissionState: 'unknown' | 'granted' | 'denied' | 'prompt'
   streamActive: boolean
   playing: boolean
+  processing: boolean
 }
 
 export function useAudioRecorderV2() {
@@ -28,6 +29,7 @@ export function useAudioRecorderV2() {
     permissionState: 'unknown',
     streamActive: false,
     playing: false,
+    processing: false,
   })
   
   const mediaStreamRef = useRef<MediaStream | null>(null)
@@ -384,100 +386,163 @@ export function useAudioRecorderV2() {
           }
         } catch {}
         
-        // Process recording data with mobile-friendly approach
-        const chunks = [...chunksRef.current]  // Create copy to avoid reference issues
-        console.log(`[AudioRecorderV2] Processing ${chunks.length} chunks, total size: ${chunks.reduce((sum, chunk) => sum + (chunk as Blob).size, 0)} bytes`)
-        
-        if (chunks.length === 0) {
-          console.warn('[AudioRecorderV2] No audio chunks recorded')
-          setState(s => ({ 
-            ...s, 
-            recording: false, 
-            volume: 0, 
-            waveform: [],
-            error: 'no_audio_recorded'
-          }))
-          return
-        }
-        
-        // Remove last tiny chunk only if we have multiple chunks and the last one is very small
-        if (chunks.length > 2 && (chunks[chunks.length - 1] as Blob).size < 1000) {
-          chunks.pop()
-        }
-        
-        try {
-          // Determine best MIME type for mobile compatibility
-          let finalMimeType = recorder.mimeType || mime || 'audio/webm'
+        // 延遲處理，確保所有數據塊都已收集（特別針對第一次授權）
+        setTimeout(() => {
+          // Process recording data with mobile-friendly approach
+          const chunks = [...chunksRef.current]  // Create copy to avoid reference issues
+          console.log(`[AudioRecorderV2] Processing ${chunks.length} chunks, total size: ${chunks.reduce((sum, chunk) => sum + (chunk as Blob).size, 0)} bytes`)
           
-          // iOS Safari prefers audio/mp4
-          const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
-          if (isIOS && MediaRecorder.isTypeSupported('audio/mp4')) {
-            finalMimeType = 'audio/mp4'
-          }
-          
-          const blob = new Blob(chunks, { type: finalMimeType })
-          console.log(`[AudioRecorderV2] Created blob: ${blob.size} bytes, type: ${finalMimeType}`)
-          
-          if (blob.size === 0) {
-            console.warn('[AudioRecorderV2] Empty blob created')
+          if (chunks.length === 0) {
+            console.warn('[AudioRecorderV2] No audio chunks recorded')
             setState(s => ({ 
               ...s, 
               recording: false, 
               volume: 0, 
               waveform: [],
-              error: 'empty_recording'
+              error: 'no_audio_recorded'
             }))
             return
           }
           
-          // Clean up old blob URL
-          if (state.blobUrl) URL.revokeObjectURL(state.blobUrl)
-          
-          const url = URL.createObjectURL(blob)
-          chunksRef.current = []
-          
-          // Validate the blob URL by attempting to create an audio element
-          const testAudio = new Audio()
-          testAudio.src = url
-          
-          testAudio.onloadedmetadata = () => {
-            console.log(`[AudioRecorderV2] Audio blob validated: duration=${testAudio.duration}s`)
-          }
-          
-          testAudio.onerror = (e) => {
-            console.error('[AudioRecorderV2] Audio blob validation failed:', e)
-            URL.revokeObjectURL(url)
-            setState(s => ({ 
-              ...s, 
-              recording: false, 
-              volume: 0, 
-              waveform: [],
-              error: 'invalid_audio_data'
-            }))
-            return
-          }
-          
-          setState(s => ({ 
-            ...s, 
-            recording: false, 
-            blobUrl: url, 
-            mimeType: finalMimeType,
-            volume: 0, 
-            waveform: [],
-            error: null
-          }))
-          
-        } catch (blobError) {
-          console.error('[AudioRecorderV2] Blob creation failed:', blobError)
-          setState(s => ({ 
-            ...s, 
-            recording: false, 
-            volume: 0, 
-            waveform: [],
-            error: 'blob_creation_failed'
-          }))
-        }
+          processAudioChunks(chunks, recorder, mime)
+        }, 100) // 100ms 延遲確保數據完整
       }
+      
+      const processAudioChunks = (chunks: BlobPart[], recorder: MediaRecorder, mime: string) => {
+        
+          // 更嚴格的數據驗證，針對第一次授權可能的不完整數據
+          const validChunks = chunks.filter(chunk => {
+            if (chunk instanceof Blob) {
+              return chunk.size > 0
+            }
+            return chunk && (chunk as any).size > 0
+          })
+          
+          // Remove last tiny chunk only if we have multiple chunks and the last one is very small
+          if (validChunks.length > 2) {
+            const lastChunk = validChunks[validChunks.length - 1] as Blob
+            if (lastChunk.size < 1000) {
+              validChunks.pop()
+            }
+          }
+          
+          // 第一次授權時可能產生很小的無效chunk，需要更長的最小錄音長度
+          const totalSize = validChunks.reduce((sum, chunk) => sum + (chunk as Blob).size, 0)
+          if (totalSize < 2000) { // 提高最小有效大小門檻
+            console.warn(`[AudioRecorderV2] Recording too small: ${totalSize} bytes`)
+            setState(s => ({ 
+              ...s, 
+              recording: false, 
+              volume: 0, 
+              waveform: [],
+              error: 'recording_too_short'
+            }))
+            return
+          }
+          
+          try {
+            // Determine best MIME type for mobile compatibility
+            let finalMimeType = recorder.mimeType || mime || 'audio/webm'
+            
+            // iOS Safari prefers audio/mp4
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+            if (isIOS && MediaRecorder.isTypeSupported('audio/mp4')) {
+              finalMimeType = 'audio/mp4'
+            }
+            
+            const blob = new Blob(validChunks, { type: finalMimeType })
+            console.log(`[AudioRecorderV2] Created blob: ${blob.size} bytes, type: ${finalMimeType}`)
+            
+            if (blob.size === 0) {
+              console.warn('[AudioRecorderV2] Empty blob created')
+              setState(s => ({ 
+                ...s, 
+                recording: false, 
+                volume: 0, 
+                waveform: [],
+                error: 'empty_recording'
+              }))
+              return
+            }
+            
+            // Clean up old blob URL
+            if (state.blobUrl) URL.revokeObjectURL(state.blobUrl)
+            
+            const url = URL.createObjectURL(blob)
+            chunksRef.current = []
+            
+            // 更完整的音頻驗證，特別針對第一次授權的問題
+            const testAudio = new Audio()
+            testAudio.src = url
+            
+            const validationTimeout = setTimeout(() => {
+              console.warn('[AudioRecorderV2] Audio validation timeout')
+              testAudio.onerror = null
+              testAudio.onloadedmetadata = null
+              // 即使驗證超時也要保存，避免第一次授權失敗
+              setState(s => ({ 
+                ...s, 
+                recording: false, 
+                blobUrl: url, 
+                mimeType: finalMimeType,
+                volume: 0, 
+                waveform: [],
+                error: null
+              }))
+            }, 3000) // 3秒驗證超時
+            
+            testAudio.onloadedmetadata = () => {
+              clearTimeout(validationTimeout)
+              console.log(`[AudioRecorderV2] Audio blob validated: duration=${testAudio.duration}s`)
+              
+              // 檢查音頻長度是否合理（避免0秒錄音）
+              if (testAudio.duration > 0.1) { // 至少100ms
+                setState(s => ({ 
+                  ...s, 
+                  recording: false, 
+                  blobUrl: url, 
+                  mimeType: finalMimeType,
+                  volume: 0, 
+                  waveform: [],
+                  error: null
+                }))
+              } else {
+                console.warn(`[AudioRecorderV2] Audio too short: ${testAudio.duration}s`)
+                URL.revokeObjectURL(url)
+                setState(s => ({ 
+                  ...s, 
+                  recording: false, 
+                  volume: 0, 
+                  waveform: [],
+                  error: 'recording_too_short'
+                }))
+              }
+            }
+            
+            testAudio.onerror = (e) => {
+              clearTimeout(validationTimeout)
+              console.error('[AudioRecorderV2] Audio blob validation failed:', e)
+              URL.revokeObjectURL(url)
+              setState(s => ({ 
+                ...s, 
+                recording: false, 
+                volume: 0, 
+                waveform: [],
+                error: 'invalid_audio_data'
+              }))
+            }
+            
+          } catch (blobError) {
+            console.error('[AudioRecorderV2] Blob creation failed:', blobError)
+            setState(s => ({ 
+              ...s, 
+              recording: false, 
+              volume: 0, 
+              waveform: [],
+              error: 'blob_creation_failed'
+            }))
+          }
+        }
 
       // Setup audio analysis with mobile compatibility
       try {
@@ -625,14 +690,15 @@ export function useAudioRecorderV2() {
       audioCtxRef.current = null
     } catch {}
     
-    // Balanced privacy approach: stop tracks in browsers, keep alive briefly in Mini App
+    // 修改策略：手機版也立即停止串流以避免持續監聽問題
     const isInMiniApp = isTelegramMiniApp()
+    const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
     
     try {
       if (mediaStreamRef.current) {
-        if (isInMiniApp) {
-          // In Mini App, keep stream alive briefly to avoid permission re-prompts
-          console.log('[AudioRecorderV2] Keeping stream alive in Mini App for next recording')
+        if (isInMiniApp && !isMobileDevice) {
+          // 只有非手機的 Mini App 才保持串流（如桌面版 Telegram）
+          console.log('[AudioRecorderV2] Keeping stream alive in Desktop Mini App for next recording')
           setState(s => ({ ...s, streamActive: true }))
           
           // Set a timeout to clean up stream after 30 seconds of inactivity
@@ -648,8 +714,8 @@ export function useAudioRecorderV2() {
             }
           }, 30000)
         } else {
-          // In regular browsers, immediately stop tracks for privacy
-          console.log('[AudioRecorderV2] Stopping MediaStream tracks for privacy')
+          // 手機版和一般瀏覽器：立即停止所有軌道避免持續監聽
+          console.log('[AudioRecorderV2] Stopping MediaStream tracks to prevent continuous listening')
           mediaStreamRef.current.getTracks().forEach(track => {
             track.stop()
             console.log(`[AudioRecorderV2] Stopped track: ${track.kind}, state: ${track.readyState}`)
@@ -857,6 +923,8 @@ export function useAudioRecorderV2() {
         return '沒有錄製到音頻，請確認麥克風正常工作'
       case 'empty_recording':
         return '錄音檔案為空，請重新錄製'
+      case 'recording_too_short':
+        return '錄音時間太短，請長按錄音按鈕至少1-2秒'
       case 'invalid_audio_data':
         return '音頻數據無效，請重新錄製'
       case 'blob_creation_failed':
@@ -877,6 +945,8 @@ export function useAudioRecorderV2() {
     waveform: state.waveform,
     permissionState: state.permissionState,
     streamActive: state.streamActive,
+    playing: state.playing,
+    processing: state.processing,
     start,
     stop,
     play,

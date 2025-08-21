@@ -34,7 +34,6 @@ export default function ShadowingPanel({ text, index, total, onPrev, onNext, onE
     safetyTimeoutMs: dynamicSafety,
   })
   const device = useDeviceDetection()
-  const sleep = (ms: number) => new Promise(res => setTimeout(res, ms))
   const recorder = useAudioRecorderV2()
   const [phase, setPhase] = useState<Phase>('idle')
 
@@ -60,15 +59,37 @@ export default function ShadowingPanel({ text, index, total, onPrev, onNext, onE
       setPhase('recording')
       try { recorder.clear() } catch {}
       speech.reset()
-      // 先啟動辨識，行動裝置給予緩衝，之後再啟動錄音
-      if (speech.supported) { try { await speech.start() } catch {} }
-      if (device.isMobile) await sleep(700)
-      if (recorder.supported) { try { await recorder.start() } catch {} }
+      
+      console.log('[ShadowingPanel] Starting recording systems...')
+      
+      // 優化：優先使用語音辨識系統，因為它處理麥克風權限更完善
+      if (speech.supported) {
+        console.log('[ShadowingPanel] Starting speech recognition first...')
+        await speech.start()
+        
+        // 行動裝置給予短暫緩衝後再啟動錄音，避免授權時序問題
+        const delay = device.isMobile ? 600 : 0
+        if (delay) await new Promise(res => setTimeout(res, delay))
+
+        if (recorder.supported) {
+          console.log('[ShadowingPanel] Starting audio recorder after grace...')
+          try { await recorder.start() } catch {}
+        }
+      } else if (recorder.supported) {
+        // 如果只有錄音器可用，直接啟動
+        console.log('[ShadowingPanel] Starting audio recorder only...')
+        await recorder.start()
+      }
+      
+      // Small delay to ensure streams are fully active
+      await new Promise(resolve => setTimeout(resolve, 200))
+      console.log('[ShadowingPanel] Recording systems ready!')
+      
     } catch (e) {
-      // 靜默處理，錯誤會在 hooks errorMessage 呈現
+      console.error('[ShadowingPanel] Failed to start recording:', e)
       setPhase('idle')
     }
-  }, [text, speakSentence, speech, recorder])
+  }, [text, speakSentence, speech, recorder, device])
 
   const stopAll = useCallback(() => {
     try { stopTTS() } catch {}
@@ -166,13 +187,41 @@ export default function ShadowingPanel({ text, index, total, onPrev, onNext, onE
                 variant="outline"
                 size="sm"
                 onClick={async () => {
-                  try { stopSpeaking() } catch {}
-                  setPhase('recording')
-                  try { recorder.clear() } catch {}
-                  speech.reset()
-                  if (speech.supported) { try { await speech.start() } catch {} }
-                  if (device.isMobile) await sleep(500)
-                  if (recorder.supported) { try { await recorder.start() } catch {} }
+                  try {
+                    try { stopSpeaking() } catch {}
+                    setPhase('recording')
+                    try { recorder.clear() } catch {}
+                    speech.reset()
+                    
+                    console.log('[ShadowingPanel] Manual recording start...')
+                    
+                    // 優化：優先使用語音辨識系統，因為它處理麥克風權限更完善
+                    if (speech.supported) {
+                      console.log('[ShadowingPanel] Starting speech recognition first...')
+                      await speech.start()
+                      
+                      // 行動裝置給予短暫緩衝後再啟動錄音，避免授權時序問題
+                      const delay = device.isMobile ? 600 : 0
+                      if (delay) await new Promise(res => setTimeout(res, delay))
+
+                      if (recorder.supported) {
+                        console.log('[ShadowingPanel] Starting audio recorder after grace...')
+                        try { await recorder.start() } catch {}
+                      }
+                    } else if (recorder.supported) {
+                      // 如果只有錄音器可用，直接啟動
+                      console.log('[ShadowingPanel] Starting audio recorder only...')
+                      await recorder.start()
+                    }
+                    
+                    // Small delay to ensure streams are fully active
+                    await new Promise(resolve => setTimeout(resolve, 200))
+                    console.log('[ShadowingPanel] Manual recording ready!')
+                    
+                  } catch (error) {
+                    console.error('[ShadowingPanel] Manual recording failed:', error)
+                    setPhase('idle')
+                  }
                 }}
                 disabled={!text}
                 className="h-8 px-2"

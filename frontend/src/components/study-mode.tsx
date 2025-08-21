@@ -1,9 +1,8 @@
 import { useState, useEffect, useMemo } from "react"
 import { useVoice } from '@/hooks/useVoice'
-import { RefreshCw, Check, Clock, RotateCcw, Volume2, RotateCcwSquare, Square, Mic, MicOff, Activity } from "lucide-react"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { RefreshCw, Check, Clock, RotateCcw, Volume2, RotateCcwSquare, Square, Mic } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { memWhizAPI, type WordDetail } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
@@ -15,7 +14,7 @@ import { stopSpeaking } from '@/lib/voiceService'
 import { useDeviceDetection } from '@/hooks/useDeviceDetection'
 
 interface StudyModeProps {
-  onAIAnalysisClick?: (word: string) => void;
+  onBack?: () => void;
 }
 
 // Helper component: word-by-word diff highlight
@@ -49,72 +48,73 @@ function WordDiffHighlight({ target, recognized }: { target: string, recognized:
 
     const hypTokens = toTokens(recognized)
 
-    // LCS DP
-    const m = refTokens.length
-    const n = hypTokens.length
-    const dp: number[][] = Array(m + 1)
-      .fill(0)
-      .map(() => Array(n + 1).fill(0))
-    for (let i = 1; i <= m; i++) {
-      for (let j = 1; j <= n; j++) {
-        if (refTokens[i - 1] === hypTokens[j - 1]) dp[i][j] = dp[i - 1][j - 1] + 1
-        else dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1])
-      }
-    }
-    // Backtrack to mark matches on ref side
-    const matchedRef: boolean[] = Array(m).fill(false)
-    let i = m, j = n
-    while (i > 0 && j > 0) {
-      if (refTokens[i - 1] === hypTokens[j - 1]) {
-        matchedRef[i - 1] = true
-        i--; j--
-      } else if (dp[i - 1][j] >= dp[i][j - 1]) i--
-      else j--
-    }
-
-    // Project back to original words incl. spaces
-    const result: { word: string, matched: boolean }[] = []
-    for (let w = 0; w < originalWords.length; w++) {
-      const seg = originalWords[w]
-      if (/\s+/.test(seg)) {
-        result.push({ word: seg, matched: true })
-      } else {
-        const tokenIndex = refTokenIndexForWord[w]
-        if (tokenIndex === null || tokenIndex === undefined) {
-          // punctuation-only segment: keep neutral/treated as matched
-          result.push({ word: seg, matched: true })
-        } else {
-          result.push({ word: seg, matched: !!matchedRef[tokenIndex] })
+    // Simple LCS for token level matching
+    const lcs = (a: string[], b: string[]) => {
+      const m = a.length, n = b.length
+      const dp: number[][] = Array(m + 1).fill(null).map(() => Array(n + 1).fill(0))
+      
+      for (let i = 1; i <= m; i++) {
+        for (let j = 1; j <= n; j++) {
+          if (a[i-1] === b[j-1]) {
+            dp[i][j] = dp[i-1][j-1] + 1
+          } else {
+            dp[i][j] = Math.max(dp[i-1][j], dp[i][j-1])
+          }
         }
       }
+
+      // Backtrack to find LCS
+      const result: boolean[] = Array(m).fill(false)
+      let i = m, j = n
+      while (i > 0 && j > 0) {
+        if (a[i-1] === b[j-1]) {
+          result[i-1] = true
+          i--
+          j--
+        } else if (dp[i-1][j] > dp[i][j-1]) {
+          i--
+        } else {
+          j--
+        }
+      }
+      return result
     }
-    return result
+
+    const matchedTokens = lcs(refTokens, hypTokens)
+
+    return originalWords.map((word, i) => {
+      const tokenIndex = refTokenIndexForWord[i]
+      if (tokenIndex === null) {
+        // This is whitespace or punctuation
+        return { word, matched: true } // Don't highlight punctuation/spaces as wrong
+      } else {
+        return { word, matched: matchedTokens[tokenIndex] || false }
+      }
+    })
   }, [target, recognized])
-  if (!target) return null
+
   return (
-    <div className="text-sm leading-6">
+    <div className="leading-relaxed">
       {parts.map((p, i) => (
-        /\s+/.test(p.word) ? (
-          <span key={i}>{p.word}</span>
-        ) : (
-          <span
-            key={i}
-            className={
-              (p.matched
-                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200'
-                : 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-200'
-              ) + ' px-1 rounded'}
-          >
-            {p.word}
-          </span>
-        )
+        <span 
+          key={i}
+          className={
+            (p.matched
+              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200'
+              : 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-200'
+            ) + ' px-1 rounded'}
+        >
+          {p.word}
+        </span>
       ))}
     </div>
   )
 }
 
-export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
+export default function StudyMode({ onBack }: StudyModeProps) {
   const { toggleSpeakWord, isPlaying } = useVoice()
+  const { toast } = useToast()
+  
   const [currentWord, setCurrentWord] = useState<WordDetail | null>(null)
   const [isFlipped, setIsFlipped] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -124,7 +124,13 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
   const [isRecordingStarting, setIsRecordingStarting] = useState(false)
   // 新增：兩階段學習狀態 - 'test'(自我測試) 或 'review'(查看解釋)
   const [learningPhase, setLearningPhase] = useState<'test' | 'review'>('test')
-  const { toast } = useToast()
+
+  // Enhanced speech recognition hook with better permission handling
+  const speech = useSpeechRecognitionV2({ lang: 'en-US', interimResults: false, continuous: false })
+  
+  // Enhanced audio recorder with better permission handling
+  const recorder = useAudioRecorderV2()
+  const device = useDeviceDetection()
 
   useEffect(() => {
     loadNextReview()
@@ -158,25 +164,24 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
     } catch (error) {
       console.error('清除語音狀態失敗:', error)
     }
-    
+
     try {
       const result = await memWhizAPI.getNextReview()
       
       if ('message' in result) {
-        setCurrentWord(null)
+        // 沒有更多待複習的單字
         toast({
-          title: "太棒了！",
-          description: result.message,
+          title: "複習完成",
+          description: "恭喜！您已完成今日的所有複習"
         })
       } else {
         setCurrentWord(result)
-        setIsFlipped(false) // 重置翻牌狀態
       }
     } catch (error) {
-      console.error('載入複習單字失敗:', error)
+      console.error('載入下一個複習失敗:', error)
       toast({
         title: "載入失敗",
-        description: "無法載入下一個複習單字",
+        description: "請檢查網路連線後重試",
         variant: "destructive"
       })
     } finally {
@@ -187,49 +192,50 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
   const handleSubmitReview = async (response: 'easy' | 'hard' | 'again' | 'mastered') => {
     if (!currentWord) return
     
-    // 第一階段：只是保存評分並切換到查看解釋階段
+    // 第一階段：自我測試，先進入第二階段再提交
     if (learningPhase === 'test') {
-      setIsLoading(true)
+      setLearningPhase('review')
       
       try {
-        const result = await memWhizAPI.submitReview(currentWord.id, response)
+        await memWhizAPI.submitReview(currentWord.id, response)
         
         toast({
-          title: "評估完成",
-          description: result.next_review_date ? 
-            `下次複習時間：${new Date(result.next_review_date).toLocaleDateString()}` : 
-            result.message,
+          title: response === 'mastered' ? '已精通' : 
+                 response === 'easy' ? '回答正確' : 
+                 response === 'hard' ? '需要加強' : '重新練習',
+          description: response === 'mastered' ? '這個單字已完全掌握！' :
+                       response === 'easy' ? '下次複習間隔將延長' :
+                       response === 'hard' ? '下次複習時間將縮短' :
+                       '請多練習直到熟練',
+          variant: response === 'again' ? 'destructive' : 'default'
         })
-        
-        setReviewCount(prev => prev + 1)
-        await loadStats()
-        
-        // 輕柔切換到第二階段
-        setIsTransitioning(true)
+
+        // 延遲跳轉到下一個單字，讓用戶看到解釋
         setTimeout(() => {
-          setLearningPhase('review')
-          setIsTransitioning(false)
-        }, 300)
+          setReviewCount(prev => prev + 1)
+          loadStats()
+          loadNextReview()
+        }, 3000) // 3秒後自動進入下一個單字
         
       } catch (error) {
-        console.error('提交複習結果失敗:', error)
+        console.error('提交複習失敗:', error)
         toast({
           title: "提交失敗",
-          description: "無法提交複習結果",
+          description: "請檢查網路連線後重試",
           variant: "destructive"
         })
       } finally {
-        setIsLoading(false)
+        setIsTransitioning(false)
       }
     }
   }
 
-  // 新增：從第二階段進入下一個單字
+  // 手動進入下一個單字
   const handleGoToNextWord = async () => {
-    setIsLoading(true)
     setIsTransitioning(true)
+    setIsFlipped(false)
     
-    // 清除語音狀態
+    // 確保停止任何正在進行的錄音或語音辨識
     try {
       if (speech.listening) {
         speech.stop()
@@ -238,20 +244,22 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
         recorder.stop()
       }
     } catch (error) {
-      console.error('翻牌時清除語音狀態失敗:', error)
+      console.error('停止語音狀態失敗:', error)
     }
     
-    // 等待退場動畫完成後再載入下一個單字
+    // 短暫延遲後載入下一個單字
     setTimeout(async () => {
       await loadNextReview()
       setIsTransitioning(false)
-    }, 400)
+    }, 300)
   }
 
-  const handleFlipCard = () => {
-    setIsFlipped(!isFlipped)
-    
-    // 翻牌時也清除語音狀態，避免干擾
+  // const handleFlipCard = () => {
+  //   setIsFlipped(!isFlipped)
+  // }
+  
+  const handleFlipAction = () => {
+    // 在翻牌前清除語音狀態，避免干擾
     try {
       if (speech.listening) {
         speech.stop()
@@ -297,9 +305,6 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
     return parseStructuredResponse(word.initial_ai_explanation)
   }
 
-  // Enhanced speech recognition hook with better permission handling
-  const speech = useSpeechRecognitionV2({ lang: 'en-US', interimResults: false, continuous: false })
-
   const practiceSentence = useMemo(() => {
     if (!currentWord) return ''
     const example = getExampleSentence(currentWord)
@@ -318,10 +323,6 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
     else if (percent >= 40) detail = '有進步空間，加油！'
     return { percent, detail }
   }, [practiceSentence, speech])
-
-  // Enhanced audio recorder with better permission handling
-  const recorder = useAudioRecorderV2()
-  const device = useDeviceDetection()
 
   // Smart recording startup with UI loading state and permission optimization
   const handleStartRecording = async () => {
@@ -471,7 +472,7 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
                 className="text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-1 h-6 px-2 text-xs"
                 onClick={(e) => {
                   e.stopPropagation()
-                  onBack()
+                  onBack?.()
                 }}
               >
                 <RotateCcwSquare className="h-3 w-3 mr-1" />
@@ -492,351 +493,237 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handlePronunciation(currentWord.word)
-                      }}
-                      className="absolute -right-2 top-1/2 -translate-y-1/2 w-8 h-8 p-0 rounded-full text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                      className="absolute -right-2 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                      onClick={() => handlePronunciation(currentWord.word)}
+                      disabled={isPlaying}
                     >
-                      {isPlaying ? <Square className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                      <Volume2 className="h-5 w-5" />
                     </Button>
                   </div>
                   
-                  {/* 提示文字 */}
-                  <p className="text-slate-500 dark:text-slate-400 text-sm">
-                    💭 回想一下這個單字的意思，然後選擇你的掌握程度
+                  {/* 提示訊息 */}
+                  <p className="text-slate-600 dark:text-slate-300 text-base">
+                    在心中回想這個單字的意思，準備好後點擊下方按鈕查看答案
                   </p>
                 </div>
               </CardContent>
             </Card>
 
-            {/* 口說練習區 */}
-            <Card>
-              <CardHeader className="pb-3 pt-4">
-                <CardTitle className="text-base font-medium flex items-center gap-2">
-                  🎙️ 口說練習
-                  <Badge variant="outline" className="text-xs">
-                    {speech.supported ? (
-                      speech.permissionState === 'granted' ? '已授權' :
-                      speech.permissionState === 'denied' ? '權限被拒' :
-                      speech.permissionState === 'prompt' ? '需授權' : '支援'
-                    ) : '不支援'}
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-1 space-y-3">
-                <div className="bg-slate-50 dark:bg-slate-800/60 rounded-md p-4 border border-slate-200 dark:border-slate-700">
-                  <div className="text-sm text-slate-600 dark:text-slate-300 italic mb-3">
-                    "{practiceSentence}"
+            {/* 口說練習區域 */}
+            <Card className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+              <CardContent className="py-6">
+                <div className="space-y-4">
+                  {/* 練習句子顯示 */}
+                  <div className="bg-slate-50 dark:bg-slate-700/50 p-4 rounded-lg">
+                    <h4 className="font-medium text-slate-900 dark:text-white mb-2 text-sm">口說練習句子:</h4>
+                    <div className="flex items-center gap-3">
+                      <p className="text-slate-700 dark:text-slate-300 flex-1 text-base leading-relaxed">
+                        {practiceSentence}
+                      </p>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handlePronunciation(practiceSentence)}
+                        disabled={isPlaying}
+                        className="shrink-0 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                      >
+                        <Volume2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => { e.stopPropagation(); handlePronunciation(practiceSentence) }}
-                      className="text-sky-600 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-900/30 text-xs px-2 py-1 h-7"
-                    >
-                      {isPlaying ? <Square className="h-3 w-3 mr-1"/> : <Volume2 className="h-3 w-3 mr-1"/>}
-                      播放
-                    </Button>
-                    {speech.supported ? (
+
+                  {/* 錄音和語音辨識界面 */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-center">
                       <Button
-                        variant={speech.listening ? 'secondary' : 'outline'}
-                        size="sm"
-                        disabled={speech.processing || isRecordingStarting || speech.listening}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          // 只允許啟動錄音，不允許手動停止
-                          if (!speech.listening && !speech.processing) {
-                            handleStartRecording()
-                          }
-                        }}
-                        className={`text-xs px-2 py-1 h-7 ${speech.listening ? 'pointer-events-none' : ''}`}
+                        size="lg"
+                        onClick={handleStartRecording}
+                        disabled={isRecordingStarting || speech.listening || recorder.recording}
+                        className={`relative ${
+                          speech.listening || recorder.recording
+                            ? 'bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700'
+                            : 'bg-sky-500 hover:bg-sky-600 dark:bg-sky-600 dark:hover:bg-sky-700'
+                        } text-white px-8 py-3 text-base font-medium`}
                       >
                         {isRecordingStarting ? (
-                          <>
-                            <div className="w-3 h-3 mr-1 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                            啟動中
-                          </>
-                        ) : speech.processing ? (
-                          <>
-                            <div className="w-3 h-3 mr-1 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                            處理中
-                          </>
-                        ) : speech.listening ? (
-                          <>
-                            {/* 波浪動態效果 */}
-                            <div className="flex items-center gap-0.5 mr-1">
-                              {[...Array(4)].map((_, i) => (
-                                <div
-                                  key={i}
-                                  className="w-0.5 bg-current rounded-full animate-pulse"
-                                  style={{
-                                    height: '8px',
-                                    animationDelay: `${i * 150}ms`,
-                                    animationDuration: '1.2s'
-                                  }}
-                                />
-                              ))}
-                            </div>
-                            錄音中
-                          </>
+                          '準備中...'
+                        ) : speech.listening || recorder.recording ? (
+                          <div className="flex items-center gap-2">
+                            <Mic className="h-5 w-5 animate-pulse" />
+                            錄音中...
+                          </div>
                         ) : (
-                          <>
-                            <Mic className="h-3 w-3 mr-1"/>
-                            錄音
-                          </>
+                          <div className="flex items-center gap-2">
+                            <Mic className="h-5 w-5" />
+                            開始錄音
+                          </div>
                         )}
                       </Button>
-                    ) : (
-                      <Button
-                        variant={recorder.recording ? 'secondary' : 'outline'}
-                        size="sm"
-                        disabled={isRecordingStarting || recorder.processing || recorder.recording}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          // 只允許啟動錄音，不允許手動停止
-                          if (!recorder.recording && !recorder.processing) {
-                            handleStartRecording()
-                          }
-                        }}
-                        className={`text-xs px-2 py-1 h-7 ${recorder.recording ? 'pointer-events-none' : ''}`}
-                      >
-                        {isRecordingStarting ? (
-                          <>
-                            <div className="w-3 h-3 mr-1 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                            啟動中
-                          </>
-                        ) : recorder.processing ? (
-                          <>
-                            <div className="w-3 h-3 mr-1 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                            解析中
-                          </>
-                        ) : recorder.recording ? (
-                          <>
-                            {/* 波浪動態效果 */}
-                            <div className="flex items-center gap-0.5 mr-1">
-                              {[...Array(4)].map((_, i) => (
-                                <div
-                                  key={i}
-                                  className="w-0.5 bg-current rounded-full animate-pulse"
-                                  style={{
-                                    height: '8px',
-                                    animationDelay: `${i * 150}ms`,
-                                    animationDuration: '1.2s'
-                                  }}
-                                />
-                              ))}
-                            </div>
-                            錄音中
-                          </>
-                        ) : (
-                          <>
-                            <Mic className="h-3 w-3 mr-1"/>
-                            錄音
-                          </>
-                        )}
-                      </Button>
+                    </div>
+
+                    {/* iPhone Mini App 音量提示 */}
+                    {typeof window !== 'undefined' && 
+                     (window as any).Telegram?.WebApp && 
+                     /iPad|iPhone|iPod/.test(navigator.userAgent) && (
+                      <div className="text-[10px] text-amber-600 dark:text-amber-400 text-center">
+                        📱 聲音太小？請調高手機音量
+                      </div>
                     )}
-                    {/* 重播按鈕直接加在錄音按鈕旁邊 */}
-                    {recorder.blobUrl && !recorder.recording && (
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 px-2 text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-900/30 text-xs"
-                          onClick={() => recorder.play()}
-                          disabled={recorder.playing}
-                        >
-                          <Volume2 className="h-3 w-3 mr-1" />
-                          重播
-                        </Button>
+
+                    {/* 語音辨識結果 */}
+                    {speech.transcript && (
+                      <div className="bg-white dark:bg-slate-800 p-4 rounded-lg border border-slate-200 dark:border-slate-600">
+                        <h4 className="font-medium text-slate-900 dark:text-white mb-2 text-sm">您說的內容:</h4>
+                        <p className="text-slate-700 dark:text-slate-300 mb-3 text-base">
+                          {speech.transcript}
+                        </p>
+                        
+                        {practiceScore && (
+                          <div className="space-y-3">
+                            <div className="bg-slate-50 dark:bg-slate-700/50 p-3 rounded">
+                              <h4 className="font-medium text-slate-900 dark:text-white mb-2 text-sm">發音對比:</h4>
+                              <div className="space-y-2 text-sm">
+                                <div>
+                                  <span className="text-slate-600 dark:text-slate-400 text-xs">目標：</span>
+                                  <div className="mt-1">{practiceSentence}</div>
+                                </div>
+                                <div>
+                                  <span className="text-slate-600 dark:text-slate-400 text-xs">您的發音：</span>
+                                  <div className="mt-1">
+                                    <WordDiffHighlight target={practiceSentence} recognized={speech.transcript} />
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center gap-3">
+                              <div className="flex-1 bg-slate-200 dark:bg-slate-700 rounded-full h-2">
+                                <div 
+                                  className={`h-2 rounded-full transition-all duration-500 ${
+                                    practiceScore.percent >= 85 ? 'bg-green-500' :
+                                    practiceScore.percent >= 65 ? 'bg-yellow-500' :
+                                    practiceScore.percent >= 40 ? 'bg-orange-500' : 'bg-red-500'
+                                  }`}
+                                  style={{ width: `${practiceScore.percent}%` }}
+                                />
+                              </div>
+                              <span className="text-sm font-medium text-slate-700 dark:text-slate-300 min-w-12">
+                                {practiceScore.percent}%
+                              </span>
+                            </div>
+                            
+                            <p className={`text-sm text-center ${
+                              practiceScore.percent >= 85 ? 'text-green-600 dark:text-green-400' :
+                              practiceScore.percent >= 65 ? 'text-yellow-600 dark:text-yellow-400' :
+                              practiceScore.percent >= 40 ? 'text-orange-600 dark:text-orange-400' :
+                              'text-red-600 dark:text-red-400'
+                            }`}>
+                              {practiceScore.detail}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* 錄音重播 */}
+                    {recorder.blobUrl && (
+                      <div className="bg-slate-50 dark:bg-slate-700/50 p-3 rounded-lg">
+                        <h4 className="font-medium text-slate-900 dark:text-white mb-2 text-sm">您的錄音:</h4>
                         {/* iPhone Mini App 音量提示 */}
                         {typeof window !== 'undefined' && 
                          (window as any).Telegram?.WebApp && 
                          /iPad|iPhone|iPod/.test(navigator.userAgent) && (
-                          <div className="text-[9px] text-amber-600 dark:text-amber-400">
+                          <div className="text-[10px] text-amber-600 dark:text-amber-400 mb-2">
                             📱 聲音太小？請調高手機音量
                           </div>
                         )}
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={recorder.play}
+                            disabled={recorder.playing}
+                            className="text-xs"
+                          >
+                            {recorder.playing ? '播放中...' : '播放錄音'}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={recorder.clear}
+                            className="text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                          >
+                            清除
+                          </Button>
+                        </div>
                       </div>
                     )}
                   </div>
                 </div>
-
-                {/* 音量與波形顯示 */}
-                {isRecordingStarting ? (
-                  <div className="bg-slate-50 dark:bg-slate-800/60 rounded p-2 border border-slate-200 dark:border-slate-700">
-                    <div className="text-xs text-slate-500 mb-1">系統啟動中...</div>
-                    <div className="h-1 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
-                      <div className="h-full bg-gradient-to-r from-sky-400 to-blue-500 animate-pulse" style={{ width: '60%' }} />
-                    </div>
-                  </div>
-                ) : recorder.recording ? (
-                  <div className="bg-slate-50 dark:bg-slate-800/60 rounded p-2 border border-slate-200 dark:border-slate-700">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="text-xs text-slate-500">錄音中</div>
-                      <div className="text-xs text-slate-500">{Math.round((recorder.volume || 0) * 100)}%</div>
-                    </div>
-                    {/* 波浪形視覺化 */}
-                    <div className="flex items-center justify-center gap-0.5 h-8">
-                      {(recorder.waveform || Array(24).fill(0)).map((value, index) => (
-                        <div
-                          key={index}
-                          className="bg-gradient-to-t from-emerald-400 to-sky-500 rounded-full transition-all duration-150 ease-out"
-                          style={{
-                            width: '3px',
-                            height: `${Math.max(2, Math.min(28, value * 24 + 4))}px`,
-                            opacity: value > 0.1 ? 1 : 0.3
-                          }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                ) : recorder.processing ? (
-                  <div className="bg-slate-50 dark:bg-slate-800/60 rounded p-2 border border-slate-200 dark:border-slate-700">
-                    <div className="text-xs text-slate-500 mb-1">語音解析中...</div>
-                    <div className="h-1 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
-                      <div className="h-full bg-gradient-to-r from-purple-400 to-blue-500 animate-pulse" style={{ width: '80%' }} />
-                    </div>
-                  </div>
-                ) : null}
-
-
-                {/* 錯誤提示 */}
-                {(speech.error || recorder.error) && (
-                  <div className="text-xs text-rose-600 dark:text-rose-400 p-2 bg-rose-50 dark:bg-rose-900/30 rounded-md border border-rose-200 dark:border-rose-700">
-                    {speech.error && <div>語音辨識：{speech.errorMessage || speech.error}</div>}
-                    {recorder.error && <div>音頻錄製：{recorder.errorMessage || recorder.error}</div>}
-                  </div>
-                )}
-
-                {/* 語音結果 */}
-                {speech.transcript && (
-                  <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-md p-3 border border-emerald-200 dark:border-emerald-700">
-                    <div className="text-sm text-emerald-700 dark:text-emerald-300 mb-2">您的發音：</div>
-                    
-                    {/* 語音辨識結果與比對 */}
-                    <div className="bg-white dark:bg-slate-800 rounded p-3 mb-3 border border-emerald-100 dark:border-emerald-800">
-                      <div className="text-xs text-slate-500 dark:text-slate-400 mb-2">語音辨識與目標比對：</div>
-                      <div className="space-y-2">
-                        <div>
-                          <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">辨識結果：</div>
-                          <div className="text-sm font-medium text-slate-800 dark:text-slate-200">
-                            "{speech.transcript}"
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">目標句子（紅綠標記）：</div>
-                          <WordDiffHighlight target={practiceSentence} recognized={speech.transcript} />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 重播錄音 */}
-                    {recorder.blobUrl && !recorder.recording && (
-                      <div className="mb-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 px-2 text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-900/30 text-xs"
-                          onClick={() => recorder.play()}
-                          disabled={recorder.playing}
-                        >
-                          <Volume2 className="h-3 w-3 mr-1" />
-                          重播
-                        </Button>
-                      </div>
-                    )}
-
-                    {/* 評分 */}
-                    {practiceScore && (
-                      <div className="flex items-center gap-3 pt-2 border-t border-emerald-200 dark:border-emerald-700">
-                        <div className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
-                          評分: {practiceScore.percent}%
-                        </div>
-                        <div className="text-sm text-slate-600 dark:text-slate-400">
-                          {practiceScore.detail}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
               </CardContent>
             </Card>
 
-            {/* 評估按鈕 */}
-            <Card>
-              <CardContent className="pt-5">
-                <div className="space-y-4">
-                  <Button
-                    variant="outline"
-                    size="lg"
-                    className="w-full text-purple-600 dark:text-purple-300 border-purple-300 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/30 bg-gradient-to-r from-purple-50/50 to-pink-50/50 dark:from-purple-900/20 dark:to-pink-900/20 font-medium py-4 text-base"
-                    onClick={() => handleSubmitReview('mastered')}
-                    disabled={isLoading}
-                  >
-                    <Check className="h-5 w-5 mr-2" />
-                    完全掌握
-                  </Button>
-                  <div className="grid grid-cols-3 gap-3">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-green-600 dark:text-green-300 border-green-300 dark:border-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 bg-gradient-to-br from-green-50/50 to-emerald-50/50 dark:from-green-900/20 dark:to-emerald-900/20 text-sm font-medium py-4"
-                      onClick={() => handleSubmitReview('easy')}
-                      disabled={isLoading}
-                    >
-                      <Check className="h-4 w-4 mr-1" />
-                      容易
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-amber-600 dark:text-amber-300 border-amber-300 dark:border-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/30 bg-gradient-to-br from-amber-50/50 to-yellow-50/50 dark:from-amber-900/20 dark:to-yellow-900/20 text-sm font-medium py-4"
-                      onClick={() => handleSubmitReview('hard')}
-                      disabled={isLoading}
-                    >
-                      <Clock className="h-4 w-4 mr-1" />
-                      困難
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-red-600 dark:text-red-300 border-red-300 dark:border-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 bg-gradient-to-br from-red-50/50 to-rose-50/50 dark:from-red-900/20 dark:to-rose-900/20 text-sm font-medium py-4"
-                      onClick={() => handleSubmitReview('again')}
-                      disabled={isLoading}
-                    >
-                      <RotateCcw className="h-4 w-4 mr-1" />
-                      不熟再學
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            {/* 查看答案按鈕 */}
+            <div className="flex justify-center pt-2">
+              <Button 
+                onClick={() => setLearningPhase('review')}
+                className="bg-emerald-500 hover:bg-emerald-600 dark:bg-emerald-600 dark:hover:bg-emerald-700 text-white px-8 py-3 text-base"
+              >
+                查看解釋
+              </Button>
+            </div>
           </>
         ) : (
-          // 🔹 第二階段：查看詳細解釋
+          // 🔸 第二階段：查看解釋 + 評分
           <>
-            {/* 單字標題與發音按鈕 */}
-            <div className="text-center mb-3">
-              <div className="relative inline-block">
-                <h1 className="text-4xl sm:text-5xl font-bold text-slate-900 dark:text-white">
-                  {currentWord.word}
-                </h1>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handlePronunciation(currentWord.word)}
-                  className="absolute -right-12 top-1/2 -translate-y-1/2 w-9 h-9 p-0 rounded-full text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
-                >
-                  {isPlaying ? <Square className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-                </Button>
-              </div>
+            {/* 返回按鈕 */}
+            <div className="flex justify-between items-center">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-1 h-6 px-2 text-xs"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onBack?.()
+                }}
+              >
+                <RotateCcwSquare className="h-3 w-3 mr-1" />
+                返回
+              </Button>
+              
+              {/* 手動下一題按鈕 */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleGoToNextWord}
+                disabled={isTransitioning}
+                className="text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-1 h-6 px-2 text-xs"
+              >
+                下一個 →
+              </Button>
             </div>
 
-            {/* 詳細解釋 */}
-            <Card>
+            {/* 單字解釋卡片 */}
+            <Card className="bg-gradient-to-br from-white to-slate-50/30 dark:from-slate-800 dark:to-slate-800/70 shadow-lg border border-slate-200/60 dark:border-slate-700/60">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-3xl font-bold text-slate-900 dark:text-white mb-1">
+                      {currentWord.word}
+                    </CardTitle>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handlePronunciation(currentWord.word)}
+                    disabled={isPlaying}
+                    className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                  >
+                    <Volume2 className="h-5 w-5" />
+                  </Button>
+                </div>
+              </CardHeader>
+
               <CardContent className="pt-5">
                 {(() => {
                   const structuredData = getStructuredData(currentWord)
@@ -844,10 +731,10 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
                     return (
                       <div className="space-y-5 text-base">
                         {/* 音標 */}
-                        {structuredData.phonetic && (
+                        {structuredData.pronunciations && structuredData.pronunciations.length > 0 && (
                           <div className="text-center">
                             <span className="text-3xl text-slate-600 dark:text-slate-300 font-mono tracking-wide">
-                              {structuredData.phonetic}
+                              {structuredData.pronunciations[0]}
                             </span>
                           </div>
                         )}
@@ -879,38 +766,36 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
                         {structuredData.examples && structuredData.examples.length > 0 && (
                           <div>
                             <h4 className="font-bold text-slate-900 dark:text-white mb-4 text-lg">例句：</h4>
-                            <div className="space-y-4">
+                            <ul className="space-y-3">
                               {structuredData.examples.slice(0, 2).map((example, index) => (
-                                <div key={index} className="bg-white/60 dark:bg-slate-700/60 rounded-lg p-5 italic text-slate-800 dark:text-slate-200 text-base leading-relaxed">
-                                  "{example}"
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      handlePronunciation(example)
-                                    }}
-                                    className="ml-2 p-1 h-auto text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300"
-                                  >
-                                    {isPlaying ? <Square className="h-3 w-3" /> : <Volume2 className="h-3 w-3" />}
-                                  </Button>
-                                </div>
+                                <li key={index} className="bg-slate-50 dark:bg-slate-700/50 p-4 rounded-lg">
+                                  <div className="flex items-start gap-3">
+                                    <span className="text-base text-slate-700 dark:text-slate-300 leading-relaxed flex-1">
+                                      {example}
+                                    </span>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handlePronunciation(example)}
+                                      disabled={isPlaying}
+                                      className="shrink-0 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 p-1"
+                                    >
+                                      <Volume2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </li>
                               ))}
-                            </div>
+                            </ul>
                           </div>
                         )}
 
-                        {/* 同義詞 */}
-                        {structuredData.synonyms && structuredData.synonyms.length > 0 && (
-                          <div>
-                            <h4 className="font-bold text-slate-900 dark:text-white mb-4 text-lg">同義詞：</h4>
-                            <div className="flex flex-wrap gap-3">
-                              {structuredData.synonyms.slice(0, 6).map((synonym, index) => (
-                                <Badge key={index} variant="outline" className="text-base bg-emerald-50 dark:bg-emerald-900/30 font-medium px-4 py-2">
-                                  {synonym}
-                                </Badge>
-                              ))}
-                            </div>
+                        {/* 記憶提示 */}
+                        {structuredData.memory_tips && (
+                          <div className="bg-blue-50 dark:bg-blue-900/30 p-4 rounded-lg">
+                            <h4 className="font-bold text-blue-800 dark:text-blue-200 mb-2 text-lg">💡 記憶小貼士</h4>
+                            <p className="text-blue-700 dark:text-blue-300 text-base leading-relaxed">
+                              {structuredData.memory_tips}
+                            </p>
                           </div>
                         )}
                       </div>
@@ -927,26 +812,62 @@ export default function StudyMode({ onAIAnalysisClick }: StudyModeProps) {
             </Card>
 
             {/* 下一個單字按鈕 */}
-            <Card>
-              <CardContent className="pt-5">
-                <Button
-                  variant="default"
-                  size="lg"
-                  className="w-full bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white font-medium py-5 text-lg"
-                  onClick={handleGoToNextWord}
-                  disabled={isLoading}
-                >
-                  {isLoading ? (
-                    <>
-                      <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                      載入中...
-                    </>
-                  ) : (
-                    <>
-                      下一個單字 →
-                    </>
-                  )}
-                </Button>
+            <Card className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+              <CardContent className="py-4">
+                <div className="text-center space-y-4">
+                  <h3 className="text-lg font-medium text-slate-900 dark:text-white">複習結果評分</h3>
+                  <p className="text-slate-600 dark:text-slate-300 text-sm">
+                    根據您的掌握程度選擇合適的選項，系統將調整下次複習時間
+                  </p>
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button
+                      onClick={() => handleSubmitReview('mastered')}
+                      disabled={isTransitioning}
+                      className="bg-green-500 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-700 text-white py-3"
+                    >
+                      <div className="text-center">
+                        <div className="font-medium">完全記住</div>
+                        <div className="text-xs opacity-90">移除複習</div>
+                      </div>
+                    </Button>
+                    
+                    <Button
+                      onClick={() => handleSubmitReview('easy')}
+                      disabled={isTransitioning}
+                      className="bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white py-3"
+                    >
+                      <div className="text-center">
+                        <div className="font-medium">記住了</div>
+                        <div className="text-xs opacity-90">延長間隔</div>
+                      </div>
+                    </Button>
+                    
+                    <Button
+                      onClick={() => handleSubmitReview('hard')}
+                      disabled={isTransitioning}
+                      variant="outline"
+                      className="border-orange-300 text-orange-700 hover:bg-orange-50 dark:border-orange-600 dark:text-orange-300 dark:hover:bg-orange-900/30 py-3"
+                    >
+                      <div className="text-center">
+                        <div className="font-medium">有點難</div>
+                        <div className="text-xs opacity-70">縮短間隔</div>
+                      </div>
+                    </Button>
+                    
+                    <Button
+                      onClick={() => handleSubmitReview('again')}
+                      disabled={isTransitioning}
+                      variant="outline"
+                      className="border-red-300 text-red-700 hover:bg-red-50 dark:border-red-600 dark:text-red-300 dark:hover:bg-red-900/30 py-3"
+                    >
+                      <div className="text-center">
+                        <div className="font-medium">忘記了</div>
+                        <div className="text-xs opacity-70">重新學習</div>
+                      </div>
+                    </Button>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </>
