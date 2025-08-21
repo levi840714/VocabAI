@@ -21,16 +21,16 @@ type Phase = 'idle' | 'playing' | 'recording' | 'processing' | 'result'
 
 export default function ShadowingPanel({ text, index, total, onPrev, onNext, onExit }: ShadowingPanelProps) {
   const { speakSentence, stop: stopTTS, isPlaying } = useVoice()
-  // 依句長動態調整靜音容忍與啟動緩衝
+  // 依句長動態調整靜音容忍與啟動緩衝（放寬標準以改善用戶體驗）
   const wordCount = (text || '').trim().split(/\s+/).filter(Boolean).length
-  const dynamicSilence = Math.min(8000, Math.max(2500, 2000 + wordCount * 150))
-  const dynamicSafety = Math.min(25000, Math.max(12000, 10000 + wordCount * 400))
+  const dynamicSilence = Math.min(8000, Math.max(3500, 2500 + wordCount * 150)) // 提高最小靜音容忍時間
+  const dynamicSafety = Math.min(25000, Math.max(15000, 12000 + wordCount * 400)) // 提高最小安全超時時間
   const speech = useSpeechRecognitionV2({
     lang: 'en-US',
     interimResults: false,
     continuous: false,
     silenceThresholdMs: dynamicSilence,
-    initialGraceMs: 1200,
+    initialGraceMs: 2000, // 增加初始緩衝時間，給用戶更多準備時間
     safetyTimeoutMs: dynamicSafety,
   })
   const device = useDeviceDetection()
@@ -121,10 +121,16 @@ export default function ShadowingPanel({ text, index, total, onPrev, onNext, onE
     }
   }, [speech.listening, speech.processing, phase])
 
-  // 當辨識結束時，若錄音仍在進行則主動停止以產生 blob
+  // 當辨識結束時，若錄音仍在進行則主動停止以產生 blob（添加小緩衝避免過早停止）
   useEffect(() => {
     if (!speech.listening && recorder.recording) {
-      try { recorder.stop() } catch {}
+      // 添加小緩衝時間，避免語音辨識過早停止導致錄音被截斷
+      setTimeout(() => {
+        if (!speech.listening && recorder.recording) {
+          console.log('[ShadowingPanel] Speech ended, stopping recorder after grace period')
+          try { recorder.stop() } catch {}
+        }
+      }, 500) // 500ms 緩衝時間
     }
   }, [speech.listening, recorder.recording])
 
@@ -231,7 +237,7 @@ export default function ShadowingPanel({ text, index, total, onPrev, onNext, onE
             </>
           )}
 
-          {phase === 'result' && recorder.blobUrl && !recorder.recording && (
+          {(phase === 'result' || recorder.blobUrl) && !recorder.recording && (
             <>
               <Button
                 variant="ghost"
@@ -242,6 +248,7 @@ export default function ShadowingPanel({ text, index, total, onPrev, onNext, onE
               >
                 <Play className="h-4 w-4 mr-1" /> 重放錄音
               </Button>
+              {/* 調試信息 */}
               {/* iPhone Mini App 音量提示 */}
               {typeof window !== 'undefined' && 
                (window as any).Telegram?.WebApp && 

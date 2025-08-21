@@ -125,8 +125,15 @@ export default function StudyMode({ onBack }: StudyModeProps) {
   // 新增：兩階段學習狀態 - 'test'(自我測試) 或 'review'(查看解釋)
   const [learningPhase, setLearningPhase] = useState<'test' | 'review'>('test')
 
-  // Enhanced speech recognition hook with better permission handling
-  const speech = useSpeechRecognitionV2({ lang: 'en-US', interimResults: false, continuous: false })
+  // Enhanced speech recognition hook with better permission handling and more forgiving settings
+  const speech = useSpeechRecognitionV2({ 
+    lang: 'en-US', 
+    interimResults: false, 
+    continuous: false,
+    silenceThresholdMs: 4000, // 增加靜音容忍時間
+    initialGraceMs: 2000, // 增加初始緩衝時間
+    safetyTimeoutMs: 20000 // 增加安全超時時間
+  })
   
   // Enhanced audio recorder with better permission handling
   const recorder = useAudioRecorderV2()
@@ -629,6 +636,10 @@ export default function StudyMode({ onBack }: StudyModeProps) {
                     {recorder.blobUrl && (
                       <div className="bg-slate-50 dark:bg-slate-700/50 p-3 rounded-lg">
                         <h4 className="font-medium text-slate-900 dark:text-white mb-2 text-sm">您的錄音:</h4>
+                        {/* 調試信息 */}
+                        <div className="text-[10px] text-slate-400 mb-2">
+                          BlobUrl: {recorder.blobUrl ? '✓' : '✗'}, Recording: {recorder.recording ? '✓' : '✗'}, Error: {recorder.error || 'None'}
+                        </div>
                         {/* iPhone Mini App 音量提示 */}
                         {typeof window !== 'undefined' && 
                          (window as any).Telegram?.WebApp && 

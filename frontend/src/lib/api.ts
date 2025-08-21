@@ -75,6 +75,7 @@ export interface InterfaceSettings {
   voice_language?: string; // e.g. 'en-US' | 'en-GB'
   voice_rate?: number;     // 0.1 - 2.0
   voice_pitch?: number;    // 0.0 - 2.0
+  voice_volume?: number;   // 0.0 - 1.0 音量控制
   preferred_voice_name?: string; // 例如 'Google US English'
   theme_mode: 'light' | 'dark' | 'auto';
   language: string;

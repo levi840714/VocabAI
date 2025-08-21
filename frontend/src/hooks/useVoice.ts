@@ -26,7 +26,7 @@ export function useVoice() {
         language: interfaceSettings.voice_language || 'en-US',
         rate: interfaceSettings.voice_rate ?? 0.9,
         pitch: interfaceSettings.voice_pitch ?? 1.0,
-        volume: 1,
+        volume: interfaceSettings.voice_volume ?? 1.0,
         preferredVoiceName: interfaceSettings.preferred_voice_name,
         provider: interfaceSettings.voice_provider || 'webspeech',
         ...customSettings,
@@ -78,7 +78,7 @@ export function useVoice() {
       language: interfaceSettings.voice_language || 'en-US',
       rate: (interfaceSettings.voice_rate ?? 0.9) * 0.95,
       pitch: interfaceSettings.voice_pitch ?? 1.0,
-      volume: 1,
+      volume: interfaceSettings.voice_volume ?? 1.0,
       preferredVoiceName: interfaceSettings.preferred_voice_name,
       provider: interfaceSettings.voice_provider || 'webspeech',
     });
@@ -98,7 +98,7 @@ export function useVoice() {
       language: interfaceSettings.voice_language || 'en-US',
       rate: (interfaceSettings.voice_rate ?? 0.95) * 1.0,
       pitch: (interfaceSettings.voice_pitch ?? 1.0),
-      volume: 1,
+      volume: interfaceSettings.voice_volume ?? 1.0,
       preferredVoiceName: interfaceSettings.preferred_voice_name,
       provider: interfaceSettings.voice_provider || 'webspeech',
     });

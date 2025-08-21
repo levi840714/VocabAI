@@ -190,7 +190,8 @@ class VoiceService {
 
         if (!this.isSupported()) {
           // 使用備用方案：Google Translate TTS
-          this.playWithGoogleTTS(text)
+          const optimalSettings = this.getOptimalVoiceSettings(settings);
+          this.playWithGoogleTTS(text, optimalSettings.volume)
             .then(() => resolve())
             .catch(reject);
           return;
@@ -206,7 +207,7 @@ class VoiceService {
         utterance.lang = optimalSettings.language || 'en-US';
         utterance.rate = optimalSettings.rate || 0.9;
         utterance.pitch = optimalSettings.pitch || 1.1;
-        utterance.volume = optimalSettings.volume || 1;
+        utterance.volume = optimalSettings.volume ?? 1;
 
         // 嘗試設定最佳語音引擎
         const bestVoice = this.getBestVoice(settings.preferredVoiceName, optimalSettings.language);
@@ -246,7 +247,7 @@ class VoiceService {
 
           // 其他錯誤：行動端嘗試回退，桌面直接回錯
           if (this.isMobileDevice()) {
-            this.playWithGoogleTTS(text)
+            this.playWithGoogleTTS(text, optimalSettings.volume)
               .then(() => resolve())
               .catch(reject);
           } else {
@@ -286,13 +287,16 @@ class VoiceService {
   /**
    * 使用 Google TTS 作為備用方案
    */
-  private async playWithGoogleTTS(text: string): Promise<void> {
+  private async playWithGoogleTTS(text: string, volume: number = 1): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
         const encodedText = encodeURIComponent(text);
         const audio = new Audio(
           `https://translate.google.com/translate_tts?ie=UTF-8&tl=en&client=tw-ob&q=${encodedText}`
         );
+
+        // 應用音量設定
+        audio.volume = Math.max(0, Math.min(1, volume));
 
         audio.onloadeddata = () => {
           this.isPlaying = true;

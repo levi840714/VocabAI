@@ -318,7 +318,7 @@ const SettingsPage: React.FC = () => {
 
           {/* 語言與語音偏好已移除（僅保留語速與音調） */}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <div>
               <ThemeText variant="caption" className="mb-1 block">語速（0.5 - 1.5）</ThemeText>
               <input
@@ -344,6 +344,19 @@ const SettingsPage: React.FC = () => {
                 className="w-full accent-blue-500 dark:accent-blue-400"
               />
               <div className="text-xs text-slate-500 mt-1">{(interfaceSettings.voice_pitch ?? 1.1).toFixed(2)}</div>
+            </div>
+            <div>
+              <ThemeText variant="caption" className="mb-1 block">音量（0.0 - 1.0）</ThemeText>
+              <input
+                type="range"
+                min={0.0}
+                max={1.0}
+                step={0.05}
+                value={interfaceSettings.voice_volume ?? 1.0}
+                onChange={(e) => handleUpdateSetting('interface', 'voice_volume', parseFloat(e.target.value))}
+                className="w-full accent-blue-500 dark:accent-blue-400"
+              />
+              <div className="text-xs text-slate-500 mt-1">{(interfaceSettings.voice_volume ?? 1.0).toFixed(2)}</div>
             </div>
           </div>
           
@@ -397,7 +410,7 @@ const SettingsPage: React.FC = () => {
                   voiceService.getEnvironmentInfo().isMobile ? '手機瀏覽器' : '桌面瀏覽器'
                 }</div>
                 <div>🎵 語音引擎: {voiceService.getEnvironmentInfo().availableVoices} 種可用 | 最佳: {voiceService.getEnvironmentInfo().bestVoice}</div>
-                <div>⚙️ 參數: 語速 {voiceService.getEnvironmentInfo().currentSettings.rate} | 音調 {voiceService.getEnvironmentInfo().currentSettings.pitch}</div>
+                <div>⚙️ 參數: 語速 {voiceService.getEnvironmentInfo().currentSettings.rate} | 音調 {voiceService.getEnvironmentInfo().currentSettings.pitch} | 音量 {(interfaceSettings.voice_volume ?? 1.0).toFixed(2)}</div>
               </div>
             </div>
             

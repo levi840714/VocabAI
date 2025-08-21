@@ -426,18 +426,29 @@ export function useAudioRecorderV2() {
             }
           }
           
-          // 第一次授權時可能產生很小的無效chunk，需要更長的最小錄音長度
+          // 第一次授權時可能產生很小的無效chunk，手機版更寬容處理
           const totalSize = validChunks.reduce((sum, chunk) => sum + (chunk as Blob).size, 0)
-          if (totalSize < 2000) { // 提高最小有效大小門檻
-            console.warn(`[AudioRecorderV2] Recording too small: ${totalSize} bytes`)
-            setState(s => ({ 
-              ...s, 
-              recording: false, 
-              volume: 0, 
-              waveform: [],
-              error: 'recording_too_short'
-            }))
-            return
+          const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+          const isMiniApp = isTelegramMiniApp()
+          const minSize = (isMobile || isMiniApp) ? 100 : 500 // 手機版降低到 100 bytes
+          
+          if (totalSize < minSize) {
+            console.warn(`[AudioRecorderV2] Recording too small: ${totalSize} bytes (min: ${minSize} bytes)`)
+            
+            // 手機版即使太小也要嘗試處理，避免完全失敗
+            if ((isMobile || isMiniApp) && totalSize > 0) {
+              console.log('[AudioRecorderV2] Mobile/MiniApp: Processing small recording anyway')
+              // 繼續處理，不 return
+            } else {
+              setState(s => ({ 
+                ...s, 
+                recording: false, 
+                volume: 0, 
+                waveform: [],
+                error: 'recording_too_short'
+              }))
+              return
+            }
           }
           
           try {
@@ -495,8 +506,12 @@ export function useAudioRecorderV2() {
               clearTimeout(validationTimeout)
               console.log(`[AudioRecorderV2] Audio blob validated: duration=${testAudio.duration}s`)
               
-              // 檢查音頻長度是否合理（避免0秒錄音）
-              if (testAudio.duration > 0.1) { // 至少100ms
+              // 檢查音頻長度是否合理（避免0秒錄音），手機版更寬容
+              const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+              const isMiniApp = isTelegramMiniApp()
+              const minDuration = (isMobile || isMiniApp) ? 0.01 : 0.05 // 手機版降低到 10ms
+              
+              if (testAudio.duration > minDuration) {
                 setState(s => ({ 
                   ...s, 
                   recording: false, 
@@ -507,36 +522,99 @@ export function useAudioRecorderV2() {
                   error: null
                 }))
               } else {
-                console.warn(`[AudioRecorderV2] Audio too short: ${testAudio.duration}s`)
-                URL.revokeObjectURL(url)
-                setState(s => ({ 
-                  ...s, 
-                  recording: false, 
-                  volume: 0, 
-                  waveform: [],
-                  error: 'recording_too_short'
-                }))
+                console.warn(`[AudioRecorderV2] Audio too short: ${testAudio.duration}s (min: ${minDuration}s)`)
+                
+                // 手機版即使太短也要保留，避免用戶體驗問題
+                if (isMobile || isMiniApp) {
+                  console.log('[AudioRecorderV2] Mobile/MiniApp: Keeping short audio')
+                  setState(s => ({ 
+                    ...s, 
+                    recording: false, 
+                    blobUrl: url, 
+                    mimeType: finalMimeType,
+                    volume: 0, 
+                    waveform: [],
+                    error: null
+                  }))
+                } else {
+                  URL.revokeObjectURL(url)
+                  setState(s => ({ 
+                    ...s, 
+                    recording: false, 
+                    blobUrl: null,
+                    volume: 0, 
+                    waveform: [],
+                    error: 'recording_too_short'
+                  }))
+                }
               }
             }
             
             testAudio.onerror = (e) => {
               clearTimeout(validationTimeout)
               console.error('[AudioRecorderV2] Audio blob validation failed:', e)
-              URL.revokeObjectURL(url)
-              setState(s => ({ 
-                ...s, 
-                recording: false, 
-                volume: 0, 
-                waveform: [],
-                error: 'invalid_audio_data'
-              }))
+              
+              // 手機版環境下更寬容處理：即使驗證失敗也要保留錄音
+              const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+              const isMiniApp = isTelegramMiniApp()
+              
+              if (isMobile || isMiniApp) {
+                console.log('[AudioRecorderV2] Mobile/MiniApp: Keeping blob despite validation error')
+                setState(s => ({ 
+                  ...s, 
+                  recording: false, 
+                  blobUrl: url, // 手機版保留 blob URL
+                  mimeType: finalMimeType,
+                  volume: 0, 
+                  waveform: [],
+                  error: null // 手機版不顯示錯誤
+                }))
+              } else {
+                URL.revokeObjectURL(url)
+                setState(s => ({ 
+                  ...s, 
+                  recording: false, 
+                  blobUrl: null,
+                  volume: 0, 
+                  waveform: [],
+                  error: 'invalid_audio_data'
+                }))
+              }
             }
             
           } catch (blobError) {
             console.error('[AudioRecorderV2] Blob creation failed:', blobError)
+            
+            // 手機版最後一道防線：即使 blob 創建失敗也要嘗試提供最基本的錄音
+            const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+            const isMiniApp = isTelegramMiniApp()
+            
+            if ((isMobile || isMiniApp) && validChunks.length > 0) {
+              try {
+                console.log('[AudioRecorderV2] Mobile/MiniApp: Emergency blob creation with basic MIME type')
+                const emergencyBlob = new Blob(validChunks, { type: 'audio/webm' })
+                if (emergencyBlob.size > 0) {
+                  const emergencyUrl = URL.createObjectURL(emergencyBlob)
+                  setState(s => ({ 
+                    ...s, 
+                    recording: false, 
+                    blobUrl: emergencyUrl,
+                    mimeType: 'audio/webm',
+                    volume: 0, 
+                    waveform: [],
+                    error: null
+                  }))
+                  return
+                }
+              } catch (emergencyError) {
+                console.error('[AudioRecorderV2] Emergency blob creation also failed:', emergencyError)
+              }
+            }
+            
             setState(s => ({ 
               ...s, 
               recording: false, 
+              blobUrl: null,
               volume: 0, 
               waveform: [],
               error: 'blob_creation_failed'
@@ -924,7 +1002,7 @@ export function useAudioRecorderV2() {
       case 'empty_recording':
         return '錄音檔案為空，請重新錄製'
       case 'recording_too_short':
-        return '錄音時間太短，請長按錄音按鈕至少1-2秒'
+        return '錄音數據太少，請稍微延長錄音時間'
       case 'invalid_audio_data':
         return '音頻數據無效，請重新錄製'
       case 'blob_creation_failed':

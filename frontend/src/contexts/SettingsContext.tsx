@@ -23,6 +23,7 @@ const defaultInterfaceSettings: InterfaceSettings = {
   voice_language: 'en-US',
   voice_rate: 0.95, // 手機上略提速
   voice_pitch: 1.1, // 提升音調以減少單調感
+  voice_volume: 1.0, // 預設最大音量
   preferred_voice_name: undefined,
   theme_mode: 'light',
   language: 'zh-TW',
