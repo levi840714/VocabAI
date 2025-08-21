@@ -205,7 +205,7 @@ class AIService:
             print(f"Deep learning error: {e}")
             return "An unexpected error occurred while contacting the AI service."
 
-    def parse_structured_response(self, raw_response: str, is_deep_learning: bool = False, is_sentence_analysis: bool = False, is_sentence_optimization: bool = False, is_translation: bool = False) -> dict:
+    def parse_structured_response(self, raw_response: str, is_deep_learning: bool = False, is_sentence_analysis: bool = False, is_sentence_optimization: bool = False, is_translation: bool = False, is_quick_translation: bool = False) -> dict:
         """Parse JSON response from AI service."""
         try:
             # First try to extract JSON from markdown code block
@@ -221,13 +221,13 @@ class AIService:
                 return json.loads(json_str)
             else:
                 # If no JSON found, return fallback structure
-                return self._create_fallback_structure(raw_response, is_deep_learning, is_sentence_analysis, is_sentence_optimization, is_translation)
+                return self._create_fallback_structure(raw_response, is_deep_learning, is_sentence_analysis, is_sentence_optimization, is_translation, is_quick_translation)
         except json.JSONDecodeError as e:
             print(f"JSON parsing error: {e}")
             # If JSON parsing fails, create fallback structure
-            return self._create_fallback_structure(raw_response, is_deep_learning, is_sentence_analysis, is_sentence_optimization, is_translation)
+            return self._create_fallback_structure(raw_response, is_deep_learning, is_sentence_analysis, is_sentence_optimization, is_translation, is_quick_translation)
 
-    def _create_fallback_structure(self, raw_response: str, is_deep_learning: bool = False, is_sentence_analysis: bool = False, is_sentence_optimization: bool = False, is_translation: bool = False) -> dict:
+    def _create_fallback_structure(self, raw_response: str, is_deep_learning: bool = False, is_sentence_analysis: bool = False, is_sentence_optimization: bool = False, is_translation: bool = False, is_quick_translation: bool = False) -> dict:
         """Create a fallback structured response when JSON parsing fails."""
         basic_structure = {
             "word": "unknown",
@@ -393,6 +393,19 @@ class AIService:
                     "common_mistakes": "分析失敗",
                     "memory_aids": "分析失敗"
                 }
+            }
+        elif is_quick_translation:
+            # Create quick translation fallback structure
+            basic_structure = {
+                "original_text": "unknown",
+                "detected_language": "無法識別",
+                "primary_translation": "翻譯失敗",
+                "alternative_translations": ["分析失敗"],
+                "key_words": [{
+                    "original": "未知",
+                    "translation": "分析失敗",
+                    "note": "分析失敗"
+                }]
             }
         
         return basic_structure
@@ -766,22 +779,34 @@ class AIService:
             print(f"Sentence analysis optimization error: {e}")
             return "An unexpected error occurred while analyzing the sentence."
 
-    async def get_translation(self, text: str) -> str:
-        """獲取翻譯和語言分析"""
+    async def get_quick_translation(self, text: str) -> str:
+        """獲取快速翻譯（簡潔版）"""
         if self.provider == "google":
             # 使用重試機制
             return await self._retry_api_call(
-                lambda: self._get_google_translation(text),
+                lambda: self._get_google_quick_translation(text),
+                max_retries=2,
+                base_delay=1.0
+            )
+        else:
+            raise ValueError(f"Unsupported AI provider: {self.provider}")
+
+    async def get_deep_translation(self, text: str) -> str:
+        """獲取深度翻譯和語言分析"""
+        if self.provider == "google":
+            # 使用重試機制
+            return await self._retry_api_call(
+                lambda: self._get_google_deep_translation(text),
                 max_retries=2,  # 翻譯較複雜，允許更多重試
                 base_delay=1.0
             )
         else:
             raise ValueError(f"Unsupported AI provider: {self.provider}")
 
-    async def _get_google_translation(self, text: str) -> str:
-        """使用 Google Gemini API 獲取翻譯和語言分析"""
+    async def _get_google_quick_translation(self, text: str) -> str:
+        """使用 Google Gemini API 獲取快速翻譯"""
         api_key = self.config['ai_services']['google']['api_key']
-        prompt = self.config['prompts']['translation'].format(text=text)
+        prompt = self.config['prompts']['quick_translation'].format(text=text)
 
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
         headers = {"Content-Type": "application/json"}
@@ -795,11 +820,44 @@ class AIService:
             if 'candidates' in result and result['candidates']:
                 if 'content' in result['candidates'][0] and 'parts' in result['candidates'][0]['content']:
                     raw_response = result['candidates'][0]['content']['parts'][0]['text'].strip()
-                    print(f"Got translation response length: {len(raw_response)}")
+                    print(f"Got quick translation response length: {len(raw_response)}")
                     return raw_response
+                else:
+                    print("No content in API response for quick translation")
+                    return "Sorry, I couldn't process the quick translation request. Please try again."
+            else:
+                print("No candidates in API response for quick translation")
+                return "Sorry, I couldn't process the quick translation request. Please try again."
+        except Exception as e:
+            print(f"Quick translation error: {e}")
+            return "An unexpected error occurred during quick translation."
+
+    async def _get_google_deep_translation(self, text: str) -> str:
+        """使用 Google Gemini API 獲取深度翻譯和語言分析"""
+        api_key = self.config['ai_services']['google']['api_key']
+        prompt = self.config['prompts']['deep_translation'].format(text=text)
+
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
+        headers = {"Content-Type": "application/json"}
+        data = {"contents": [{"parts": [{"text": prompt}]}]}
+
+        try:
+            response = await self.client.post(url, headers=headers, json=data)
+            response.raise_for_status()
             
-            return "Sorry, I couldn't translate the text."
+            result = response.json()            
+            if 'candidates' in result and result['candidates']:
+                if 'content' in result['candidates'][0] and 'parts' in result['candidates'][0]['content']:
+                    raw_response = result['candidates'][0]['content']['parts'][0]['text'].strip()
+                    print(f"Got deep translation response length: {len(raw_response)}")
+                    return raw_response
+                else:
+                    print("No content in API response for deep translation")
+                    return "Sorry, I couldn't process the deep translation request. Please try again."
+            else:
+                print("No candidates in API response for deep translation")
+                return "Sorry, I couldn't process the deep translation request. Please try again."
 
         except Exception as e:
-            print(f"Translation error: {e}")
-            return "An unexpected error occurred while translating the text."
+            print(f"Deep translation error: {e}")
+            return "An unexpected error occurred during deep translation."

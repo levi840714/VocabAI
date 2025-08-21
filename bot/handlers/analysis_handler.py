@@ -9,6 +9,48 @@ from bot.handlers.common import MAIN_MENU_BUTTON_TEXTS
 
 router = Router()
 
+def format_quick_translation_response(structured_data: dict) -> str:
+    """格式化快速翻譯回應為 Telegram 顯示格式"""
+    try:
+        original_text = structured_data.get('original_text', 'Unknown')
+        detected_language = structured_data.get('detected_language', '未知')
+        primary_translation = structured_data.get('primary_translation', '')
+        alternative_translations = structured_data.get('alternative_translations', [])
+        key_words = structured_data.get('key_words', [])
+        
+        formatted = f"🌐 <b>原文 ({detected_language})：</b>\n{original_text}\n\n"
+        
+        # 主要翻譯
+        if primary_translation:
+            formatted += f"✅ <b>翻譯：</b>\n{primary_translation}\n\n"
+        
+        # 替代翻譯
+        if alternative_translations:
+            formatted += "🔄 <b>其他翻譯：</b>\n"
+            for i, alt in enumerate(alternative_translations[:2], 1):
+                if alt.strip():  # 只顯示非空的翻譯
+                    formatted += f"{i}. {alt}\n"
+            formatted += "\n"
+        
+        # 關鍵詞彙
+        if key_words:
+            formatted += "📚 <b>重點詞彙：</b>\n"
+            for word in key_words[:3]:  # 限制顯示前3個
+                original = word.get('original', '')
+                translation = word.get('translation', '')
+                note = word.get('note', '')
+                
+                if original and translation:
+                    formatted += f"• <b>{original}</b> → {translation}\n"
+                    if note:
+                        formatted += f"  💡 {note}\n"
+        
+        return formatted.strip()
+        
+    except Exception as e:
+        logging.error(f"Error formatting quick translation response: {e}")
+        return f"⚠️ 格式化失敗，但成功翻譯了文本\n請稍後再試。"
+
 def format_sentence_optimization_response(structured_data: dict) -> str:
     """格式化句子優化分析回應為 Telegram 顯示格式"""
     try:
@@ -304,8 +346,8 @@ async def handle_sentence_analysis_optimization(message: Message, ai_service: AI
             await message.answer(error_msg)
 
 @router.message(Command(commands=["t"]))
-async def handle_translation(message: Message, ai_service: AIService, config: dict):
-    """處理 /t 命令 - 翻譯功能"""
+async def handle_quick_translation(message: Message, ai_service: AIService, config: dict):
+    """處理 /t 命令 - 快速翻譯"""
     # 提取命令後的文本
     command_args = message.text.split(' ', 1)
     if len(command_args) < 2 or not command_args[1].strip():
@@ -317,10 +359,64 @@ async def handle_translation(message: Message, ai_service: AIService, config: di
     processing_message = None
     try:
         # 發送 "正在翻譯..." 的提示消息
-        processing_message = await message.answer("🌐 正在翻譯並分析語言結構...")
+        processing_message = await message.answer("🌐 正在快速翻譯...")
         
-        # 獲取 AI 翻譯結果
-        raw_response = await ai_service.get_translation(text_to_translate)
+        # 獲取 AI 快速翻譯結果
+        raw_response = await ai_service.get_quick_translation(text_to_translate)
+        
+        # 檢查回應是否表示失敗
+        if raw_response.startswith("Sorry, I couldn't process"):
+            await processing_message.edit_text("⚠️ AI 翻譯服務暫時不可用，請稍後再試。系統已自動重試但仍未成功。")
+            return
+        
+        # 解析結構化回應
+        structured_data = ai_service.parse_structured_response(raw_response, is_quick_translation=True)
+        
+        # 格式化回應
+        formatted_response = format_quick_translation_response(structured_data)
+        
+        # 編輯原始消息
+        await processing_message.edit_text(
+            formatted_response,
+            parse_mode='HTML'
+        )
+        
+    except asyncio.TimeoutError:
+        if processing_message:
+            await processing_message.edit_text("⏰ 翻譯超時，請稍後再試。")
+        else:
+            await message.answer("⏰ 翻譯超時，請稍後再試。")
+    except Exception as e:
+        logging.error(f"Error in quick translation: {e}")
+        error_msg = "⚠️ 翻譯過程中發生錯誤，請稍後再試。"
+        if "timeout" in str(e).lower():
+            error_msg = "⏰ 請求超時，AI 服務可能繁忙，請稍後再試。"
+        elif "network" in str(e).lower() or "connection" in str(e).lower():
+            error_msg = "🌐 網絡連接問題，請檢查網絡後再試。"
+        
+        if processing_message:
+            await processing_message.edit_text(error_msg)
+        else:
+            await message.answer(error_msg)
+
+@router.message(Command(commands=["q"]))
+async def handle_deep_translation(message: Message, ai_service: AIService, config: dict):
+    """處理 /q 命令 - 深度翻譯分析"""
+    # 提取命令後的文本
+    command_args = message.text.split(' ', 1)
+    if len(command_args) < 2 or not command_args[1].strip():
+        await message.answer("請在 /q 命令後輸入要深度分析的文字。\n\n例如：\n/q Hello world\n/q 你好世界")
+        return
+    
+    text_to_translate = command_args[1].strip()
+    
+    processing_message = None
+    try:
+        # 發送 "正在翻譯..." 的提示消息
+        processing_message = await message.answer("🌐 正在深度分析和翻譯...")
+        
+        # 獲取 AI 深度翻譯結果
+        raw_response = await ai_service.get_deep_translation(text_to_translate)
         
         # 檢查回應是否表示失敗
         if raw_response.startswith("Sorry, I couldn't process"):
@@ -341,12 +437,12 @@ async def handle_translation(message: Message, ai_service: AIService, config: di
         
     except asyncio.TimeoutError:
         if processing_message:
-            await processing_message.edit_text("⏰ 翻譯超時，請稍後再試。")
+            await processing_message.edit_text("⏰ 翻譯分析超時，請稍後再試。")
         else:
-            await message.answer("⏰ 翻譯超時，請稍後再試。")
+            await message.answer("⏰ 翻譯分析超時，請稍後再試。")
     except Exception as e:
-        logging.error(f"Error in translation: {e}")
-        error_msg = "⚠️ 翻譯過程中發生錯誤，請稍後再試。"
+        logging.error(f"Error in deep translation: {e}")
+        error_msg = "⚠️ 翻譯分析過程中發生錯誤，請稍後再試。"
         if "timeout" in str(e).lower():
             error_msg = "⏰ 請求超時，AI 服務可能繁忙，請稍後再試。"
         elif "network" in str(e).lower() or "connection" in str(e).lower():

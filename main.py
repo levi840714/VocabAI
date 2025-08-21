@@ -15,7 +15,7 @@ from google.cloud import storage
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, BotCommand
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 
 
@@ -291,6 +291,16 @@ async def setup_bot_and_dispatcher():
     # Setup scheduler
     from bot.utils.scheduler import setup_scheduler
     setup_scheduler(bot, config['database']['db_path'])
+    
+    # 設定指令菜單（自動完成功能）
+    commands = [
+        BotCommand(command="start", description="開始使用 MemWhiz"),
+        BotCommand(command="s", description="英語句子分析和優化"),
+        BotCommand(command="t", description="快速翻譯"),
+        BotCommand(command="q", description="深度翻譯和語言分析"),
+    ]
+    await bot.set_my_commands(commands)
+    logging.info("指令菜單設定完成")
     
     return bot, dp, config
 
