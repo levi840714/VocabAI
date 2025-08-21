@@ -12,9 +12,12 @@ import { useSpeechRecognitionV2 } from '@/hooks/useSpeechRecognitionV2'
 import { useAudioRecorderV2 } from '@/hooks/useAudioRecorderV2'
 import { stopSpeaking } from '@/lib/voiceService'
 import { useDeviceDetection } from '@/hooks/useDeviceDetection'
+import { useClickableText } from '@/hooks/useClickableText'
+import { useClickableTextContext } from '@/contexts/ClickableTextContext'
 
 interface StudyModeProps {
   onBack?: () => void;
+  onAIAnalysisClick?: (word: string) => void;
 }
 
 // Helper component: word-by-word diff highlight
@@ -111,9 +114,11 @@ function WordDiffHighlight({ target, recognized }: { target: string, recognized:
   )
 }
 
-export default function StudyMode({ onBack }: StudyModeProps) {
+export default function StudyMode({ onBack, onAIAnalysisClick }: StudyModeProps) {
   const { toggleSpeakWord, isPlaying } = useVoice()
   const { toast } = useToast()
+  const { makeTextClickable } = useClickableText()
+  const { setCallbacks } = useClickableTextContext()
   
   const [currentWord, setCurrentWord] = useState<WordDetail | null>(null)
   const [isFlipped, setIsFlipped] = useState(false)
@@ -144,6 +149,33 @@ export default function StudyMode({ onBack }: StudyModeProps) {
     loadStats()
   }, [])
 
+  // 設置智能點擊回調
+  useEffect(() => {
+    console.log('🔄 智能複習：設置智能點擊回調');
+    setCallbacks({
+      onWordAdded: (addedWord) => {
+        console.log('✅ 智能複習：單字已添加', addedWord);
+        // 可以在這裡添加刷新邏輯或其他處理
+        toast({
+          title: "單字已收藏",
+          description: `「${addedWord}」已加入您的單字庫`,
+        });
+      },
+      onDeepAnalysis: (word) => {
+        console.log('🧠 智能複習：深度解析', word);
+        if (onAIAnalysisClick) {
+          onAIAnalysisClick(word);
+        }
+      },
+      onAIAnalysisClick: (word) => {
+        console.log('🔍 智能複習：AI 解析點擊', word);
+        if (onAIAnalysisClick) {
+          onAIAnalysisClick(word);
+        }
+      }
+    });
+  }, [setCallbacks, onAIAnalysisClick, toast]);
+
   const loadStats = async () => {
     try {
       const statsData = await memWhizAPI.getStats()
@@ -154,6 +186,7 @@ export default function StudyMode({ onBack }: StudyModeProps) {
   }
 
   const loadNextReview = async () => {
+    // 開始載入新單字
     setIsLoading(true)
     setLearningPhase('test') // 新單字從第一階段開始
     
@@ -181,6 +214,7 @@ export default function StudyMode({ onBack }: StudyModeProps) {
           title: "複習完成",
           description: "恭喜！您已完成今日的所有複習"
         })
+        setCurrentWord(null)
       } else {
         setCurrentWord(result)
       }
@@ -193,36 +227,44 @@ export default function StudyMode({ onBack }: StudyModeProps) {
       })
     } finally {
       setIsLoading(false)
+      setIsTransitioning(false) // 確保載入完成後清除轉場狀態
     }
   }
 
   const handleSubmitReview = async (response: 'easy' | 'hard' | 'again' | 'mastered') => {
     if (!currentWord) return
     
-    // 第一階段：自我測試，先進入第二階段再提交
-    if (learningPhase === 'test') {
-      setLearningPhase('review')
+    // 第二階段：在查看解釋後提交評分
+    if (learningPhase === 'review') {
+      // 立即顯示視覺反饋
+      setIsTransitioning(true)
+      
+      // 顯示評分反饋
+      toast({
+        title: response === 'mastered' ? '已精通' : 
+               response === 'easy' ? '回答正確' : 
+               response === 'hard' ? '需要加強' : '重新練習',
+        description: response === 'mastered' ? '這個單字已完全掌握！' :
+                     response === 'easy' ? '下次複習間隔將延長' :
+                     response === 'hard' ? '下次複習時間將縮短' :
+                     '請多練習直到熟練',
+        variant: response === 'again' ? 'destructive' : 'default'
+      })
       
       try {
-        await memWhizAPI.submitReview(currentWord.id, response)
+        // 並行執行 API 請求和統計更新
+        const [, ,] = await Promise.all([
+          memWhizAPI.submitReview(currentWord.id, response),
+          new Promise(resolve => {
+            setReviewCount(prev => prev + 1)
+            loadStats()
+            resolve(true)
+          }),
+          new Promise(resolve => setTimeout(resolve, 600)) // 保證最少 0.6 秒動畫時間
+        ])
         
-        toast({
-          title: response === 'mastered' ? '已精通' : 
-                 response === 'easy' ? '回答正確' : 
-                 response === 'hard' ? '需要加強' : '重新練習',
-          description: response === 'mastered' ? '這個單字已完全掌握！' :
-                       response === 'easy' ? '下次複習間隔將延長' :
-                       response === 'hard' ? '下次複習時間將縮短' :
-                       '請多練習直到熟練',
-          variant: response === 'again' ? 'destructive' : 'default'
-        })
-
-        // 延遲跳轉到下一個單字，讓用戶看到解釋
-        setTimeout(() => {
-          setReviewCount(prev => prev + 1)
-          loadStats()
-          loadNextReview()
-        }, 3000) // 3秒後自動進入下一個單字
+        // 載入下一個單字
+        loadNextReview()
         
       } catch (error) {
         console.error('提交複習失敗:', error)
@@ -231,8 +273,7 @@ export default function StudyMode({ onBack }: StudyModeProps) {
           description: "請檢查網路連線後重試",
           variant: "destructive"
         })
-      } finally {
-        setIsTransitioning(false)
+        setIsTransitioning(false) // 失敗時恢復狀態
       }
     }
   }
@@ -439,53 +480,48 @@ export default function StudyMode({ onBack }: StudyModeProps) {
   }
 
   return (
-    <div className="max-w-2xl mx-auto p-2 space-y-3">
-      {/* 統計資訊 - 保持不變 */}
-      <div className="flex flex-wrap justify-center gap-1.5">
-        <span className="bg-sky-50 dark:bg-sky-900/30 px-2 py-1 rounded-full text-xs text-sky-800 dark:text-sky-200">已復習: {reviewCount}</span>
-        <span className="bg-orange-50 dark:bg-orange-900/30 px-2 py-1 rounded-full text-xs text-orange-800 dark:text-orange-200">待復習: {stats.due_today}</span>
-        <span className="bg-purple-50 dark:bg-purple-900/30 px-2 py-1 rounded-full text-xs text-purple-800 dark:text-purple-200">總詞庫: {stats.total_words}</span>
-        <span className={`${getDifficultyColor(currentWord.difficulty)} px-2 py-1 rounded-full text-xs`}>
-          難度: {getDifficultyText(currentWord.difficulty)}
-        </span>
-      </div>
-
-      {/* 進度時間 */}
-      <div className="flex items-center justify-between bg-sky-50 dark:bg-sky-900/20 rounded-lg px-3 py-2 text-xs">
-        <span className="text-sky-800 dark:text-sky-200">進度: {Math.min((reviewCount / Math.max(stats.due_today, 1)) * 100, 100).toFixed(0)}%</span>
-        <span className="text-sky-600 dark:text-sky-300">間隔: {currentWord.interval} 天</span>
+    <div className="max-w-2xl mx-auto p-2 space-y-4">
+      {/* 統計資訊 - 優化緊湊佈局 */}
+      <div className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-lg p-3">
+        <div className="flex flex-wrap justify-center gap-2 mb-2">
+          <span className="bg-sky-100 dark:bg-sky-900/40 px-2.5 py-1 rounded-full text-xs font-medium text-sky-800 dark:text-sky-200">已復習 {reviewCount}</span>
+          <span className="bg-orange-100 dark:bg-orange-900/40 px-2.5 py-1 rounded-full text-xs font-medium text-orange-800 dark:text-orange-200">待復習 {stats.due_today}</span>
+          <span className="bg-purple-100 dark:bg-purple-900/40 px-2.5 py-1 rounded-full text-xs font-medium text-purple-800 dark:text-purple-200">總詞庫 {stats.total_words}</span>
+          <span className={`${getDifficultyColor(currentWord.difficulty)} px-2.5 py-1 rounded-full text-xs font-medium`}>
+            {getDifficultyText(currentWord.difficulty)}
+          </span>
+        </div>
+        
+        {/* 進度條 */}
+        <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
+          <span>進度 {Math.min((reviewCount / Math.max(stats.due_today, 1)) * 100, 100).toFixed(0)}%</span>
+          <span>間隔 {currentWord.interval} 天</span>
+        </div>
       </div>
 
       {/* 🎯 兩階段學習界面 */}
       <motion.div
         key={`${currentWord.word}-${learningPhase}`}
-        initial={{ opacity: 0, scale: 0.95 }}
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ 
-          opacity: isTransitioning ? 0.7 : 1,
-          scale: isTransitioning ? 0.95 : 1 
+          opacity: isTransitioning ? 0 : 1,
+          scale: isTransitioning ? 0.9 : 1,
+          y: isTransitioning ? -20 : 0
         }}
-        transition={{ duration: 0.3 }}
+        exit={{ opacity: 0, scale: 0.9, y: -20 }}
+        transition={{ 
+          duration: 0.4,
+          ease: "easeInOut",
+          opacity: { duration: isTransitioning ? 0.2 : 0.4 },
+          scale: { duration: 0.4 },
+          y: { duration: 0.4 }
+        }}
         className="space-y-3"
       >
         
         {learningPhase === 'test' ? (
           // 🔸 第一階段：自我測試
           <>
-            {/* 返回按鈕 */}
-            <div className="flex justify-start">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-1 h-6 px-2 text-xs"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onBack?.()
-                }}
-              >
-                <RotateCcwSquare className="h-3 w-3 mr-1" />
-                返回
-              </Button>
-            </div>
 
             {/* 單字展示區 - 大而簡潔 */}
             <Card className="bg-gradient-to-br from-white to-slate-50/30 dark:from-slate-800 dark:to-slate-800/70 shadow-lg border border-slate-200/60 dark:border-slate-700/60">
@@ -516,57 +552,56 @@ export default function StudyMode({ onBack }: StudyModeProps) {
               </CardContent>
             </Card>
 
-            {/* 口說練習區域 */}
+            {/* 口說練習區域 - 優化緊湊佈局 */}
             <Card className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-              <CardContent className="py-6">
-                <div className="space-y-4">
-                  {/* 練習句子顯示 */}
-                  <div className="bg-slate-50 dark:bg-slate-700/50 p-4 rounded-lg">
-                    <h4 className="font-medium text-slate-900 dark:text-white mb-2 text-sm">口說練習句子:</h4>
-                    <div className="flex items-center gap-3">
-                      <p className="text-slate-700 dark:text-slate-300 flex-1 text-base leading-relaxed">
-                        {practiceSentence}
-                      </p>
+              <CardContent className="py-4">
+                <div className="space-y-3">
+                  {/* 練習句子顯示 - 更緊湊 */}
+                  <div className="bg-slate-50 dark:bg-slate-700/50 p-3 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <h4 className="font-medium text-slate-900 dark:text-white text-sm">口說練習</h4>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => handlePronunciation(practiceSentence)}
                         disabled={isPlaying}
-                        className="shrink-0 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                        className="p-1 h-6 w-6 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
                       >
-                        <Volume2 className="h-4 w-4" />
+                        <Volume2 className="h-3 w-3" />
                       </Button>
                     </div>
+                    <p className="text-slate-700 dark:text-slate-300 text-sm leading-relaxed">
+                      {practiceSentence}
+                    </p>
                   </div>
 
-                  {/* 錄音和語音辨識界面 */}
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-center">
-                      <Button
-                        size="lg"
-                        onClick={handleStartRecording}
-                        disabled={isRecordingStarting || speech.listening || recorder.recording}
-                        className={`relative ${
-                          speech.listening || recorder.recording
-                            ? 'bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700'
-                            : 'bg-sky-500 hover:bg-sky-600 dark:bg-sky-600 dark:hover:bg-sky-700'
-                        } text-white px-8 py-3 text-base font-medium`}
-                      >
-                        {isRecordingStarting ? (
-                          '準備中...'
-                        ) : speech.listening || recorder.recording ? (
-                          <div className="flex items-center gap-2">
-                            <Mic className="h-5 w-5 animate-pulse" />
-                            錄音中...
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2">
-                            <Mic className="h-5 w-5" />
-                            開始錄音
-                          </div>
-                        )}
-                      </Button>
-                    </div>
+                  {/* 錄音按鈕 - 更緊湊的設計 */}
+                  <div className="flex items-center justify-center">
+                    <Button
+                      size="default"
+                      onClick={handleStartRecording}
+                      disabled={isRecordingStarting || speech.listening || recorder.recording}
+                      className={`relative ${
+                        speech.listening || recorder.recording
+                          ? 'bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700'
+                          : 'bg-sky-500 hover:bg-sky-600 dark:bg-sky-600 dark:hover:bg-sky-700'
+                      } text-white px-6 py-2 text-sm font-medium`}
+                    >
+                      {isRecordingStarting ? (
+                        '準備中...'
+                      ) : speech.listening || recorder.recording ? (
+                        <div className="flex items-center gap-2">
+                          <Mic className="h-4 w-4 animate-pulse" />
+                          錄音中
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <Mic className="h-4 w-4" />
+                          開始錄音
+                        </div>
+                      )}
+                    </Button>
+                  </div>
 
                     {/* iPhone Mini App 音量提示 */}
                     {typeof window !== 'undefined' && 
@@ -577,108 +612,89 @@ export default function StudyMode({ onBack }: StudyModeProps) {
                       </div>
                     )}
 
-                    {/* 語音辨識結果 */}
-                    {speech.transcript && (
-                      <div className="bg-white dark:bg-slate-800 p-4 rounded-lg border border-slate-200 dark:border-slate-600">
-                        <h4 className="font-medium text-slate-900 dark:text-white mb-2 text-sm">您說的內容:</h4>
-                        <p className="text-slate-700 dark:text-slate-300 mb-3 text-base">
-                          {speech.transcript}
-                        </p>
-                        
+                  {/* 語音辨識結果 - 優化緊湊佈局 */}
+                  {speech.transcript && (
+                    <div className="bg-emerald-50 dark:bg-emerald-900/20 p-3 rounded-lg border border-emerald-200 dark:border-emerald-700">
+                      <div className="flex items-center gap-2 mb-2">
+                        <h4 className="font-medium text-emerald-800 dark:text-emerald-200 text-sm">辨識結果</h4>
                         {practiceScore && (
-                          <div className="space-y-3">
-                            <div className="bg-slate-50 dark:bg-slate-700/50 p-3 rounded">
-                              <h4 className="font-medium text-slate-900 dark:text-white mb-2 text-sm">發音對比:</h4>
-                              <div className="space-y-2 text-sm">
-                                <div>
-                                  <span className="text-slate-600 dark:text-slate-400 text-xs">目標：</span>
-                                  <div className="mt-1">{practiceSentence}</div>
-                                </div>
-                                <div>
-                                  <span className="text-slate-600 dark:text-slate-400 text-xs">您的發音：</span>
-                                  <div className="mt-1">
-                                    <WordDiffHighlight target={practiceSentence} recognized={speech.transcript} />
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                            
-                            <div className="flex items-center gap-3">
-                              <div className="flex-1 bg-slate-200 dark:bg-slate-700 rounded-full h-2">
-                                <div 
-                                  className={`h-2 rounded-full transition-all duration-500 ${
-                                    practiceScore.percent >= 85 ? 'bg-green-500' :
-                                    practiceScore.percent >= 65 ? 'bg-yellow-500' :
-                                    practiceScore.percent >= 40 ? 'bg-orange-500' : 'bg-red-500'
-                                  }`}
-                                  style={{ width: `${practiceScore.percent}%` }}
-                                />
-                              </div>
-                              <span className="text-sm font-medium text-slate-700 dark:text-slate-300 min-w-12">
-                                {practiceScore.percent}%
-                              </span>
-                            </div>
-                            
-                            <p className={`text-sm text-center ${
-                              practiceScore.percent >= 85 ? 'text-green-600 dark:text-green-400' :
-                              practiceScore.percent >= 65 ? 'text-yellow-600 dark:text-yellow-400' :
-                              practiceScore.percent >= 40 ? 'text-orange-600 dark:text-orange-400' :
-                              'text-red-600 dark:text-red-400'
-                            }`}>
-                              {practiceScore.detail}
-                            </p>
-                          </div>
+                          <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                            practiceScore.percent >= 85 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' :
+                            practiceScore.percent >= 65 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300' :
+                            practiceScore.percent >= 40 ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' :
+                            'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+                          }`}>
+                            {practiceScore.percent}%
+                          </span>
                         )}
                       </div>
-                    )}
-
-                    {/* 錄音重播 */}
-                    {recorder.blobUrl && (
-                      <div className="bg-slate-50 dark:bg-slate-700/50 p-3 rounded-lg">
-                        <h4 className="font-medium text-slate-900 dark:text-white mb-2 text-sm">您的錄音:</h4>
-                        {/* 調試信息 */}
-                        <div className="text-[10px] text-slate-400 mb-2">
-                          BlobUrl: {recorder.blobUrl ? '✓' : '✗'}, Recording: {recorder.recording ? '✓' : '✗'}, Error: {recorder.error || 'None'}
-                        </div>
-                        {/* iPhone Mini App 音量提示 */}
-                        {typeof window !== 'undefined' && 
-                         (window as any).Telegram?.WebApp && 
-                         /iPad|iPhone|iPod/.test(navigator.userAgent) && (
-                          <div className="text-[10px] text-amber-600 dark:text-amber-400 mb-2">
-                            📱 聲音太小？請調高手機音量
+                      
+                      <div className="text-sm text-emerald-700 dark:text-emerald-300 mb-2">
+                        {speech.transcript}
+                      </div>
+                      
+                      {practiceScore && (
+                        <div className="space-y-2">
+                          <div className="text-xs">
+                            <WordDiffHighlight target={practiceSentence} recognized={speech.transcript} />
                           </div>
-                        )}
-                        <div className="flex items-center gap-2">
+                          <p className={`text-xs text-center ${
+                            practiceScore.percent >= 85 ? 'text-green-600 dark:text-green-400' :
+                            practiceScore.percent >= 65 ? 'text-yellow-600 dark:text-yellow-400' :
+                            practiceScore.percent >= 40 ? 'text-orange-600 dark:text-orange-400' :
+                            'text-red-600 dark:text-red-400'
+                          }`}>
+                            {practiceScore.detail}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* 錄音重播 - 簡化佈局 */}
+                  {recorder.blobUrl && (
+                    <div className="bg-slate-50 dark:bg-slate-700/50 p-2 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-slate-900 dark:text-white text-xs">錄音回放</span>
+                        <div className="flex items-center gap-1">
                           <Button
                             size="sm"
                             variant="outline"
                             onClick={recorder.play}
                             disabled={recorder.playing}
-                            className="text-xs"
+                            className="text-xs h-7 px-2"
                           >
-                            {recorder.playing ? '播放中...' : '播放錄音'}
+                            {recorder.playing ? '播放中' : '播放'}
                           </Button>
                           <Button
                             size="sm"
                             variant="ghost"
                             onClick={recorder.clear}
-                            className="text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                            className="text-xs h-7 px-2 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
                           >
                             清除
                           </Button>
                         </div>
                       </div>
-                    )}
-                  </div>
+                      {/* iPhone Mini App 音量提示 */}
+                      {typeof window !== 'undefined' && 
+                       (window as any).Telegram?.WebApp && 
+                       /iPad|iPhone|iPod/.test(navigator.userAgent) && (
+                        <div className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">
+                          📱 聲音太小？請調高手機音量
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
 
             {/* 查看答案按鈕 */}
-            <div className="flex justify-center pt-2">
+            <div className="flex justify-center pt-1">
               <Button 
                 onClick={() => setLearningPhase('review')}
-                className="bg-emerald-500 hover:bg-emerald-600 dark:bg-emerald-600 dark:hover:bg-emerald-700 text-white px-8 py-3 text-base"
+                className="bg-emerald-500 hover:bg-emerald-600 dark:bg-emerald-600 dark:hover:bg-emerald-700 text-white px-6 py-2.5 text-sm font-medium"
               >
                 查看解釋
               </Button>
@@ -687,126 +703,140 @@ export default function StudyMode({ onBack }: StudyModeProps) {
         ) : (
           // 🔸 第二階段：查看解釋 + 評分
           <>
-            {/* 返回按鈕 */}
-            <div className="flex justify-between items-center">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-1 h-6 px-2 text-xs"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onBack?.()
-                }}
-              >
-                <RotateCcwSquare className="h-3 w-3 mr-1" />
-                返回
-              </Button>
-              
-              {/* 手動下一題按鈕 */}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleGoToNextWord}
-                disabled={isTransitioning}
-                className="text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-1 h-6 px-2 text-xs"
-              >
-                下一個 →
-              </Button>
-            </div>
 
-            {/* 單字解釋卡片 */}
+            {/* 單字解釋卡片 - 優化標題區域 */}
             <Card className="bg-gradient-to-br from-white to-slate-50/30 dark:from-slate-800 dark:to-slate-800/70 shadow-lg border border-slate-200/60 dark:border-slate-700/60">
-              <CardHeader className="pb-3">
+              <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-3xl font-bold text-slate-900 dark:text-white mb-1">
-                      {currentWord.word}
-                    </CardTitle>
-                  </div>
+                  <CardTitle className="text-2xl font-bold text-slate-900 dark:text-white">
+                    {currentWord.word}
+                  </CardTitle>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => handlePronunciation(currentWord.word)}
                     disabled={isPlaying}
-                    className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                    className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1"
                   >
-                    <Volume2 className="h-5 w-5" />
+                    <Volume2 className="h-4 w-4" />
                   </Button>
                 </div>
               </CardHeader>
 
-              <CardContent className="pt-5">
+              <CardContent className="pt-3">
                 {(() => {
                   const structuredData = getStructuredData(currentWord)
                   if (structuredData) {
                     return (
-                      <div className="space-y-5 text-base">
+                      <div className="space-y-3 text-sm">
                         {/* 音標 */}
                         {structuredData.pronunciations && structuredData.pronunciations.length > 0 && (
                           <div className="text-center">
-                            <span className="text-3xl text-slate-600 dark:text-slate-300 font-mono tracking-wide">
+                            <span className="text-xl text-slate-600 dark:text-slate-300 font-mono tracking-wide">
                               {structuredData.pronunciations[0]}
                             </span>
                           </div>
                         )}
 
-                        {/* 定義 */}
+                        {/* 定義 - 緊湊佈局 */}
                         {structuredData.definitions && structuredData.definitions.length > 0 && (
                           <div>
-                            <h4 className="font-bold text-slate-900 dark:text-white mb-4 text-lg">定義：</h4>
-                            <ul className="space-y-4">
-                              {structuredData.definitions.slice(0, 3).map((def, index) => (
-                                <li key={index} className="text-slate-800 dark:text-slate-200">
-                                  <span className="font-semibold text-emerald-600 dark:text-emerald-400 text-base">
+                            <h4 className="font-bold text-slate-900 dark:text-white mb-2 text-base">定義</h4>
+                            <div className="space-y-2">
+                              {structuredData.definitions.slice(0, 2).map((def, index) => (
+                                <div key={index} className="bg-slate-50 dark:bg-slate-700/50 p-3 rounded-lg">
+                                  <span className="font-semibold text-emerald-600 dark:text-emerald-400 text-sm">
                                     {def.part_of_speech}
                                   </span>
-                                  <ul className="mt-3 ml-4 space-y-2">
+                                  <div className="mt-2 space-y-1">
                                     {def.meanings.slice(0, 2).map((meaning, mIndex) => (
-                                      <li key={mIndex} className="text-base text-slate-700 dark:text-slate-300 leading-relaxed">
-                                        • {meaning.definition}
-                                      </li>
+                                      <div key={mIndex} className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed pl-2">
+                                        {makeTextClickable(
+                                          <span>• {meaning.definition}</span>
+                                        )}
+                                      </div>
                                     ))}
-                                  </ul>
-                                </li>
+                                  </div>
+                                </div>
                               ))}
-                            </ul>
+                            </div>
                           </div>
                         )}
 
-                        {/* 例句 */}
+                        {/* 例句 - 緊湊佈局 */}
                         {structuredData.examples && structuredData.examples.length > 0 && (
                           <div>
-                            <h4 className="font-bold text-slate-900 dark:text-white mb-4 text-lg">例句：</h4>
-                            <ul className="space-y-3">
+                            <h4 className="font-bold text-slate-900 dark:text-white mb-2 text-base">例句</h4>
+                            <div className="space-y-2">
                               {structuredData.examples.slice(0, 2).map((example, index) => (
-                                <li key={index} className="bg-slate-50 dark:bg-slate-700/50 p-4 rounded-lg">
-                                  <div className="flex items-start gap-3">
-                                    <span className="text-base text-slate-700 dark:text-slate-300 leading-relaxed flex-1">
-                                      {example}
-                                    </span>
+                                <div key={index} className="bg-slate-50 dark:bg-slate-700/50 p-2 rounded-lg">
+                                  <div className="flex items-start gap-2">
+                                    <div className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed flex-1">
+                                      {makeTextClickable(
+                                        <span>{example}</span>
+                                      )}
+                                    </div>
                                     <Button
                                       variant="ghost"
                                       size="sm"
                                       onClick={() => handlePronunciation(example)}
                                       disabled={isPlaying}
-                                      className="shrink-0 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 p-1"
+                                      className="shrink-0 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 p-1 h-6 w-6"
                                     >
-                                      <Volume2 className="h-4 w-4" />
+                                      <Volume2 className="h-3 w-3" />
                                     </Button>
                                   </div>
-                                </li>
+                                </div>
                               ))}
-                            </ul>
+                            </div>
                           </div>
                         )}
 
-                        {/* 記憶提示 */}
+                        {/* 同義詞 - 緊湊佈局 */}
+                        {structuredData.synonyms && structuredData.synonyms.length > 0 && (
+                          <div>
+                            <h4 className="font-bold text-slate-900 dark:text-white mb-2 text-base">同義詞</h4>
+                            <div className="flex flex-wrap gap-2">
+                              {structuredData.synonyms.slice(0, 6).map((synonym, index) => (
+                                <div key={index} className="bg-emerald-50 dark:bg-emerald-900/30 px-3 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-700">
+                                  {makeTextClickable(
+                                    <span className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+                                      {synonym}
+                                    </span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 反義詞 - 緊湊佈局 */}
+                        {structuredData.antonyms && structuredData.antonyms.length > 0 && (
+                          <div>
+                            <h4 className="font-bold text-slate-900 dark:text-white mb-2 text-base">反義詞</h4>
+                            <div className="flex flex-wrap gap-2">
+                              {structuredData.antonyms.slice(0, 6).map((antonym, index) => (
+                                <div key={index} className="bg-rose-50 dark:bg-rose-900/30 px-3 py-1.5 rounded-lg border border-rose-200 dark:border-rose-700">
+                                  {makeTextClickable(
+                                    <span className="text-sm font-medium text-rose-700 dark:text-rose-300">
+                                      {antonym}
+                                    </span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 記憶提示 - 緊湊佈局 */}
                         {structuredData.memory_tips && (
-                          <div className="bg-blue-50 dark:bg-blue-900/30 p-4 rounded-lg">
-                            <h4 className="font-bold text-blue-800 dark:text-blue-200 mb-2 text-lg">💡 記憶小貼士</h4>
-                            <p className="text-blue-700 dark:text-blue-300 text-base leading-relaxed">
-                              {structuredData.memory_tips}
-                            </p>
+                          <div className="bg-blue-50 dark:bg-blue-900/30 p-3 rounded-lg">
+                            <h4 className="font-bold text-blue-800 dark:text-blue-200 mb-1 text-sm">💡 記憶小貼士</h4>
+                            <div className="text-blue-700 dark:text-blue-300 text-sm leading-relaxed">
+                              {makeTextClickable(
+                                <span>{structuredData.memory_tips}</span>
+                              )}
+                            </div>
                           </div>
                         )}
                       </div>
@@ -822,23 +852,23 @@ export default function StudyMode({ onBack }: StudyModeProps) {
               </CardContent>
             </Card>
 
-            {/* 下一個單字按鈕 */}
+            {/* 複習評分區域 - 優化緊湊佈局 */}
             <Card className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-              <CardContent className="py-4">
-                <div className="text-center space-y-4">
-                  <h3 className="text-lg font-medium text-slate-900 dark:text-white">複習結果評分</h3>
-                  <p className="text-slate-600 dark:text-slate-300 text-sm">
-                    根據您的掌握程度選擇合適的選項，系統將調整下次複習時間
+              <CardContent className="py-3">
+                <div className="text-center space-y-3">
+                  <h3 className="text-base font-medium text-slate-900 dark:text-white">複習結果評分</h3>
+                  <p className="text-slate-600 dark:text-slate-300 text-xs">
+                    根據掌握程度選擇，系統將調整複習間隔
                   </p>
                   
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-2">
                     <Button
                       onClick={() => handleSubmitReview('mastered')}
                       disabled={isTransitioning}
-                      className="bg-green-500 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-700 text-white py-3"
+                      className="bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 dark:from-emerald-600 dark:to-green-600 dark:hover:from-emerald-700 dark:hover:to-green-700 text-white py-2.5 transform transition-all duration-200 hover:scale-105 active:scale-95 shadow-md hover:shadow-lg"
                     >
                       <div className="text-center">
-                        <div className="font-medium">完全記住</div>
+                        <div className="font-medium text-sm">完全記住</div>
                         <div className="text-xs opacity-90">移除複習</div>
                       </div>
                     </Button>
@@ -846,10 +876,10 @@ export default function StudyMode({ onBack }: StudyModeProps) {
                     <Button
                       onClick={() => handleSubmitReview('easy')}
                       disabled={isTransitioning}
-                      className="bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white py-3"
+                      className="bg-gradient-to-r from-sky-500 to-blue-500 hover:from-sky-600 hover:to-blue-600 dark:from-sky-600 dark:to-blue-600 dark:hover:from-sky-700 dark:hover:to-blue-700 text-white py-2.5 transform transition-all duration-200 hover:scale-105 active:scale-95 shadow-md hover:shadow-lg"
                     >
                       <div className="text-center">
-                        <div className="font-medium">記住了</div>
+                        <div className="font-medium text-sm">記住了</div>
                         <div className="text-xs opacity-90">延長間隔</div>
                       </div>
                     </Button>
@@ -857,24 +887,22 @@ export default function StudyMode({ onBack }: StudyModeProps) {
                     <Button
                       onClick={() => handleSubmitReview('hard')}
                       disabled={isTransitioning}
-                      variant="outline"
-                      className="border-orange-300 text-orange-700 hover:bg-orange-50 dark:border-orange-600 dark:text-orange-300 dark:hover:bg-orange-900/30 py-3"
+                      className="bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 dark:from-amber-500 dark:to-orange-600 dark:hover:from-amber-600 dark:hover:to-orange-700 text-white py-2.5 transform transition-all duration-200 hover:scale-105 active:scale-95 shadow-md hover:shadow-lg"
                     >
                       <div className="text-center">
-                        <div className="font-medium">有點難</div>
-                        <div className="text-xs opacity-70">縮短間隔</div>
+                        <div className="font-medium text-sm">有點難</div>
+                        <div className="text-xs opacity-90">縮短間隔</div>
                       </div>
                     </Button>
                     
                     <Button
                       onClick={() => handleSubmitReview('again')}
                       disabled={isTransitioning}
-                      variant="outline"
-                      className="border-red-300 text-red-700 hover:bg-red-50 dark:border-red-600 dark:text-red-300 dark:hover:bg-red-900/30 py-3"
+                      className="bg-gradient-to-r from-rose-400 to-red-500 hover:from-rose-500 hover:to-red-600 dark:from-rose-500 dark:to-red-600 dark:hover:from-rose-600 dark:hover:to-red-700 text-white py-2.5 transform transition-all duration-200 hover:scale-105 active:scale-95 shadow-md hover:shadow-lg"
                     >
                       <div className="text-center">
-                        <div className="font-medium">忘記了</div>
-                        <div className="text-xs opacity-70">重新學習</div>
+                        <div className="font-medium text-sm">忘記了</div>
+                        <div className="text-xs opacity-90">重新學習</div>
                       </div>
                     </Button>
                   </div>
