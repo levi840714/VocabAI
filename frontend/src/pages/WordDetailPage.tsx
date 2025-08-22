@@ -8,12 +8,13 @@ import { useSettings } from '@/contexts/SettingsContext';
 import { useClickableTextContext } from '@/contexts/ClickableTextContext';
 import { ThemeCard, ThemeTitle, ThemeText, ThemeButton } from '@/components/ui/ThemeComponents';
 import StructuredWordDisplay from '@/components/StructuredWordDisplay';
-import { Brain, Edit, Trash2, Volume2, ExternalLink, RefreshCw, AlertCircle } from 'lucide-react';
+import { Brain, Edit, Trash2, Volume2, ExternalLink, RefreshCw, AlertCircle, Tag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { memWhizAPI, type WordDetail } from '@/lib/api';
 import { useTelegramContext } from '@/contexts/TelegramContext';
 import { useToast } from '@/hooks/use-toast';
+import { isLocalDevelopment } from '@/hooks/use-telegram';
 import PullToRefresh from '@/components/PullToRefresh';
 // 移除單字頁的口說卡，改到每日探索頁做影子跟讀
 
@@ -31,6 +32,7 @@ const WordDetailPage: React.FC = () => {
   const [word, setWord] = useState<WordDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [categories, setCategories] = useState<any[]>([]);
 
   // 首先嘗試從本地 words 列表獲取
   const localWord = words.find(w => w.id === wordId);
@@ -69,6 +71,23 @@ const WordDetailPage: React.FC = () => {
     }
   };
 
+  // 載入分類列表
+  const loadCategories = async () => {
+    try {
+      let endpoint = '/v1/categories';
+      
+      // 本地測試模式下添加 user_id 參數
+      if (isLocalDevelopment()) {
+        endpoint += '?user_id=613170570';
+      }
+      
+      const response = await memWhizAPI.request(endpoint);
+      setCategories(response.categories || []);
+    } catch (error) {
+      console.error('Failed to load categories:', error);
+    }
+  };
+
   // 主要數據獲取 Effect（等待 Telegram 就緒，避免未帶授權標頭導致 401/403）
   const telegram = useTelegramContext();
   useEffect(() => {
@@ -78,6 +97,7 @@ const WordDetailPage: React.FC = () => {
       if (!telegram.isReady || !telegram.user) return;
     }
     fetchWordDetail(wordId);
+    loadCategories();
   }, [wordId, telegram.isReady, telegram.isTelegramWebApp, telegram.user]);
 
   // 確保頁面載入時滾動到頂部並自動播放語音
@@ -249,6 +269,12 @@ const WordDetailPage: React.FC = () => {
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
+  // 獲取分類顏色
+  const getCategoryColor = (categoryName: string) => {
+    const category = categories.find(c => c.category_name === categoryName);
+    return category?.color_code || '#6B7280';
+  };
+
   
 
   return (
@@ -321,10 +347,23 @@ const WordDetailPage: React.FC = () => {
             </button>
           </div>
           
-          <div className="flex items-center justify-center space-x-2 mb-3">
+          <div className="flex items-center justify-center flex-wrap gap-2 mb-3">
             <Badge variant={word.learned ? "default" : "secondary"} className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
               {word.learned ? "已掌握" : "學習中"}
             </Badge>
+            {(word as any).category && (
+              <Badge 
+                variant="outline" 
+                className="text-xs"
+                style={{ 
+                  borderColor: getCategoryColor((word as any).category === 'uncategorized' ? '未分類' : (word as any).category),
+                  color: getCategoryColor((word as any).category === 'uncategorized' ? '未分類' : (word as any).category),
+                }}
+              >
+                <Tag className="w-3 h-3 mr-1" />
+                {(word as any).category === 'uncategorized' ? '未分類' : (word as any).category}
+              </Badge>
+            )}
             {word.created_at && (
               <Badge variant="outline" className="border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300">
                 {new Date(word.created_at).toLocaleDateString()}

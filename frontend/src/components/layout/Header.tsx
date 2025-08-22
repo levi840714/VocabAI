@@ -6,7 +6,7 @@ import { useSettings } from '@/contexts/SettingsContext';
 import { useDeviceDetection } from '@/hooks/useDeviceDetection';
 import { useVocabulary } from '@/hooks/use-vocabulary';
 import { useToast } from '@/hooks/use-toast';
-import { Bot, Smartphone, ArrowLeft, Home, BookOpen, Plus, Brain, BarChart } from 'lucide-react';
+import { Bot, Smartphone, ArrowLeft, Home, BookOpen, Plus, Brain, BarChart, Tag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -67,6 +67,7 @@ const Header: React.FC = () => {
   const navItems = [
     { id: 'home', label: '首頁', icon: Home, path: '/' },
     { id: 'vocabulary', label: '單字庫', icon: BookOpen, path: '/vocabulary' },
+    { id: 'categories', label: '分類管理', icon: Tag, path: '/categories' },
     { id: 'add', label: '加入單字', icon: Plus, action: () => setShowAddWord(true) },
     { id: 'ai-analysis', label: 'AI 解析', icon: Brain, path: '/ai-analysis' },
     { id: 'progress', label: '學習進度', icon: BarChart, path: '/progress' }

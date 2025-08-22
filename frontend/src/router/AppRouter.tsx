@@ -17,6 +17,7 @@ import BookmarksPage from '@/pages/BookmarksPage';
 import BookmarkDetailPage from '@/pages/BookmarkDetailPage';
 import SettingsTestPage from '@/pages/SettingsTestPage';
 import DebugClickablePage from '@/pages/DebugClickablePage';
+import CategoriesPage from '@/pages/CategoriesPage';
 import GlobalQuickWordPopup from '@/components/GlobalQuickWordPopup';
 
 const AppRouter: React.FC = () => {
@@ -35,6 +36,7 @@ const AppRouter: React.FC = () => {
             <Route path="/bookmarks" element={<BookmarksPage />} />
             <Route path="/bookmarks/:bookmarkId" element={<BookmarkDetailPage />} />
             <Route path="/ai-analysis" element={<AIAnalysisPage />} />
+            <Route path="/categories" element={<CategoriesPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/settings-test" element={<SettingsTestPage />} />
             <Route path="/debug-clickable" element={<DebugClickablePage />} />

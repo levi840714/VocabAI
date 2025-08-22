@@ -861,3 +861,97 @@ class AIService:
         except Exception as e:
             print(f"Deep translation error: {e}")
             return "An unexpected error occurred during deep translation."
+
+    async def get_word_category_suggestions(self, word: str, ai_explanation: str = "") -> str:
+        """根據單字和AI解釋生成分類建議"""
+        if self.provider == "google":
+            return await self._retry_api_call(
+                lambda: self._get_google_category_suggestions(word, ai_explanation),
+                max_retries=2,
+                base_delay=1.0
+            )
+        else:
+            raise ValueError(f"Unsupported AI provider: {self.provider}")
+
+    async def _get_google_category_suggestions(self, word: str, ai_explanation: str = "") -> str:
+        """使用 Google Gemini API 生成單字分類建議"""
+        api_key = self.config['ai_services']['google']['api_key']
+        
+        prompt = f"""請根據英文單字「{word}」分析其最適合的分類。
+
+單字: {word}
+{f"AI解釋: {ai_explanation}" if ai_explanation else ""}
+
+請從以下預設分類中選擇最適合的1-3個分類，並按信心度排序：
+- 學術 (Academic): 學術論文、研究、教育相關詞彙
+- 商務 (Business): 商業、經濟、管理、金融相關詞彙  
+- 日常 (Daily): 日常生活、基礎對話常用詞彙
+- 科技 (Technology): 科技、電腦、網路、軟體相關詞彙
+- 文藝 (Literature/Arts): 文學、藝術、創作相關詞彙
+- 醫療 (Medical): 醫學、健康、生物學相關詞彙
+- 旅遊 (Travel): 旅行、交通、地理、文化相關詞彙
+- 未分類 (Uncategorized): 無法明確分類或跨多領域
+
+請回覆 JSON 格式：
+{{
+  "word": "{word}",
+  "suggestions": [
+    {{
+      "category": "最適合的分類名稱",
+      "confidence": 0.95,
+      "reason": "選擇此分類的具體原因"
+    }},
+    {{
+      "category": "次適合的分類名稱", 
+      "confidence": 0.75,
+      "reason": "選擇此分類的具體原因"
+    }}
+  ],
+  "auto_selected": "最適合的分類名稱"
+}}
+
+分析標準：
+1. 考慮單字的主要使用領域和語境
+2. 參考單字的頻率和難度級別
+3. 考慮學習者的實際應用場景
+4. 信心度要基於分類的明確程度"""
+
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
+        headers = {"Content-Type": "application/json"}
+        data = {"contents": [{"parts": [{"text": prompt}]}]}
+
+        try:
+            response = await self.client.post(url, headers=headers, json=data)
+            response.raise_for_status()
+            
+            result = response.json()            
+            if 'candidates' in result and result['candidates']:
+                if 'content' in result['candidates'][0] and 'parts' in result['candidates'][0]['content']:
+                    raw_response = result['candidates'][0]['content']['parts'][0]['text'].strip()
+                    print(f"Got category suggestions response length: {len(raw_response)}")
+                    return raw_response
+                else:
+                    print("No content in API response for category suggestions")
+                    return self._create_fallback_category_suggestions(word)
+            else:
+                print("No candidates in API response for category suggestions")
+                return self._create_fallback_category_suggestions(word)
+
+        except Exception as e:
+            print(f"Category suggestions error: {e}")
+            return self._create_fallback_category_suggestions(word)
+
+    def _create_fallback_category_suggestions(self, word: str) -> str:
+        """為分類建議創建備用響應"""
+        fallback_response = {
+            "word": word,
+            "suggestions": [
+                {
+                    "category": "未分類",
+                    "confidence": 0.5,
+                    "reason": "AI 分析失敗，建議手動選擇分類"
+                }
+            ],
+            "auto_selected": "未分類"
+        }
+        return json.dumps(fallback_response, ensure_ascii=False)

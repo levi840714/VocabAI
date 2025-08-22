@@ -1,33 +1,59 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { TextInput } from "@/components/text-input"
 import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 import { useVocabulary } from "@/hooks/use-vocabulary"
-import { Sparkles, Bot } from "lucide-react"
+import { Sparkles, Bot, Tag } from "lucide-react"
 
 const formSchema = z.object({
   term: z.string().min(1, { message: "單字不能為空" }),
   notes: z.string().optional(),
+  category: z.string().optional(),
 })
 
 export default function AddWordForm() {
   const { addWord } = useVocabulary()
   const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [categories, setCategories] = useState([])
+  const [suggestedCategory, setSuggestedCategory] = useState("")
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       term: "",
       notes: "",
+      category: "uncategorized",
     },
   })
+
+  // 載入分類列表
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const response = await fetch('/api/v1/categories', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+          },
+        })
+        if (response.ok) {
+          const data = await response.json()
+          setCategories(data.categories || [])
+        }
+      } catch (error) {
+        console.error('Failed to load categories:', error)
+      }
+    }
+    loadCategories()
+  }, [])
 
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
@@ -37,9 +63,9 @@ export default function AddWordForm() {
     setIsSubmitting(true)
     
     try {
-      console.log('Calling addWord with:', values.term, values.notes)
+      console.log('Calling addWord with:', values.term, values.notes, values.category)
       // 在此僅傳送單字，讓 API 自動生成 AI 解釋
-      await addWord(values.term, values.notes || undefined)
+      await addWord(values.term, values.notes || undefined, values.category)
       
       console.log('Word added successfully')
       toast({
@@ -111,6 +137,46 @@ export default function AddWordForm() {
                       />
                     </FormControl>
                   </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="category"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="flex items-center gap-2">
+                    <Tag className="w-4 h-4" />
+                    分類
+                    {suggestedCategory && (
+                      <Badge variant="secondary" className="text-xs">
+                        AI建議: {suggestedCategory}
+                      </Badge>
+                    )}
+                  </FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm border-sky-200 dark:border-slate-600">
+                        <SelectValue placeholder="選擇單字分類" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="uncategorized">未分類</SelectItem>
+                      {categories.map((category: any) => (
+                        <SelectItem key={category.id} value={category.category_name}>
+                          <div className="flex items-center gap-2">
+                            <div 
+                              className="w-3 h-3 rounded-full" 
+                              style={{ backgroundColor: category.color_code }}
+                            />
+                            {category.category_name}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}

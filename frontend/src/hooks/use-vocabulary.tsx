@@ -25,6 +25,7 @@ const convertAPIWordToWord = (apiWord: APIWord) => {
       structured_data: cleanedData, // Add structured data for detailed view
       raw_explanation: apiWord.initial_ai_explanation, // Keep raw for fallback
       user_notes: apiWord.user_notes, // Add user notes
+      category: (apiWord as any).category || 'uncategorized', // Add category
     };
   }
   
@@ -39,6 +40,7 @@ const convertAPIWordToWord = (apiWord: APIWord) => {
     dateAdded: new Date().toISOString(),
     raw_explanation: apiWord.initial_ai_explanation,
     user_notes: apiWord.user_notes, // Add user notes
+    category: (apiWord as any).category || 'uncategorized', // Add category
   };
 }
 
@@ -47,7 +49,7 @@ interface VocabularyContextType {
   stats: StatsResponse | null
   loading: boolean
   error: string | null
-  addWord: (word: string, userNotes?: string) => Promise<void>
+  addWord: (word: string, userNotes?: string, category?: string) => Promise<void>
   deleteWord: (id: string) => Promise<void>
   toggleLearned: (id: string) => Promise<void>
   refreshWords: () => Promise<void>
@@ -98,13 +100,13 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const addWord = async (word: string, userNotes?: string) => {
-    console.log('useVocabulary addWord called with:', { word, userNotes })
+  const addWord = async (word: string, userNotes?: string, category?: string) => {
+    console.log('useVocabulary addWord called with:', { word, userNotes, category })
     
     try {
       setError(null)
       console.log('Calling memWhizAPI.addWord...')
-      const result = await memWhizAPI.addWord(word, userNotes)
+      const result = await memWhizAPI.addWord(word, userNotes, category)
       console.log('API addWord result:', result)
       
       console.log('Refreshing words...')

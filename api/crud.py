@@ -47,9 +47,10 @@ async def ensure_db_initialized(db_path: str) -> None:
     """Initialize database if needed."""
     await init_db(db_path)
 
-async def create_word(db_path: str, user_id: int, word: str, explanation: str, user_notes: str = None) -> bool:
+async def create_word(db_path: str, user_id: int, word: str, explanation: str, user_notes: str = None, category: str = "uncategorized") -> bool:
     """Create a new word in the database."""
-    return await add_word(db_path, user_id, word, explanation, user_notes)
+    # add_word(db_path, user_id, word, initial_ai_explanation, chinese_meaning, user_notes=None, category='uncategorized')
+    return await add_word(db_path, user_id, word, explanation, "", user_notes, category)
 
 async def get_user_words(db_path: str, user_id: int, page: int = 0, page_size: int = 10) -> Tuple[List, int]:
     """Get paginated words for a user."""

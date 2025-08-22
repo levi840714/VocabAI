@@ -1,22 +1,55 @@
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import { Search, Eye } from "lucide-react"
+import { Search, Eye, Tag, Filter } from "lucide-react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { TextInput } from "@/components/text-input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
 import { useVocabulary } from "@/hooks/use-vocabulary"
+import { memWhizAPI } from "@/lib/api"
+import { isLocalDevelopment } from "@/hooks/use-telegram"
 
 interface VocabularyListProps {
   onAIAnalysisClick?: (word: string) => void;
+  initialSelectedCategory?: string;
 }
 
-export default function VocabularyList({ onAIAnalysisClick }: VocabularyListProps) {
+export default function VocabularyList({ onAIAnalysisClick, initialSelectedCategory }: VocabularyListProps) {
   const { words, toggleLearned, deleteWord, loading, error, refreshWords } = useVocabulary()
   const [searchTerm, setSearchTerm] = useState("")
+  const [selectedCategory, setSelectedCategory] = useState(initialSelectedCategory || "all")
+  const [categories, setCategories] = useState<any[]>([])
   const { toast } = useToast()
   const navigate = useNavigate()
+
+  // 載入分類列表
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        let endpoint = '/v1/categories';
+        
+        // 本地測試模式下添加 user_id 參數
+        if (isLocalDevelopment()) {
+          endpoint += '?user_id=613170570';
+        }
+        
+        const response = await memWhizAPI.request(endpoint)
+        setCategories(response.categories || [])
+      } catch (error) {
+        console.error('Failed to load categories:', error)
+      }
+    }
+    loadCategories()
+  }, [])
+
+  // 當初始選中分類改變時更新選中狀態
+  useEffect(() => {
+    if (initialSelectedCategory) {
+      setSelectedCategory(initialSelectedCategory)
+    }
+  }, [initialSelectedCategory])
 
   if (loading) {
     return (
@@ -38,11 +71,21 @@ export default function VocabularyList({ onAIAnalysisClick }: VocabularyListProp
     )
   }
 
-  const filteredWords = words.filter(
-    (word) =>
-      word.term.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      word.definition.toLowerCase().includes(searchTerm.toLowerCase()),
-  )
+  const filteredWords = words.filter((word: any) => {
+    const matchesSearch = word.term.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      word.definition.toLowerCase().includes(searchTerm.toLowerCase())
+    
+    const matchesCategory = selectedCategory === "all" || 
+      (word.category || 'uncategorized') === selectedCategory
+
+    return matchesSearch && matchesCategory
+  })
+
+  // 獲取分類顏色
+  const getCategoryColor = (categoryName: string) => {
+    const category = categories.find(c => c.category_name === categoryName)
+    return category?.color_code || '#6B7280'
+  }
 
   const handleToggleLearned = async (id: string) => {
     try {
@@ -66,15 +109,41 @@ export default function VocabularyList({ onAIAnalysisClick }: VocabularyListProp
 
   return (
     <div className="space-y-6">
-      <div className="relative">
-        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-sky-600" />
-        <TextInput
-          type="search"
-          placeholder="搜尋單字或定義..."
-          className="pl-8"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
+      {/* 搜索和篩選區域 */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-sky-600" />
+          <TextInput
+            type="search"
+            placeholder="搜尋單字或定義..."
+            className="pl-8"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+        
+        <div className="relative">
+          <Filter className="absolute left-2.5 top-2.5 h-4 w-4 text-sky-600" />
+          <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+            <SelectTrigger className="pl-8">
+              <SelectValue placeholder="選擇分類篩選" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">所有分類</SelectItem>
+              {categories.map((category) => (
+                <SelectItem key={category.id} value={category.category_name === '未分類' ? 'uncategorized' : category.category_name}>
+                  <div className="flex items-center gap-2">
+                    <div 
+                      className="w-3 h-3 rounded-full" 
+                      style={{ backgroundColor: category.color_code }}
+                    />
+                    {category.category_name}
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {filteredWords.length === 0 ? (
@@ -94,14 +163,31 @@ export default function VocabularyList({ onAIAnalysisClick }: VocabularyListProp
               <CardHeader className="pb-2">
                 <div className="flex justify-between items-start">
                   <CardTitle className="text-xl">{word.term}</CardTitle>
-                  <Badge
-                    variant={word.learned ? "outline" : "secondary"}
-                    className={word.learned ? "border-cyan-400 dark:border-cyan-500 text-cyan-700 dark:text-cyan-300" : "bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100"}
-                  >
-                    {word.learned ? "已學會" : "學習中"}
-                  </Badge>
+                  <div className="flex gap-1">
+                    <Badge
+                      variant={word.learned ? "outline" : "secondary"}
+                      className={word.learned ? "border-cyan-400 dark:border-cyan-500 text-cyan-700 dark:text-cyan-300" : "bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100"}
+                    >
+                      {word.learned ? "已學會" : "學習中"}
+                    </Badge>
+                  </div>
                 </div>
-                {word.pronunciation && <CardDescription className="text-sm">[{word.pronunciation}]</CardDescription>}
+                <div className="flex items-center gap-2 mt-2">
+                  {word.pronunciation && <CardDescription className="text-sm">[{word.pronunciation}]</CardDescription>}
+                  {(word as any).category && (
+                    <Badge 
+                      variant="outline" 
+                      className="text-xs"
+                      style={{ 
+                        borderColor: getCategoryColor((word as any).category === 'uncategorized' ? '未分類' : (word as any).category),
+                        color: getCategoryColor((word as any).category === 'uncategorized' ? '未分類' : (word as any).category),
+                      }}
+                    >
+                      <Tag className="w-3 h-3 mr-1" />
+                      {(word as any).category === 'uncategorized' ? '未分類' : (word as any).category}
+                    </Badge>
+                  )}
+                </div>
               </CardHeader>
               <CardContent>
                 <p className="font-medium mb-2 text-slate-900 dark:text-slate-100">{word.definition}</p>

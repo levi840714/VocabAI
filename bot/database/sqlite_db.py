@@ -27,6 +27,13 @@ async def init_db(db_path):
         except aiosqlite.OperationalError:
             # Column already exists
             pass
+            
+        # Add category column if it doesn't exist (for word categorization)
+        try:
+            await db.execute("ALTER TABLE words ADD COLUMN category TEXT DEFAULT 'uncategorized'")
+        except aiosqlite.OperationalError:
+            # Column already exists
+            pass
         await db.execute("""
         CREATE TABLE IF NOT EXISTS learning_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -127,19 +134,32 @@ async def init_db(db_path):
         )
         """)
         
+        # Word categories table for user-defined categories
+        await db.execute("""
+        CREATE TABLE IF NOT EXISTS word_categories (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            category_name TEXT NOT NULL,
+            color_code TEXT DEFAULT '#3B82F6',
+            is_default BOOLEAN DEFAULT 0,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(user_id, category_name)
+        )
+        """)
+        
         await db.commit()
     logging.info("Database initialized.")
 
-async def add_word(db_path, user_id, word, initial_ai_explanation, chinese_meaning, user_notes=None):
+async def add_word(db_path, user_id, word, initial_ai_explanation, chinese_meaning, user_notes=None, category='uncategorized'):
     """Adds a new word to the database for a given user."""
     async with aiosqlite.connect(db_path) as db:
         try:
             await db.execute("""
-            INSERT INTO words (user_id, word, initial_ai_explanation, chinese_meaning, user_notes, next_review)
-            VALUES (?, ?, ?, ?, ?, date('now', '-1 day'))
-            """, (user_id, word, initial_ai_explanation, chinese_meaning, user_notes))
+            INSERT INTO words (user_id, word, initial_ai_explanation, chinese_meaning, user_notes, next_review, category)
+            VALUES (?, ?, ?, ?, ?, date('now', '-1 day'), ?)
+            """, (user_id, word, initial_ai_explanation, chinese_meaning, user_notes, category))
             await db.commit()
-            logging.info(f"Word '{word}' added for user {user_id}. next_review set to: {date.today()}")
+            logging.info(f"Word '{word}' added for user {user_id} with category '{category}'. next_review set to: {date.today()}")
             return True
         except aiosqlite.IntegrityError:
             logging.warning(f"Word '{word}' already exists for user {user_id}.")
@@ -150,7 +170,7 @@ async def get_words_for_user(db_path, user_id, page=0, page_size=5):
     offset = page * page_size
     async with aiosqlite.connect(db_path) as db:
         cursor = await db.execute("""
-        SELECT id, word, initial_ai_explanation, chinese_meaning, user_notes, interval, difficulty, next_review, created_at FROM words
+        SELECT id, word, initial_ai_explanation, chinese_meaning, user_notes, interval, difficulty, next_review, created_at, category FROM words
         WHERE user_id = ?
         ORDER BY created_at DESC
         LIMIT ? OFFSET ?
@@ -158,7 +178,7 @@ async def get_words_for_user(db_path, user_id, page=0, page_size=5):
         rows = await cursor.fetchall()
         
         # Convert rows to dictionaries
-        columns = ['id', 'word', 'initial_ai_explanation', 'chinese_meaning', 'user_notes', 'interval', 'difficulty', 'next_review', 'created_at']
+        columns = ['id', 'word', 'initial_ai_explanation', 'chinese_meaning', 'user_notes', 'interval', 'difficulty', 'next_review', 'created_at', 'category']
         words = [dict(zip(columns, row)) for row in rows]
         
         cursor = await db.execute("SELECT COUNT(*) FROM words WHERE user_id = ?", (user_id,))
@@ -221,13 +241,13 @@ async def get_word_by_id(db_path, word_id):
     """Retrieves a single word by its ID."""
     async with aiosqlite.connect(db_path) as db:
         cursor = await db.execute("""
-        SELECT id, user_id, word, initial_ai_explanation, user_notes, next_review, interval, difficulty, created_at, chinese_meaning 
+        SELECT id, user_id, word, initial_ai_explanation, user_notes, next_review, interval, difficulty, created_at, chinese_meaning, category
         FROM words WHERE id = ?
         """, (word_id,))
         row = await cursor.fetchone()
         
         if row:
-            columns = ['id', 'user_id', 'word', 'initial_ai_explanation', 'user_notes', 'next_review', 'interval', 'difficulty', 'created_at', 'chinese_meaning']
+            columns = ['id', 'user_id', 'word', 'initial_ai_explanation', 'user_notes', 'next_review', 'interval', 'difficulty', 'created_at', 'chinese_meaning', 'category']
             word = dict(zip(columns, row))
         else:
             word = None
@@ -1028,6 +1048,127 @@ async def create_bookmark_tag(db_path, user_id, tag_name, tag_color='#3B82F6'):
         except aiosqlite.IntegrityError:
             return False
 
+# Word Categories CRUD functions
+async def create_default_categories(db_path, user_id):
+    """Create default word categories for a new user."""
+    default_categories = [
+        ('學術', '#8B5CF6', True),   # Academic
+        ('商務', '#3B82F6', True),   # Business  
+        ('日常', '#10B981', True),   # Daily
+        ('科技', '#F59E0B', True),   # Technology
+        ('文藝', '#EF4444', True),   # Literature/Arts
+        ('醫療', '#06B6D4', True),   # Medical
+        ('旅遊', '#84CC16', True),   # Travel
+        ('未分類', '#6B7280', True)  # Uncategorized
+    ]
+    
+    async with aiosqlite.connect(db_path) as db:
+        for category_name, color_code, is_default in default_categories:
+            try:
+                await db.execute("""
+                INSERT INTO word_categories (user_id, category_name, color_code, is_default)
+                VALUES (?, ?, ?, ?)
+                """, (user_id, category_name, color_code, is_default))
+            except aiosqlite.IntegrityError:
+                # Category already exists for this user
+                continue
+        await db.commit()
+        logging.info(f"Default categories created for user {user_id}")
+
+async def get_user_categories(db_path, user_id):
+    """Get all categories for a user."""
+    async with aiosqlite.connect(db_path) as db:
+        cursor = await db.execute("""
+        SELECT id, category_name, color_code, is_default, created_at
+        FROM word_categories
+        WHERE user_id = ?
+        ORDER BY is_default DESC, created_at ASC
+        """, (user_id,))
+        rows = await cursor.fetchall()
+        
+        categories = []
+        for row in rows:
+            categories.append({
+                'id': row[0],
+                'category_name': row[1], 
+                'color_code': row[2],
+                'is_default': bool(row[3]),
+                'created_at': row[4]
+            })
+        return categories
+
+async def create_user_category(db_path, user_id, category_name, color_code='#3B82F6'):
+    """Create a custom category for a user."""
+    async with aiosqlite.connect(db_path) as db:
+        try:
+            await db.execute("""
+            INSERT INTO word_categories (user_id, category_name, color_code, is_default)
+            VALUES (?, ?, ?, 0)
+            """, (user_id, category_name, color_code))
+            await db.commit()
+            logging.info(f"Custom category '{category_name}' created for user {user_id}")
+            return True
+        except aiosqlite.IntegrityError:
+            logging.warning(f"Category '{category_name}' already exists for user {user_id}")
+            return False
+
+async def update_word_category(db_path, word_id, user_id, category):
+    """Update the category of a word."""
+    async with aiosqlite.connect(db_path) as db:
+        cursor = await db.execute("""
+        UPDATE words
+        SET category = ?
+        WHERE id = ? AND user_id = ?
+        """, (category, word_id, user_id))
+        await db.commit()
+        
+        if cursor.rowcount > 0:
+            logging.info(f"Word {word_id} category updated to '{category}' for user {user_id}")
+            return True
+        else:
+            logging.warning(f"Failed to update category for word {word_id} and user {user_id}")
+            return False
+
+async def get_words_by_category(db_path, user_id, category, page=0, page_size=20):
+    """Get words filtered by category."""
+    offset = page * page_size
+    async with aiosqlite.connect(db_path) as db:
+        cursor = await db.execute("""
+        SELECT id, word, initial_ai_explanation, chinese_meaning, user_notes, 
+               interval, difficulty, next_review, created_at, category
+        FROM words
+        WHERE user_id = ? AND category = ?
+        ORDER BY created_at DESC
+        LIMIT ? OFFSET ?
+        """, (user_id, category, page_size, offset))
+        rows = await cursor.fetchall()
+        
+        columns = ['id', 'word', 'initial_ai_explanation', 'chinese_meaning', 'user_notes', 
+                  'interval', 'difficulty', 'next_review', 'created_at', 'category']
+        words = [dict(zip(columns, row)) for row in rows]
+        
+        # Get total count
+        cursor = await db.execute("""
+        SELECT COUNT(*) FROM words WHERE user_id = ? AND category = ?
+        """, (user_id, category))
+        total_count = (await cursor.fetchone())[0]
+        
+        return words, total_count
+
+async def get_category_stats(db_path, user_id):
+    """Get word count statistics by category."""
+    async with aiosqlite.connect(db_path) as db:
+        cursor = await db.execute("""
+        SELECT category, COUNT(*) as count
+        FROM words
+        WHERE user_id = ?
+        GROUP BY category
+        ORDER BY count DESC
+        """, (user_id,))
+        rows = await cursor.fetchall()
+        
+        return {row[0]: row[1] for row in rows}
+
 async def get_user_bookmark_tags(db_path, user_id):
     """獲取用戶的標籤列表"""
     async with aiosqlite.connect(db_path) as db:
@@ -1053,3 +1194,124 @@ async def add_bookmark_tag_relation(db_path, bookmark_id, tag_id):
             return True
         except aiosqlite.IntegrityError:
             return False
+
+# Word Categories CRUD functions
+async def create_default_categories(db_path, user_id):
+    """Create default word categories for a new user."""
+    default_categories = [
+        ('學術', '#8B5CF6', True),   # Academic
+        ('商務', '#3B82F6', True),   # Business  
+        ('日常', '#10B981', True),   # Daily
+        ('科技', '#F59E0B', True),   # Technology
+        ('文藝', '#EF4444', True),   # Literature/Arts
+        ('醫療', '#06B6D4', True),   # Medical
+        ('旅遊', '#84CC16', True),   # Travel
+        ('未分類', '#6B7280', True)  # Uncategorized
+    ]
+    
+    async with aiosqlite.connect(db_path) as db:
+        for category_name, color_code, is_default in default_categories:
+            try:
+                await db.execute("""
+                INSERT INTO word_categories (user_id, category_name, color_code, is_default)
+                VALUES (?, ?, ?, ?)
+                """, (user_id, category_name, color_code, is_default))
+            except aiosqlite.IntegrityError:
+                # Category already exists for this user
+                continue
+        await db.commit()
+        logging.info(f"Default categories created for user {user_id}")
+
+async def get_user_categories(db_path, user_id):
+    """Get all categories for a user."""
+    async with aiosqlite.connect(db_path) as db:
+        cursor = await db.execute("""
+        SELECT id, category_name, color_code, is_default, created_at
+        FROM word_categories
+        WHERE user_id = ?
+        ORDER BY is_default DESC, created_at ASC
+        """, (user_id,))
+        rows = await cursor.fetchall()
+        
+        categories = []
+        for row in rows:
+            categories.append({
+                'id': row[0],
+                'category_name': row[1], 
+                'color_code': row[2],
+                'is_default': bool(row[3]),
+                'created_at': row[4]
+            })
+        return categories
+
+async def create_user_category(db_path, user_id, category_name, color_code='#3B82F6'):
+    """Create a custom category for a user."""
+    async with aiosqlite.connect(db_path) as db:
+        try:
+            await db.execute("""
+            INSERT INTO word_categories (user_id, category_name, color_code, is_default)
+            VALUES (?, ?, ?, 0)
+            """, (user_id, category_name, color_code))
+            await db.commit()
+            logging.info(f"Custom category '{category_name}' created for user {user_id}")
+            return True
+        except aiosqlite.IntegrityError:
+            logging.warning(f"Category '{category_name}' already exists for user {user_id}")
+            return False
+
+async def update_word_category(db_path, word_id, user_id, category):
+    """Update the category of a word."""
+    async with aiosqlite.connect(db_path) as db:
+        cursor = await db.execute("""
+        UPDATE words
+        SET category = ?
+        WHERE id = ? AND user_id = ?
+        """, (category, word_id, user_id))
+        await db.commit()
+        
+        if cursor.rowcount > 0:
+            logging.info(f"Word {word_id} category updated to '{category}' for user {user_id}")
+            return True
+        else:
+            logging.warning(f"Failed to update category for word {word_id} and user {user_id}")
+            return False
+
+async def get_words_by_category(db_path, user_id, category, page=0, page_size=20):
+    """Get words filtered by category."""
+    offset = page * page_size
+    async with aiosqlite.connect(db_path) as db:
+        cursor = await db.execute("""
+        SELECT id, word, initial_ai_explanation, chinese_meaning, user_notes, 
+               interval, difficulty, next_review, created_at, category
+        FROM words
+        WHERE user_id = ? AND category = ?
+        ORDER BY created_at DESC
+        LIMIT ? OFFSET ?
+        """, (user_id, category, page_size, offset))
+        rows = await cursor.fetchall()
+        
+        columns = ['id', 'word', 'initial_ai_explanation', 'chinese_meaning', 'user_notes', 
+                  'interval', 'difficulty', 'next_review', 'created_at', 'category']
+        words = [dict(zip(columns, row)) for row in rows]
+        
+        # Get total count
+        cursor = await db.execute("""
+        SELECT COUNT(*) FROM words WHERE user_id = ? AND category = ?
+        """, (user_id, category))
+        total_count = (await cursor.fetchone())[0]
+        
+        return words, total_count
+
+async def get_category_stats(db_path, user_id):
+    """Get word count statistics by category."""
+    async with aiosqlite.connect(db_path) as db:
+        cursor = await db.execute("""
+        SELECT category, COUNT(*) as count
+        FROM words
+        WHERE user_id = ?
+        GROUP BY category
+        ORDER BY count DESC
+        """, (user_id,))
+        rows = await cursor.fetchall()
+        
+        return {row[0]: row[1] for row in rows}

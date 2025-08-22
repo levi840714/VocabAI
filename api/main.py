@@ -24,7 +24,9 @@ from schemas import (
     UserSettingsCreate, UserSettingsUpdate, UserSettingsResponse,
     DailyDiscoveryResponse, DailyDiscoveryArticle, KnowledgePoint,
     BookmarkRequest, BookmarkResponse, BookmarkListResponse, BookmarkTag, CreateTagRequest, UpdateBookmarkNotesRequest,
-    BookmarkSummary, BookmarkSummaryListResponse
+    BookmarkSummary, BookmarkSummaryListResponse,
+    WordCategory, WordCategoryCreate, WordCategoryListResponse, UpdateWordCategoryRequest, 
+    CategoryStatsResponse, CategorySuggestionsResponse
 )
 from crud import (
     ensure_db_initialized, create_word, get_user_words, get_due_words, get_recent_words,
@@ -272,15 +274,42 @@ async def add_word(word_data: WordCreate, user_id: int = Depends(get_current_use
             raise HTTPException(status_code=409, detail="Word already exists in your vocabulary")
         
         explanation = word_data.initial_ai_explanation
+        category = word_data.category or "uncategorized"
+        logger.info(f"Received category: {word_data.category}, using category: {category}")
+        
+        # Get AI explanation if not provided
         if not explanation:
             ai_service = get_ai_service()
             explanation = await ai_service.get_simple_explanation(word_data.word)
         
-        success = await create_word(db_path, user_id, word_data.word.lower(), explanation, word_data.user_notes)
+        # Get AI category suggestion if category is uncategorized
+        suggested_category = None
+        if category == "uncategorized":
+            try:
+                ai_service = get_ai_service()
+                raw_suggestions = await ai_service.get_word_category_suggestions(word_data.word, explanation)
+                suggestions_data = ai_service.parse_structured_response(raw_suggestions)
+                if suggestions_data and 'auto_selected' in suggestions_data:
+                    suggested_category = suggestions_data['auto_selected']
+                    category = suggested_category
+            except Exception as e:
+                logger.warning(f"Failed to get category suggestion for {word_data.word}: {str(e)}")
+        
+        logger.info(f"Creating word with category: {category}")
+        success = await create_word(db_path, user_id, word_data.word.lower(), explanation, word_data.user_notes, category)
         if not success:
             raise HTTPException(status_code=500, detail="Failed to add word")
         
-        return {"message": "Word added successfully", "word": word_data.word, "explanation": explanation}
+        response = {
+            "message": "Word added successfully", 
+            "word": word_data.word, 
+            "explanation": explanation,
+            "category": category
+        }
+        if suggested_category:
+            response["ai_suggested_category"] = suggested_category
+            
+        return response
     except HTTPException:
         raise
     except Exception as e:
@@ -487,6 +516,127 @@ async def toggle_word_learned(word_id: int, user_id: int = Depends(get_current_u
     except Exception as e:
         logger.error(f"Error toggling word {word_id} status: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to toggle word status")
+
+# Word Categories endpoints
+@app.get("/api/v1/categories", response_model=WordCategoryListResponse)
+async def get_user_categories(user_id: int = Depends(get_current_user)):
+    """Get all categories for the user."""
+    logger.info(f"GET /categories called - user_id: {user_id}")
+    db_path = get_database_path()
+    
+    try:
+        from bot.database.sqlite_db import get_user_categories, create_default_categories
+        
+        categories = await get_user_categories(db_path, user_id)
+        if not categories:
+            # Create default categories for new user
+            await create_default_categories(db_path, user_id)
+            categories = await get_user_categories(db_path, user_id)
+        
+        return WordCategoryListResponse(categories=categories)
+    except Exception as e:
+        logger.error(f"Error getting categories for user {user_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to get categories")
+
+@app.post("/api/v1/categories", response_model=dict)
+async def create_category(category_data: WordCategoryCreate, user_id: int = Depends(get_current_user)):
+    """Create a new custom category."""
+    logger.info(f"POST /categories called - user_id: {user_id}, category: {category_data.category_name}")
+    db_path = get_database_path()
+    
+    try:
+        from bot.database.sqlite_db import create_user_category
+        
+        success = await create_user_category(db_path, user_id, category_data.category_name, category_data.color_code)
+        if success:
+            return {"message": "Category created successfully", "category_name": category_data.category_name}
+        else:
+            raise HTTPException(status_code=400, detail="Category already exists")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating category: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to create category")
+
+@app.put("/api/v1/words/{word_id}/category", response_model=dict)
+async def update_word_category(word_id: int, category_data: UpdateWordCategoryRequest, user_id: int = Depends(get_current_user)):
+    """Update a word's category."""
+    logger.info(f"PUT /words/{word_id}/category called - user_id: {user_id}, category: {category_data.category}")
+    db_path = get_database_path()
+    
+    try:
+        from bot.database.sqlite_db import update_word_category
+        
+        success = await update_word_category(db_path, word_id, user_id, category_data.category)
+        if success:
+            return {"message": "Word category updated successfully", "word_id": word_id, "category": category_data.category}
+        else:
+            raise HTTPException(status_code=404, detail="Word not found or not owned by user")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating word category: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to update word category")
+
+@app.get("/api/v1/words/by-category/{category}", response_model=WordsListResponse)
+async def get_words_by_category(category: str, page: int = Query(0, ge=0), page_size: int = Query(20, ge=1, le=50), user_id: int = Depends(get_current_user)):
+    """Get words filtered by category."""
+    logger.info(f"GET /words/by-category/{category} called - user_id: {user_id}, page: {page}, page_size: {page_size}")
+    db_path = get_database_path()
+    
+    try:
+        from bot.database.sqlite_db import get_words_by_category
+        
+        words_data, total_count = await get_words_by_category(db_path, user_id, category, page, page_size)
+        
+        words = []
+        for word_data in words_data:
+            word_dict = dict(word_data)
+            learned_status = is_word_learned(word_dict)
+            word_dict['learned'] = learned_status
+            words.append(WordSimpleResponse(**word_dict))
+        
+        return WordsListResponse(words=words, total_count=total_count, page=page, page_size=page_size)
+    except Exception as e:
+        logger.error(f"Error getting words by category: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to get words by category")
+
+@app.get("/api/v1/categories/stats", response_model=CategoryStatsResponse)
+async def get_category_stats(user_id: int = Depends(get_current_user)):
+    """Get word count statistics by category."""
+    logger.info(f"GET /categories/stats called - user_id: {user_id}")
+    db_path = get_database_path()
+    
+    try:
+        from bot.database.sqlite_db import get_category_stats
+        
+        stats = await get_category_stats(db_path, user_id)
+        return CategoryStatsResponse(category_stats=stats)
+    except Exception as e:
+        logger.error(f"Error getting category stats: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to get category stats")
+
+@app.post("/api/v1/words/{word}/category-suggestions", response_model=CategorySuggestionsResponse)
+async def get_word_category_suggestions(word: str, user_id: int = Depends(get_current_user)):
+    """Get AI-powered category suggestions for a word."""
+    logger.info(f"POST /words/{word}/category-suggestions called - user_id: {user_id}")
+    
+    try:
+        ai_service = get_ai_service()
+        
+        # Get existing word data if available for better suggestions
+        db_path = get_database_path()
+        word_data = await find_word_by_text(db_path, user_id, word)
+        ai_explanation = word_data.get('initial_ai_explanation', '') if word_data else ''
+        
+        # Get AI category suggestions
+        raw_response = await ai_service.get_word_category_suggestions(word, ai_explanation)
+        structured_data = ai_service.parse_structured_response(raw_response)
+        
+        return CategorySuggestionsResponse(**structured_data)
+    except Exception as e:
+        logger.error(f"Error getting category suggestions for {word}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to get category suggestions")
 
 # User Settings endpoints
 @app.get("/api/v1/settings", response_model=UserSettingsResponse)

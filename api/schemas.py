@@ -6,6 +6,7 @@ class WordBase(BaseModel):
     word: str = Field(..., min_length=1, max_length=100, description="The English word")
     initial_ai_explanation: Optional[str] = Field(None, description="AI-generated explanation")
     user_notes: Optional[str] = Field(None, description="User's personal notes")
+    category: Optional[str] = Field(default="uncategorized", description="Word category")
 
 class WordCreate(WordBase):
     pass
@@ -24,6 +25,7 @@ class WordSimpleResponse(BaseModel):
     initial_ai_explanation: Optional[str] = None
     user_notes: Optional[str] = None
     learned: Optional[bool] = False
+    category: Optional[str] = "uncategorized"
 
 class WordDetailResponse(BaseModel):
     id: int
@@ -36,6 +38,7 @@ class WordDetailResponse(BaseModel):
     difficulty: int
     created_at: str
     learned: Optional[bool] = False
+    category: Optional[str] = "uncategorized"
 
 class WordsListResponse(BaseModel):
     words: List[WordSimpleResponse]
@@ -372,3 +375,35 @@ class BookmarkSummaryListResponse(BaseModel):
     total_count: int = Field(..., description="總數量")
     page: int = Field(..., description="當前頁碼")
     page_size: int = Field(..., description="每頁大小")
+
+# Word Category Models
+class WordCategory(BaseModel):
+    id: int = Field(..., description="分類ID")
+    category_name: str = Field(..., description="分類名稱")
+    color_code: str = Field(..., description="分類顏色")
+    is_default: bool = Field(..., description="是否為預設分類")
+    created_at: datetime = Field(..., description="創建時間")
+
+class WordCategoryCreate(BaseModel):
+    category_name: str = Field(..., min_length=1, max_length=50, description="分類名稱")
+    color_code: str = Field(default="#3B82F6", description="分類顏色")
+
+class WordCategoryListResponse(BaseModel):
+    categories: List[WordCategory] = Field(..., description="分類列表")
+
+class UpdateWordCategoryRequest(BaseModel):
+    category: str = Field(..., description="新的分類名稱")
+
+class CategoryStatsResponse(BaseModel):
+    category_stats: Dict[str, int] = Field(..., description="各分類的單字數量統計")
+
+# AI Category Suggestion Models  
+class CategorySuggestion(BaseModel):
+    category: str = Field(..., description="建議的分類")
+    confidence: float = Field(..., ge=0.0, le=1.0, description="信心度 (0-1)")
+    reason: str = Field(..., description="建議理由")
+
+class CategorySuggestionsResponse(BaseModel):
+    word: str = Field(..., description="要分類的單字")
+    suggestions: List[CategorySuggestion] = Field(..., description="分類建議列表")
+    auto_selected: Optional[str] = Field(None, description="自動選擇的分類")

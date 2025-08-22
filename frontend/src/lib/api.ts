@@ -21,6 +21,7 @@ export interface Word {
   initial_ai_explanation?: string;
   user_notes?: string;
   learned?: boolean;
+  category?: string;
 }
 
 export interface WordDetail extends Word {
@@ -195,7 +196,7 @@ class MemWhizAPI {
     return this.request(`/v1/words?${params}`);
   }
 
-  async addWord(word: string, userNotes?: string): Promise<any> {
+  async addWord(word: string, userNotes?: string, category?: string): Promise<any> {
     let endpoint = '/v1/words';
     
     // 本地測試模式下添加 user_id 參數
@@ -208,6 +209,7 @@ class MemWhizAPI {
       body: JSON.stringify({
         word,
         user_notes: userNotes,
+        category: category || 'uncategorized',
       }),
     });
   }
