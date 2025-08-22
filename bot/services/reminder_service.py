@@ -200,7 +200,22 @@ class ReminderService:
             # 按複習日期排序（最早需要複習的優先）
             due_words.sort(key=lambda x: x['next_review'])
             
-            return due_words[:10]  # 限制最多10個單字
+            # 根據用戶的每日複習目標限制返回的單字數量
+            try:
+                settings = await get_user_settings(self.db_path, user_id)
+                if settings:
+                    learning_prefs = settings.get('learning_preferences', {})
+                    daily_target = learning_prefs.get('daily_review_target', 10)
+                else:
+                    daily_target = 10
+                
+                # 返回不超過每日目標數量的單字，最多不超過20個
+                limit = min(daily_target, 20)
+                return due_words[:limit]
+                
+            except Exception as settings_error:
+                logger.warning(f"無法獲取用戶 {user_id} 設定，使用預設限制: {settings_error}")
+                return due_words[:10]  # 預設限制10個單字
             
         except Exception as e:
             logger.error(f"獲取用戶 {user_id} 待複習單字失敗: {e}")

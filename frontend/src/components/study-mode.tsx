@@ -124,7 +124,7 @@ export default function StudyMode({ onBack, onAIAnalysisClick }: StudyModeProps)
   const [isFlipped, setIsFlipped] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [reviewCount, setReviewCount] = useState(0)
-  const [stats, setStats] = useState({ total_words: 0, due_today: 0, reviewed_today: 0 })
+  const [stats, setStats] = useState({ total_words: 0, due_today: 0, reviewed_today: 0, today_remaining: 0 })
   const [isTransitioning, setIsTransitioning] = useState(false)
   const [isRecordingStarting, setIsRecordingStarting] = useState(false)
   // 新增：兩階段學習狀態 - 'test'(自我測試) 或 'review'(查看解釋)
@@ -464,7 +464,7 @@ export default function StudyMode({ onBack, onAIAnalysisClick }: StudyModeProps)
           <div className="flex justify-center gap-4 text-sm text-slate-600 dark:text-slate-300">
             <span>今日已複習: {reviewCount} 個單字</span>
             <span>•</span>
-            <span>待複習: {stats.due_today} 個</span>
+            <span>今日待複習: {stats.today_remaining} 個</span>
           </div>
         </div>
         <Button
@@ -485,7 +485,7 @@ export default function StudyMode({ onBack, onAIAnalysisClick }: StudyModeProps)
       <div className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-lg p-3">
         <div className="flex flex-wrap justify-center gap-2 mb-2">
           <span className="bg-sky-100 dark:bg-sky-900/40 px-2.5 py-1 rounded-full text-xs font-medium text-sky-800 dark:text-sky-200">已復習 {reviewCount}</span>
-          <span className="bg-orange-100 dark:bg-orange-900/40 px-2.5 py-1 rounded-full text-xs font-medium text-orange-800 dark:text-orange-200">待復習 {stats.due_today}</span>
+          <span className="bg-orange-100 dark:bg-orange-900/40 px-2.5 py-1 rounded-full text-xs font-medium text-orange-800 dark:text-orange-200">今日待複習 {stats.today_remaining}</span>
           <span className="bg-purple-100 dark:bg-purple-900/40 px-2.5 py-1 rounded-full text-xs font-medium text-purple-800 dark:text-purple-200">總詞庫 {stats.total_words}</span>
           <span className={`${getDifficultyColor(currentWord.difficulty)} px-2.5 py-1 rounded-full text-xs font-medium`}>
             {getDifficultyText(currentWord.difficulty)}

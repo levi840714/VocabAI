@@ -155,6 +155,7 @@ class StatsResponse(BaseModel):
     total_words: int
     due_today: int
     reviewed_today: int
+    today_remaining: int  # 今日剩餘可複習數量（考慮每日上限）
     difficulty_distribution: Dict[int, int]
 
 class HealthResponse(BaseModel):

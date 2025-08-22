@@ -161,17 +161,15 @@ const HomePage: React.FC = () => {
         <div className="grid grid-cols-3 gap-4 text-center">
           <div>
             <div className="text-lg font-semibold">{!isLoading ? (stats?.due_today || 0) : '---'}</div>
-            <div className="text-xs opacity-80">待複習</div>
+            <div className="text-xs opacity-80">總待複習</div>
+          </div>
+          <div>
+            <div className="text-lg font-semibold">{!isLoading ? (stats?.today_remaining || 0) : '---'}</div>
+            <div className="text-xs opacity-80">今日待複習</div>
           </div>
           <div>
             <div className="text-lg font-semibold">{dailyTarget}</div>
             <div className="text-xs opacity-80">每日目標</div>
-          </div>
-          <div>
-            <div className="text-lg font-semibold">
-              {!isLoading ? Math.max(0, dailyTarget - (stats?.reviewed_today || 0)) : '---'}
-            </div>
-            <div className="text-xs opacity-80">剩餘任務</div>
           </div>
         </div>
 

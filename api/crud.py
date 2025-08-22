@@ -1,5 +1,6 @@
 import sys
 import os
+import logging
 from typing import List, Tuple, Dict, Optional
 
 # Add the project root to the Python path to allow importing from 'bot'
@@ -18,6 +19,7 @@ from bot.database.sqlite_db import (
     get_total_words_count,
     get_reviewed_words_count_today,
     get_due_words_count_today,
+    get_today_remaining_review_count,
     get_word_difficulty_distribution,
     update_word_notes,
     delete_word,
@@ -65,8 +67,22 @@ async def get_recent_words(db_path: str, user_id: int, page: int = 0, page_size:
     return await get_recently_added_words(db_path, user_id, page, page_size)
 
 async def get_next_review_word(db_path: str, user_id: int):
-    """Get the next word for review."""
-    return await get_word_to_review(db_path, user_id)
+    """Get the next word for review, considering daily review limit from user settings."""
+    try:
+        # 獲取用戶設定中的每日複習上限
+        settings = await get_user_settings(db_path, user_id)
+        daily_limit = None
+        
+        if settings:
+            learning_prefs = settings.get('learning_preferences', {})
+            daily_limit = learning_prefs.get('daily_review_target')
+            
+        return await get_word_to_review(db_path, user_id, daily_limit)
+        
+    except Exception as e:
+        # 如果獲取設定失敗，回退到無限制模式
+        logging.warning(f"Failed to get user settings for daily limit, using no limit: {e}")
+        return await get_word_to_review(db_path, user_id)
 
 async def update_review_result(db_path: str, word_id: int, response: str, user_id: int) -> Dict[str, any]:
     """Update word review status based on user response."""
@@ -104,12 +120,14 @@ async def get_user_stats(db_path: str, user_id: int) -> Dict[str, any]:
     total_words = await get_total_words_count(db_path, user_id)
     due_today = await get_due_words_count_today(db_path, user_id)
     reviewed_today = await get_reviewed_words_count_today(db_path, user_id)
+    today_remaining = await get_today_remaining_review_count(db_path, user_id)
     difficulty_distribution = await get_word_difficulty_distribution(db_path, user_id)
     
     return {
         "total_words": total_words,
         "due_today": due_today,
         "reviewed_today": reviewed_today,
+        "today_remaining": today_remaining,
         "difficulty_distribution": difficulty_distribution
     }
 

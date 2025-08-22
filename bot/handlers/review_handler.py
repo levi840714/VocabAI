@@ -4,7 +4,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 
-from bot.database.sqlite_db import get_word_to_review, update_word_review_status, get_word_by_id
+from bot.database.sqlite_db import get_word_to_review, update_word_review_status, get_word_by_id, get_user_settings
 from bot.core.spaced_repetition import calculate_next_review_date
 from bot.services.ai_service import AIService
 
@@ -16,13 +16,30 @@ class ReviewStates(StatesGroup):
     showing_deep_explanation = State()
 
 async def send_review_card(message: Message, db_path: str, user_id: int, state: FSMContext):
-    word_data = await get_word_to_review(db_path, user_id)
+    try:
+        # 獲取用戶設定中的每日複習上限
+        settings = await get_user_settings(db_path, user_id)
+        daily_limit = None
+        
+        if settings:
+            learning_prefs = settings.get('learning_preferences', {})
+            daily_limit = learning_prefs.get('daily_review_target')
+            
+        word_data = await get_word_to_review(db_path, user_id, daily_limit)
+        
+    except Exception as e:
+        # 如果獲取設定失敗，回退到無限制模式
+        word_data = await get_word_to_review(db_path, user_id)
 
     if not word_data:
         user_data = await state.get_data()
         reviewed_count = user_data.get('reviewed_count', 0)
         if reviewed_count > 0:
-            await message.answer(f"🎉 Congratulations! You've completed your review session. You reviewed {reviewed_count} words today!")
+            # 檢查是否達到每日上限
+            if daily_limit and reviewed_count >= daily_limit:
+                await message.answer(f"🎯 Great job! You've reached your daily review target of {daily_limit} words! You reviewed {reviewed_count} words today.")
+            else:
+                await message.answer(f"🎉 Congratulations! You've completed your review session. You reviewed {reviewed_count} words today!")
         else:
             await message.answer("🎉 You have no words to review for today! Keep adding new words to expand your vocabulary.")
         await state.clear()

@@ -44,6 +44,7 @@ export interface StatsResponse {
   total_words: number;
   due_today: number;
   reviewed_today: number;
+  today_remaining: number; // 今日剩餘可複習數量（考慮每日上限）
   difficulty_distribution: Record<number, number>;
 }
 

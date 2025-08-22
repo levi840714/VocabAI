@@ -213,10 +213,37 @@ async def get_words_for_user(db_path, user_id, page=0, page_size=5, search_term=
         
         return words, total_count
 
-async def get_word_to_review(db_path, user_id):
-    """Retrieves a single word that is due for review for a given user."""
+async def get_word_to_review(db_path, user_id, daily_limit=None):
+    """
+    Retrieves a single word that is due for review for a given user.
+    考慮每日複習上限，避免過度複習。
+    
+    Args:
+        db_path: 資料庫路徑
+        user_id: 用戶 ID
+        daily_limit: 每日複習上限，如果為 None 則不限制
+    """
     async with aiosqlite.connect(db_path) as db:
-        logging.info(f"Attempting to get word for review for user {user_id}. Current date: {date.today()}")
+        logging.info(f"Attempting to get word for review for user {user_id}. Current date: {date.today()}, daily_limit: {daily_limit}")
+        
+        # 如果設定了每日複習上限，檢查今日已複習數量
+        if daily_limit:
+            # 檢查今日已複習的單字數量（使用 UTC+8 時區）
+            cursor = await db.execute("""
+            SELECT COUNT(DISTINCT word_id) FROM learning_history lh
+            JOIN words w ON lh.word_id = w.id
+            WHERE w.user_id = ? AND date(lh.review_date, '+8 hours') = date('now', '+8 hours')
+            """, (user_id,))
+            reviewed_today = (await cursor.fetchone())[0]
+            
+            logging.info(f"User {user_id} has reviewed {reviewed_today} words today (limit: {daily_limit})")
+            
+            # 如果已達每日上限，不返回新單字
+            if reviewed_today >= daily_limit:
+                logging.info(f"User {user_id} has reached daily review limit ({daily_limit})")
+                return None
+        
+        # 取得待複習的單字
         cursor = await db.execute("""
         SELECT id, user_id, word, initial_ai_explanation, chinese_meaning, user_notes, next_review, interval, difficulty, created_at
         FROM words
@@ -349,12 +376,12 @@ async def get_total_words_count(db_path, user_id):
         return total_count
 
 async def get_reviewed_words_count_today(db_path, user_id):
-    """Retrieves the number of words reviewed today for a given user."""
+    """Retrieves the number of words reviewed today for a given user (UTC+8 timezone)."""
     async with aiosqlite.connect(db_path) as db:
         cursor = await db.execute("""
         SELECT COUNT(DISTINCT word_id) FROM learning_history lh
         JOIN words w ON lh.word_id = w.id
-        WHERE w.user_id = ? AND lh.review_date >= date('now')
+        WHERE w.user_id = ? AND date(lh.review_date, '+8 hours') = date('now', '+8 hours')
         """, (user_id,))
         reviewed_count = (await cursor.fetchone())[0]
         return reviewed_count
@@ -368,6 +395,53 @@ async def get_due_words_count_today(db_path, user_id):
         """, (user_id,))
         due_count = (await cursor.fetchone())[0]
         return due_count
+
+async def get_today_remaining_review_count(db_path, user_id):
+    """
+    計算今日剩餘可複習的單字數量，考慮每日複習上限。
+    如果沒有設定上限，返回所有待複習的數量。
+    """
+    async with aiosqlite.connect(db_path) as db:
+        try:
+            # 獲取用戶設定
+            settings = await get_user_settings(db_path, user_id)
+            daily_limit = None
+            
+            if settings:
+                learning_prefs = settings.get('learning_preferences', {})
+                daily_limit = learning_prefs.get('daily_review_target')
+            
+            # 獲取總待複習數量
+            cursor = await db.execute("""
+            SELECT COUNT(*) FROM words
+            WHERE user_id = ? AND next_review <= date('now')
+            """, (user_id,))
+            total_due = (await cursor.fetchone())[0]
+            
+            if not daily_limit:
+                # 沒有設定上限，返回所有待複習數量
+                return total_due
+            
+            # 獲取今日已複習數量
+            cursor = await db.execute("""
+            SELECT COUNT(DISTINCT word_id) FROM learning_history lh
+            JOIN words w ON lh.word_id = w.id
+            WHERE w.user_id = ? AND date(lh.review_date, '+8 hours') = date('now', '+8 hours')
+            """, (user_id,))
+            reviewed_today = (await cursor.fetchone())[0]
+            
+            # 計算剩餘可複習數量
+            remaining = daily_limit - reviewed_today
+            return max(0, min(remaining, total_due))
+            
+        except Exception as e:
+            # 發生錯誤時，回退到總待複習數量
+            logging.warning(f"Error calculating remaining review count for user {user_id}: {e}")
+            cursor = await db.execute("""
+            SELECT COUNT(*) FROM words
+            WHERE user_id = ? AND next_review <= date('now')
+            """, (user_id,))
+            return (await cursor.fetchone())[0]
 
 async def get_word_difficulty_distribution(db_path, user_id):
     """Retrieves the distribution of words by difficulty for a given user."""
