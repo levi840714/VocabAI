@@ -180,13 +180,25 @@ class MemWhizAPI {
   async getWords(
     page: number = 0,
     pageSize: number = 10,
-    filterType: 'all' | 'due' | 'recent' = 'all'
+    filterType: 'all' | 'due' | 'recent' = 'all',
+    search?: string,
+    category?: string
   ): Promise<WordsResponse> {
     const params = new URLSearchParams({
       page: page.toString(),
       page_size: pageSize.toString(),
       filter_type: filterType,
     });
+    
+    // 添加搜索參數
+    if (search) {
+      params.append('search', search);
+    }
+    
+    // 添加分類參數
+    if (category) {
+      params.append('category', category);
+    }
     
     // 本地測試模式下添加 user_id 參數
     if (isLocalDevelopment() && !this.telegramAuthData) {
@@ -306,6 +318,21 @@ class MemWhizAPI {
     
     return this.request(endpoint, {
       method: 'PUT',
+    });
+  }
+
+  // Update word category
+  async updateWordCategory(wordId: number, category: string): Promise<{ message: string; word_id: number; category: string }> {
+    let endpoint = `/v1/words/${wordId}/category`;
+    
+    // 本地測試模式下添加 user_id 參數
+    if (isLocalDevelopment() && !this.telegramAuthData) {
+      endpoint += '?user_id=613170570';
+    }
+    
+    return this.request(endpoint, {
+      method: 'PUT',
+      body: JSON.stringify({ category }),
     });
   }
 

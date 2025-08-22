@@ -8,9 +8,10 @@ import { useSettings } from '@/contexts/SettingsContext';
 import { useClickableTextContext } from '@/contexts/ClickableTextContext';
 import { ThemeCard, ThemeTitle, ThemeText, ThemeButton } from '@/components/ui/ThemeComponents';
 import StructuredWordDisplay from '@/components/StructuredWordDisplay';
-import { Brain, Edit, Trash2, Volume2, ExternalLink, RefreshCw, AlertCircle, Tag } from 'lucide-react';
+import { Brain, Edit, Trash2, Volume2, ExternalLink, RefreshCw, AlertCircle, Tag, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { memWhizAPI, type WordDetail } from '@/lib/api';
 import { useTelegramContext } from '@/contexts/TelegramContext';
 import { useToast } from '@/hooks/use-toast';
@@ -21,7 +22,7 @@ import PullToRefresh from '@/components/PullToRefresh';
 const WordDetailPage: React.FC = () => {
   const { wordId } = useParams<{ wordId: string }>();
   const navigate = useNavigate();
-  const { words, toggleLearned, deleteWord, refreshWords } = useVocabulary();
+  const { words, toggleLearned, deleteWord, updateWordCategory, refreshWords } = useVocabulary();
   const animation = useAnimation();
   const { autoSpeakWord, speakWord } = useVoice();
   const { isVoiceAutoPlay, shouldShowPronunciation } = useSettings();
@@ -275,6 +276,28 @@ const WordDetailPage: React.FC = () => {
     return category?.color_code || '#6B7280';
   };
 
+  // 處理分類更新
+  const handleCategoryChange = async (newCategory: string) => {
+    try {
+      await updateWordCategory(word.id.toString(), newCategory);
+      
+      // 更新本地狀態
+      setWord(prev => prev ? { ...prev, category: newCategory } : null);
+      
+      toast({
+        title: "分類已更新",
+        description: `已將「${word.word}」移到「${newCategory === 'uncategorized' ? '未分類' : newCategory}」`,
+      });
+    } catch (error) {
+      console.error('更新分類失敗:', error);
+      toast({
+        title: "更新失敗",
+        description: "無法更新分類，請稍後再試",
+        variant: "destructive"
+      });
+    }
+  };
+
   
 
   return (
@@ -351,19 +374,49 @@ const WordDetailPage: React.FC = () => {
             <Badge variant={word.learned ? "default" : "secondary"} className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
               {word.learned ? "已掌握" : "學習中"}
             </Badge>
-            {(word as any).category && (
-              <Badge 
-                variant="outline" 
-                className="text-xs"
-                style={{ 
-                  borderColor: getCategoryColor((word as any).category === 'uncategorized' ? '未分類' : (word as any).category),
-                  color: getCategoryColor((word as any).category === 'uncategorized' ? '未分類' : (word as any).category),
-                }}
+            
+            {/* 可編輯的分類選擇器 */}
+            <div className="relative">
+              <Select 
+                value={(word as any).category === 'uncategorized' ? 'uncategorized' : ((word as any).category || 'uncategorized')} 
+                onValueChange={handleCategoryChange}
               >
-                <Tag className="w-3 h-3 mr-1" />
-                {(word as any).category === 'uncategorized' ? '未分類' : (word as any).category}
-              </Badge>
-            )}
+                <SelectTrigger 
+                  className="h-auto py-1 px-2 text-xs border-0 bg-transparent focus:ring-0 focus:ring-offset-0"
+                  style={{ 
+                    borderColor: getCategoryColor((word as any).category === 'uncategorized' ? '未分類' : (word as any).category),
+                    color: getCategoryColor((word as any).category === 'uncategorized' ? '未分類' : (word as any).category),
+                    borderWidth: '1px',
+                    borderStyle: 'solid',
+                  }}
+                >
+                  <div className="flex items-center gap-1">
+                    <Tag className="w-3 h-3" />
+                    <SelectValue />
+                    <ChevronDown className="w-3 h-3 ml-1" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                  <SelectItem value="uncategorized">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-gray-400" />
+                      未分類
+                    </div>
+                  </SelectItem>
+                  {categories.map((category) => (
+                    <SelectItem key={category.id} value={category.category_name}>
+                      <div className="flex items-center gap-2">
+                        <div 
+                          className="w-3 h-3 rounded-full" 
+                          style={{ backgroundColor: category.color_code }}
+                        />
+                        {category.category_name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             {word.created_at && (
               <Badge variant="outline" className="border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300">
                 {new Date(word.created_at).toLocaleDateString()}

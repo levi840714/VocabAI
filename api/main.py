@@ -230,14 +230,20 @@ async def get_words(
     page: int = Query(0, ge=0, description="Page number (0-based)"),
     page_size: int = Query(10, ge=1, le=100, description="Number of words per page"),
     filter_type: str = Query("all", pattern=r"^(all|due|recent)$", description="Filter type: all, due, or recent"),
+    search: Optional[str] = Query(None, description="Search term to filter words"),
+    category: Optional[str] = Query(None, description="Category to filter words"),
     user_id: int = Depends(get_current_user)
 ):
-    """Get paginated words for a user."""
-    logger.info(f"GET /words called - user_id: {user_id}, page: {page}, page_size: {page_size}, filter_type: {filter_type}")
+    """Get paginated words for a user with optional search and category filtering."""
+    logger.info(f"GET /words called - user_id: {user_id}, page: {page}, page_size: {page_size}, filter_type: {filter_type}, search: {search}, category: {category}")
     db_path = get_database_path()
     
     try:
-        if filter_type == "due":
+        # For search and category filters, use the enhanced get_words_for_user function
+        if search is not None or category is not None:
+            from bot.database.sqlite_db import get_words_for_user
+            words_data, total_count = await get_words_for_user(db_path, user_id, page, page_size, search, category)
+        elif filter_type == "due":
             words_data, total_count = await get_due_words(db_path, user_id, page, page_size)
         elif filter_type == "recent":
             words_data, total_count = await get_recent_words(db_path, user_id, page, page_size)

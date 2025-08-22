@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import { Search, Eye, Tag, Filter } from "lucide-react"
+import { Search, Eye, Tag, Filter, Settings } from "lucide-react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { TextInput } from "@/components/text-input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
-import { useVocabulary } from "@/hooks/use-vocabulary"
+import { useVocabularyList } from "@/hooks/use-vocabulary-list"
+import Pagination from "@/components/Pagination"
 import { memWhizAPI } from "@/lib/api"
 import { isLocalDevelopment } from "@/hooks/use-telegram"
 
@@ -17,9 +18,24 @@ interface VocabularyListProps {
 }
 
 export default function VocabularyList({ onAIAnalysisClick, initialSelectedCategory }: VocabularyListProps) {
-  const { words, toggleLearned, deleteWord, loading, error, refreshWords } = useVocabulary()
-  const [searchTerm, setSearchTerm] = useState("")
-  const [selectedCategory, setSelectedCategory] = useState(initialSelectedCategory || "all")
+  const {
+    words,
+    loading,
+    error,
+    totalCount,
+    currentPage,
+    hasNextPage,
+    search,
+    category,
+    setSearch,
+    setCategory,
+    loadPage,
+    refresh,
+    toggleLearned,
+    deleteWord
+  } = useVocabularyList(20); // 每頁20個單字
+  
+  const [searchInput, setSearchInput] = useState("")
   const [categories, setCategories] = useState<any[]>([])
   const { toast } = useToast()
   const navigate = useNavigate()
@@ -46,10 +62,21 @@ export default function VocabularyList({ onAIAnalysisClick, initialSelectedCateg
 
   // 當初始選中分類改變時更新選中狀態
   useEffect(() => {
-    if (initialSelectedCategory) {
-      setSelectedCategory(initialSelectedCategory)
+    if (initialSelectedCategory && category !== initialSelectedCategory) {
+      setCategory(initialSelectedCategory)
     }
   }, [initialSelectedCategory])
+  
+  // 搜索處理（使用防抖）
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (searchInput !== search) {
+        setSearch(searchInput)
+      }
+    }, 500)
+    
+    return () => clearTimeout(timer)
+  }, [searchInput])
 
   if (loading) {
     return (
@@ -66,20 +93,10 @@ export default function VocabularyList({ onAIAnalysisClick, initialSelectedCateg
     return (
       <div className="text-center py-10">
         <p className="text-red-600 dark:text-red-400 mb-4">錯誤: {error}</p>
-        <Button onClick={refreshWords} variant="outline">重新載入</Button>
+        <Button onClick={refresh} variant="outline">重新載入</Button>
       </div>
     )
   }
-
-  const filteredWords = words.filter((word: any) => {
-    const matchesSearch = word.term.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      word.definition.toLowerCase().includes(searchTerm.toLowerCase())
-    
-    const matchesCategory = selectedCategory === "all" || 
-      (word.category || 'uncategorized') === selectedCategory
-
-    return matchesSearch && matchesCategory
-  })
 
   // 獲取分類顏色
   const getCategoryColor = (categoryName: string) => {
@@ -117,14 +134,14 @@ export default function VocabularyList({ onAIAnalysisClick, initialSelectedCateg
             type="search"
             placeholder="搜尋單字或定義..."
             className="pl-8"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
           />
         </div>
         
         <div className="relative">
           <Filter className="absolute left-2.5 top-2.5 h-4 w-4 text-sky-600" />
-          <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+          <Select value={category} onValueChange={setCategory}>
             <SelectTrigger className="pl-8">
               <SelectValue placeholder="選擇分類篩選" />
             </SelectTrigger>
@@ -146,13 +163,16 @@ export default function VocabularyList({ onAIAnalysisClick, initialSelectedCateg
         </div>
       </div>
 
-      {filteredWords.length === 0 ? (
+      {words.length === 0 ? (
         <div className="text-center py-10">
-          <p className="text-slate-600 dark:text-slate-300">沒有找到單字。請添加新單字或修改搜尋條件。</p>
+          <p className="text-slate-600 dark:text-slate-300">
+            {loading ? "載入中..." : "沒有找到單字。請添加新單字或修改搜尋條件。"}
+          </p>
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2">
-          {filteredWords.map((word) => (
+        <>
+          <div className="grid gap-4 md:grid-cols-2">
+            {words.map((word) => (
             <Card
               key={word.id}
               className={[
@@ -228,8 +248,17 @@ export default function VocabularyList({ onAIAnalysisClick, initialSelectedCateg
                 </div>
               </CardFooter>
             </Card>
-          ))}
-        </div>
+            ))}
+          </div>
+          
+          {/* 分頁控制 */}
+          <Pagination
+            currentPage={currentPage}
+            totalCount={totalCount}
+            pageSize={20}
+            onPageChange={loadPage}
+          />
+        </>
       )}
     </div>
   )

@@ -165,23 +165,50 @@ async def add_word(db_path, user_id, word, initial_ai_explanation, chinese_meani
             logging.warning(f"Word '{word}' already exists for user {user_id}.")
             return False
 
-async def get_words_for_user(db_path, user_id, page=0, page_size=5):
-    """Retrieves a paginated list of words for a given user."""
+async def get_words_for_user(db_path, user_id, page=0, page_size=5, search_term=None, category_filter=None):
+    """Retrieves a paginated list of words for a given user with optional filtering."""
     offset = page * page_size
+    
+    # Build WHERE clause with filters
+    where_conditions = ["user_id = ?"]
+    params = [user_id]
+    
+    # Add search filter
+    if search_term:
+        where_conditions.append("(word LIKE ? OR initial_ai_explanation LIKE ? OR chinese_meaning LIKE ? OR user_notes LIKE ?)")
+        search_pattern = f"%{search_term}%"
+        params.extend([search_pattern, search_pattern, search_pattern, search_pattern])
+    
+    # Add category filter
+    if category_filter:
+        if category_filter == 'uncategorized':
+            where_conditions.append("(category IS NULL OR category = 'uncategorized')")
+        else:
+            where_conditions.append("category = ?")
+            params.append(category_filter)
+    
+    where_clause = " AND ".join(where_conditions)
+    
     async with aiosqlite.connect(db_path) as db:
-        cursor = await db.execute("""
+        # Get filtered words
+        query = f"""
         SELECT id, word, initial_ai_explanation, chinese_meaning, user_notes, interval, difficulty, next_review, created_at, category FROM words
-        WHERE user_id = ?
+        WHERE {where_clause}
         ORDER BY created_at DESC
         LIMIT ? OFFSET ?
-        """, (user_id, page_size, offset))
+        """
+        params.extend([page_size, offset])
+        cursor = await db.execute(query, params)
         rows = await cursor.fetchall()
         
         # Convert rows to dictionaries
         columns = ['id', 'word', 'initial_ai_explanation', 'chinese_meaning', 'user_notes', 'interval', 'difficulty', 'next_review', 'created_at', 'category']
         words = [dict(zip(columns, row)) for row in rows]
         
-        cursor = await db.execute("SELECT COUNT(*) FROM words WHERE user_id = ?", (user_id,))
+        # Get total count with same filters (excluding LIMIT/OFFSET)
+        count_query = f"SELECT COUNT(*) FROM words WHERE {where_clause}"
+        count_params = params[:-2]  # Remove page_size and offset
+        cursor = await db.execute(count_query, count_params)
         total_count = (await cursor.fetchone())[0]
         
         return words, total_count

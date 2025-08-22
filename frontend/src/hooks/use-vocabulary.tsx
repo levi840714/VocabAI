@@ -52,6 +52,7 @@ interface VocabularyContextType {
   addWord: (word: string, userNotes?: string, category?: string) => Promise<void>
   deleteWord: (id: string) => Promise<void>
   toggleLearned: (id: string) => Promise<void>
+  updateWordCategory: (id: string, category: string) => Promise<void>
   refreshWords: () => Promise<void>
   silentRefreshWords: () => Promise<void>
   getAIExplanation: (word: string, type?: 'simple' | 'deep') => Promise<string>
@@ -149,6 +150,23 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const updateWordCategory = async (id: string, category: string) => {
+    try {
+      setError(null)
+      await memWhizAPI.updateWordCategory(parseInt(id), category)
+      // Update local state
+      setWords(prev => 
+        prev.map(word => 
+          word.id === id ? { ...word, category } : word
+        )
+      )
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update word category')
+      console.error('Error updating word category:', err)
+      throw err
+    }
+  }
+
   const getAIExplanation = async (word: string, type: 'simple' | 'deep' = 'simple'): Promise<string> => {
     try {
       const response = await memWhizAPI.getAIExplanation(word, type)
@@ -219,6 +237,7 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
       addWord, 
       deleteWord, 
       toggleLearned, 
+      updateWordCategory,
       refreshWords,
       silentRefreshWords,
       getAIExplanation
