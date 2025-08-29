@@ -129,6 +129,101 @@ spec:
                   "difficulty_level": "學習難度",
                   "frequency": "使用頻率"
                 }}
+            - name: PROMPTS_QUICK_TRANSLATION
+              value: |
+                請快速翻譯以下內容（簡潔版本）：
+
+                "{text}"
+
+                請回覆 JSON 格式：
+                {{
+                  "original_text": "{text}",
+                  "detected_language": "原文語言（中文/英文/日文等）",
+                  "primary_translation": "主要翻譯",
+                  "alternative_translations": ["替代翻譯1", "替代翻譯2"],
+                  "key_words": [
+                    {{
+                      "original": "重要詞彙",
+                      "translation": "翻譯",
+                      "note": "簡短說明"
+                    }}
+                  ]
+                }}
+
+                請確保：
+                1. 翻譯準確且自然
+                2. 提供2-3個替代翻譯
+                3. 標註2-3個關鍵詞彙
+                4. 保持回應簡潔
+            - name: PROMPTS_DEEP_TRANSLATION
+              value: |
+                請精準翻譯以下內容，並提供詳細的語言分析：
+
+                "{text}"
+
+                請回覆 JSON 格式：
+                {{
+                  "original_text": "{text}",
+                  "detected_language": "原文語言（中文/英文）",
+                  "translations": {{
+                    "primary_translation": "主要翻譯（最準確和自然的翻譯）",
+                    "alternative_translations": [
+                      "替代翻譯1（不同風格或語境）",
+                      "替代翻譯2（更正式或更口語的版本）"
+                    ],
+                    "literal_translation": "直譯版本（幫助理解語法結構）"
+                  }},
+                  "language_analysis": {{
+                    "grammar_structure": [
+                      {{
+                        "original_part": "原文片段",
+                        "translation_part": "對應翻譯",
+                        "grammar_note": "語法結構說明"
+                      }}
+                    ],
+                    "cultural_context": {{
+                      "cultural_differences": "文化差異說明",
+                      "usage_context": "使用語境和場合",
+                      "cultural_adaptation": "文化適應建議"
+                    }},
+                    "language_difficulty": "翻譯難度（初級/中級/高級）",
+                    "key_challenges": ["翻譯挑戰1", "翻譯挑戰2"]
+                  }},
+                  "vocabulary_breakdown": [
+                    {{
+                      "original_word": "原文詞彙",
+                      "translated_word": "翻譯詞彙",
+                      "part_of_speech": "詞性",
+                      "usage_notes": "用法說明",
+                      "common_alternatives": ["其他常見翻譯"]
+                    }}
+                  ],
+                  "grammar_comparison": {{
+                    "sentence_structure": "兩種語言的句子結構比較",
+                    "word_order": "語序差異說明",
+                    "tense_aspect": "時態和語態比較"
+                  }},
+                  "usage_examples": [
+                    {{
+                      "scenario": "使用場景",
+                      "example_original": "原文例句",
+                      "example_translation": "翻譯例句",
+                      "context_note": "語境說明"
+                    }}
+                  ],
+                  "learning_tips": {{
+                    "translation_strategies": "翻譯策略建議",
+                    "common_mistakes": "常見錯誤提醒",
+                    "memory_aids": "記憶輔助方法"
+                  }}
+                }}
+
+                請確保：
+                1. 翻譯準確且符合目標語言的表達習慣
+                2. 考慮文化背景和語境差異
+                3. 提供語法結構的對比分析
+                4. 解釋重要詞彙的選擇原因
+                5. 給出實用的學習建議
 
             # --- 從 Secret Manager 引用 Secrets ---
             - name: TELEGRAM_BOT_TOKEN

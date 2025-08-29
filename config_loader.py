@@ -50,6 +50,14 @@ class Settings(BaseSettings):
         default="""請使用繁體中文回覆，並且務必回覆有效的 JSON 格式...""",
         description="深度學習 Prompt"
     )
+    prompts_quick_translation: str = Field(
+        default="",
+        description="快速翻譯 Prompt"
+    )
+    prompts_deep_translation: str = Field(
+        default="",
+        description="深度翻譯 Prompt"
+    )
     
     class Config:
         env_file = ".env"
@@ -127,6 +135,8 @@ class Settings(BaseSettings):
             'prompts': {
                 'simple_explanation': self.prompts_simple_explanation,
                 'deep_learning': self.prompts_deep_learning,
+                'quick_translation': self.prompts_quick_translation,
+                'deep_translation': self.prompts_deep_translation,
             }
         }
 
@@ -252,7 +262,13 @@ def load_config() -> dict:
                         if 'quick_translation' in prompts_config:
                             config['prompts']['quick_translation'] = prompts_config['quick_translation']
                         if 'deep_translation' in prompts_config:
-                            config['prompts']['deep_translation'] = prompts_config['deep_translation']  
+                            config['prompts']['deep_translation'] = prompts_config['deep_translation']
+                    
+                    # 如果環境變數中有翻譯 prompts，則優先使用
+                    if settings.prompts_quick_translation:
+                        config['prompts']['quick_translation'] = settings.prompts_quick_translation
+                    if settings.prompts_deep_translation:
+                        config['prompts']['deep_translation'] = settings.prompts_deep_translation  
                     break  # 找到配置文件就停止搜尋
         except FileNotFoundError:
             continue  # 嘗試下一個路徑
