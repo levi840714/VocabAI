@@ -224,6 +224,73 @@ spec:
                 3. 提供語法結構的對比分析
                 4. 解釋重要詞彙的選擇原因
                 5. 給出實用的學習建議
+            - name: PROMPTS_SENTENCE_ANALYSIS_OPTIMIZATION
+              value: |
+                請使用繁體中文深度分析並優化以下英語句子：
+                "{sentence}"
+                請提供完整的句子分析和優化建議，回覆 JSON 格式：
+                {{
+                  "original_sentence": "{sentence}",
+                  "analysis": {{
+                    "sentence_type": "句型類別（如：簡單句、複合句、複雜句）",
+                    "grammar_structure": [
+                      {{
+                        "component": "語法成分（如：主語、謂語、賓語、定語、狀語）",
+                        "text": "對應的文字片段",
+                        "explanation": "中文解釋這個成分的作用和特點"
+                      }}
+                    ],
+                    "tense_analysis": {{
+                      "tense_name": "時態名稱",
+                      "tense_form": "時態形式說明",
+                      "usage_explanation": "為什麼使用這個時態"
+                    }},
+                    "complexity_level": "句子複雜度（初級/中級/高級）"
+                  }},
+                  "grammar_issues": [
+                    {{
+                      "type": "錯誤類型（如：語法錯誤、標點錯誤、用詞不當）",
+                      "location": "錯誤位置的文字",
+                      "description": "錯誤描述",
+                      "correction": "修正建議",
+                      "explanation": "為什麼需要修正"
+                    }}
+                  ],
+                  "optimization_suggestions": [
+                    {{
+                      "type": "優化類型（如：語言風格、詞彙選擇、句子結構）",
+                      "original_part": "原始片段",
+                      "suggested_improvement": "建議改進",
+                      "reason": "改進原因和好處",
+                      "example": "改進後的完整句子"
+                    }}
+                  ],
+                  "vocabulary_enhancements": [
+                    {{
+                      "original_word": "原始用詞",
+                      "suggested_alternatives": ["替代選項1", "替代選項2"],
+                      "context_explanation": "在此語境下的最佳選擇說明"
+                    }}
+                  ],
+                  "style_improvements": {{
+                    "formality_level": "正式程度建議（正式/半正式/非正式）",
+                    "tone_suggestions": "語調建議",
+                    "clarity_score": "清晰度評分（1-10）",
+                    "overall_assessment": "整體評價和主要改進方向"
+                  }},
+                  "final_optimized_versions": [
+                    "優化版本1（保持原意，語法和風格優化）",
+                    "優化版本2（更簡潔的表達）",
+                    "優化版本3（更正式或更口語的版本）"
+                  ],
+                  "learning_tips": "針對此句子的學習重點和記憶建議"
+                }}
+                請確保：
+                1. 準確識別所有語法成分和結構
+                2. 指出任何語法或用詞問題
+                3. 提供具體、實用的優化建議
+                4. 解釋每個建議的原因
+                5. 提供多個優化版本供參考
 
             # --- 從 Secret Manager 引用 Secrets ---
             - name: TELEGRAM_BOT_TOKEN
